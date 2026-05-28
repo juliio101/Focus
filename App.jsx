@@ -1,0 +1,643 @@
+import { useState, useRef, useEffect } from "react";
+import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { auth, db, googleProvider } from "./firebase.js";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const DAYS      = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const DAY_KEYS  = ["mon","tue","wed","thu","fri","sat","sun"];
+const COLORS    = ["#c8ff57","#60a5fa","#fb923c","#c084fc","#f472b6","#34d399","#fbbf24"];
+const ICONS     = ["🏠","💼","🎯","🛒","📚","🏋️","🎮","🧘","🌿","✈️"];
+const TIME_OPTS = [15,30,60,90,120,180];
+const TIME_LBL  = ["15m","30m","1h","1.5h","2h","3h"];
+const HR_PRESET = [4,6,7,8,9,10,12];
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+const dStr = (d=new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const todayIdx  = () => (new Date().getDay()+6)%7;
+const todayKey  = () => DAY_KEYS[todayIdx()];
+const dateForDK = dk => {
+  const now=new Date(); now.setHours(0,0,0,0);
+  const d=new Date(now); d.setDate(now.getDate()+DAY_KEYS.indexOf(dk)-todayIdx());
+  return dStr(d);
+};
+const calcStreak = (dates=[]) => {
+  const set=new Set(dates),t=dStr(),y=dStr(new Date(Date.now()-864e5));
+  if(!set.has(t)&&!set.has(y)) return 0;
+  let s=0,cur=new Date(set.has(t)?t:y);
+  while(set.has(dStr(cur))){ s++; cur.setDate(cur.getDate()-1); }
+  return s;
+};
+const fmtH = h => h===Math.floor(h)?`${h}h`:`${h.toFixed(1)}h`;
+
+// ─── Audio ────────────────────────────────────────────────────────────────────
+let _ac=null;
+const getAC = ()=>{ if(!_ac) _ac=new(window.AudioContext||window.webkitAudioContext)(); if(_ac.state==="suspended") _ac.resume(); return _ac; };
+const tone=(freq,vol=0.1,dur=0.08)=>{ try{ const c=getAC(),o=c.createOscillator(),g=c.createGain(); o.connect(g);g.connect(c.destination); o.frequency.value=freq;g.gain.setValueAtTime(vol,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur); o.start();o.stop(c.currentTime+dur); }catch(e){} };
+const playCheck=()=>tone(880,0.1,0.07);
+const playUncheck=()=>tone(440,0.06,0.06);
+const playWin=()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.1,0.2),i*100));
+
+// ─── Confetti ─────────────────────────────────────────────────────────────────
+function Confetti({ onDone }) {
+  useEffect(()=>{ const t=setTimeout(onDone,2400); return()=>clearTimeout(t); },[]);
+  const ps=Array.from({length:52},(_,i)=>({
+    id:i,left:Math.random()*100,color:COLORS[i%COLORS.length],
+    delay:Math.random()*.5,w:Math.random()*10+5,h:Math.random()*6+4,
+    rot:Math.random()*720*(Math.random()>.5?1:-1),drift:(Math.random()-.5)*200,dur:Math.random()*.9+1
+  }));
+  return (
+    <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:9999,overflow:"hidden"}}>
+      <style>{`@keyframes cf{from{opacity:1;transform:translateY(0) rotate(0)}to{opacity:0;transform:translateY(110vh) rotate(var(--r)) translateX(var(--d))}}`}</style>
+      {ps.map(p=>(
+        <div key={p.id} style={{position:"absolute",left:`${p.left}%`,top:0,width:p.w,height:p.h,
+          background:p.color,borderRadius:2,"--r":`${p.rot}deg`,"--d":`${p.drift}px`,
+          animation:`cf ${p.dur}s ${p.delay}s ease-in forwards`}}/>
+      ))}
+    </div>
+  );
+}
+
+// ─── SVG Ring ─────────────────────────────────────────────────────────────────
+function Ring({pct=0,color="#c8ff57",size=96,stroke=9,label,val,sub,onClick}){
+  const r=(size-stroke)/2,circ=2*Math.PI*r,offset=circ*(1-Math.min(pct,100)/100);
+  return(
+    <div onClick={onClick} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:7,cursor:onClick?"pointer":"default"}}>
+      <div style={{position:"relative",width:size,height:size}}>
+        <svg width={size} height={size} style={{transform:"rotate(-90deg)",display:"block"}}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1c1c1c" strokeWidth={stroke}/>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+            style={{transition:"stroke-dashoffset .7s cubic-bezier(.34,1.56,.64,1)",filter:`drop-shadow(0 0 6px ${color}50)`}}/>
+        </svg>
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
+          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:"1rem",color,lineHeight:1}}>{val}</span>
+          {sub&&<span style={{fontSize:".55rem",color:"#4a4a4a",letterSpacing:".04em"}}>{sub}</span>}
+        </div>
+      </div>
+      <span style={{fontSize:".62rem",color:"#444",textTransform:"uppercase",letterSpacing:".1em",textAlign:"center",lineHeight:1.3}}>{label}</span>
+    </div>
+  );
+}
+
+// ─── Initial data ─────────────────────────────────────────────────────────────
+const INIT_FOLDERS=[
+  {id:1,name:"House Chores",color:"#c8ff57",icon:"🏠"},
+  {id:2,name:"Work",color:"#60a5fa",icon:"💼"},
+];
+const INIT_TASKS=[
+  {id:1,text:"Vacuum living room",folderId:1,recurring:false,day:todayKey(),done:false,estimatedMinutes:30},
+  {id:2,text:"Do the dishes",folderId:1,recurring:true,recurringDays:["mon","wed","fri"],doneOn:[],estimatedMinutes:15},
+  {id:3,text:"Check emails",folderId:2,recurring:true,recurringDays:["mon","tue","wed","thu","fri"],doneOn:[],estimatedMinutes:30},
+];
+const INIT_DATA={folders:INIT_FOLDERS,tasks:INIT_TASKS,completedDates:[],bestStreak:0,dayHours:{}};
+
+// ─── CSS ──────────────────────────────────────────────────────────────────────
+const css=`
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Mono:wght@300;400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:#060606;font-family:'Instrument Mono',monospace;color:#e2e2e2;-webkit-font-smoothing:antialiased;min-height:100vh}
+:root{--bg:#060606;--s:#101010;--b:#1e1e1e;--b2:#272727;--mu:#484848;--tx:#e2e2e2;--tx2:#6a6a6a;--ac:#c8ff57;--r:14px}
+
+/* Login */
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px}
+.login-card{background:var(--s);border:1px solid var(--b2);border-radius:24px;padding:44px 36px;max-width:380px;width:100%;text-align:center}
+.login-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:2.4rem;color:var(--tx);letter-spacing:-1px;margin-bottom:8px}
+.login-logo span{color:var(--ac)}
+.login-tagline{font-size:.78rem;color:var(--mu);text-transform:uppercase;letter-spacing:.1em;margin-bottom:36px;line-height:1.6}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:#fff;color:#1a1a1a;border:none;border-radius:12px;padding:14px 20px;font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 2px 8px #0004}
+.google-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px #0006}
+.google-btn svg{width:20px;height:20px;flex-shrink:0}
+.login-note{font-size:.65rem;color:var(--mu);margin-top:20px;line-height:1.6}
+
+/* App shell */
+.app{min-height:100vh;background:var(--bg)}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 0;max-width:700px;margin:0 auto}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;color:var(--tx);letter-spacing:-.3px}
+.logo em{color:var(--ac);font-style:normal}
+.nav-right{display:flex;align-items:center;gap:10px}
+.back-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:99px;padding:5px 13px;cursor:pointer;font-family:'Instrument Mono',monospace;font-size:.68rem;letter-spacing:.05em;transition:all .15s}
+.back-btn:hover{color:var(--tx);border-color:var(--mu)}
+.signout-btn{background:none;border:none;color:var(--mu);cursor:pointer;font-size:.7rem;font-family:'Instrument Mono',monospace;transition:color .15s;padding:4px}
+.signout-btn:hover{color:var(--tx2)}
+.avatar{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--b2);object-fit:cover}
+
+/* Page */
+.page{max-width:700px;margin:0 auto;padding:24px 20px 80px}
+
+/* Streak */
+.streak{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#c8ff5712,#c8ff5706);border:1px solid #c8ff5728;border-radius:14px;padding:13px 16px;margin-bottom:20px}
+.streak-num{font-family:'Syne',sans-serif;font-weight:800;font-size:1.25rem;color:var(--ac);line-height:1}
+.streak-lbl{font-size:.65rem;color:var(--mu);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+
+/* Rings */
+.rings-card{background:var(--s);border:1px solid var(--b);border-radius:20px;padding:22px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-around;position:relative}
+.ring-div{width:1px;height:60px;background:var(--b)}
+.overload{position:absolute;bottom:-11px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;font-size:.6rem;padding:3px 10px;border-radius:99px;white-space:nowrap;font-family:'Syne',sans-serif;font-weight:700}
+
+/* Day grid */
+.page-title{font-family:'Syne',sans-serif;font-size:clamp(1.6rem,4vw,2.4rem);font-weight:800;letter-spacing:-.5px;color:var(--tx);margin-bottom:4px}
+.page-sub{font-size:.7rem;color:var(--mu);text-transform:uppercase;letter-spacing:.1em;margin-bottom:22px}
+.day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:28px}
+.day-card{background:var(--s);border:1px solid var(--b);border-radius:10px;padding:10px 4px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all .18s}
+.day-card:hover{border-color:var(--b2);transform:translateY(-2px)}
+.day-card.today{border-color:var(--ac);box-shadow:0 0 0 1px #c8ff5714}
+.day-lbl{font-family:'Syne',sans-serif;font-size:.63rem;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.05em}
+.day-card.today .day-lbl{color:var(--ac)}
+.day-bar{width:100%;height:3px;background:var(--b2);border-radius:99px;overflow:hidden}
+.day-bar-f{height:100%;border-radius:99px;transition:width .4s ease}
+.day-cnt{font-size:.58rem;color:var(--tx2)}
+
+/* Folders */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
+.sec-title{font-family:'Syne',sans-serif;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--mu)}
+.ghost{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:8px;padding:5px 11px;cursor:pointer;font-family:'Instrument Mono',monospace;font-size:.7rem;transition:all .15s}
+.ghost:hover{color:var(--tx);border-color:var(--mu)}
+.folders-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.folder-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:15px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.folder-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--fc)}
+.folder-card:hover{border-color:var(--b2);transform:translateY(-2px)}
+.f-name{font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;color:var(--tx);margin-bottom:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.f-bar-bg{width:100%;height:3px;background:var(--b2);border-radius:99px;overflow:hidden;margin-bottom:5px}
+.f-bar-f{height:100%;border-radius:99px;background:var(--fc);transition:width .4s}
+.f-foot{display:flex;justify-content:space-between}
+
+/* View header */
+.view-hdr{margin-bottom:18px}
+.view-title{font-family:'Syne',sans-serif;font-size:clamp(1.4rem,4vw,2.1rem);font-weight:800;letter-spacing:-.5px;color:var(--tx);margin-bottom:3px}
+.view-sub{font-size:.68rem;color:var(--mu)}
+
+/* Hours chips */
+.hours-row{display:flex;gap:8px;margin-bottom:18px}
+.h-chip{flex:1;background:var(--s);border:1px solid var(--b);border-radius:11px;padding:11px 13px;cursor:default}
+.h-chip.clickable{cursor:pointer;transition:border-color .15s}
+.h-chip.clickable:hover{border-color:var(--ac)}
+.h-val{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--tx)}
+.h-lbl{font-size:.6rem;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+
+/* Big progress */
+.big-prog{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:18px;margin-bottom:18px}
+.big-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.big-frac{font-family:'Syne',sans-serif;font-weight:800;font-size:1.7rem;color:var(--tx)}
+.big-frac .d{color:var(--mu);font-size:1rem}
+.big-pct{font-size:.76rem}
+.big-bar{height:7px;background:var(--b2);border-radius:99px;overflow:hidden}
+.big-fill{height:100%;border-radius:99px;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
+.all-done{text-align:center;font-size:.68rem;color:var(--ac);text-transform:uppercase;letter-spacing:.08em;margin-top:8px}
+
+/* Tasks */
+.task-grp{margin-bottom:18px}
+.grp-hdr{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.grp-lbl{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em}
+.rec-badge{font-size:.56rem;background:#ffffff0a;border-radius:4px;padding:1px 6px;color:var(--tx2)}
+.task-row{background:var(--s);border:1px solid var(--b);border-radius:11px;padding:11px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:border-color .15s,opacity .2s;animation:fup .22s ease;margin-bottom:6px}
+@keyframes fup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.task-row:hover{border-color:var(--b2)}
+.task-row.done{opacity:.35}
+.task-row.done .task-txt{text-decoration:line-through;color:var(--mu)}
+.chk{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--b2);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.task-row.done .chk{background:var(--rc,var(--ac));border-color:var(--rc,var(--ac))}
+.chk-v{font-size:.58rem;color:#000;display:none;font-weight:900}
+.task-row.done .chk-v{display:block}
+.task-txt{flex:1;font-size:.83rem;color:var(--tx);line-height:1.4;word-break:break-word}
+.rec-dot{width:4px;height:4px;border-radius:50%;background:var(--rc,var(--ac));flex-shrink:0;opacity:.5}
+.time-pill{font-size:.6rem;color:var(--tx2);background:var(--b);border-radius:5px;padding:2px 7px;flex-shrink:0}
+.del-btn{background:none;border:none;color:var(--b2);cursor:pointer;font-size:.95rem;padding:3px;border-radius:5px;opacity:0;transition:all .15s;flex-shrink:0}
+.task-row:hover .del-btn{opacity:1}
+.del-btn:hover{color:#ef4444}
+
+/* Add task */
+.add-area{margin-top:8px}
+.add-row{display:flex;gap:7px}
+.add-in{flex:1;background:var(--s);border:1px solid var(--b2);border-radius:10px;padding:10px 13px;color:var(--tx);font-family:'Instrument Mono',monospace;font-size:.8rem;outline:none;transition:border-color .15s}
+.add-in::placeholder{color:var(--mu)}
+.add-in:focus{border-color:var(--ac)}
+.add-main{background:var(--ac);color:#000;border:none;border-radius:10px;padding:10px 16px;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;flex-shrink:0;transition:transform .15s,background .15s}
+.add-main:hover{background:#d9ff70;transform:scale(1.04)}
+.add-opts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.time-opt{background:var(--s);border:1px solid var(--b2);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:.68rem;color:var(--tx2);transition:all .15s;font-family:'Instrument Mono',monospace}
+.time-opt.sel{background:var(--ac);border-color:var(--ac);color:#000}
+.rec-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:.9rem;transition:all .15s}
+.rec-btn.on{border-color:var(--ac);color:var(--ac);background:#c8ff5710}
+.day-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.dc{background:var(--s);border:1px solid var(--b2);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:.65rem;font-family:'Syne',sans-serif;font-weight:700;color:var(--tx2);transition:all .15s}
+.dc.sel{background:var(--ac);border-color:var(--ac);color:#000}
+
+/* Empty */
+.empty{text-align:center;padding:28px 0;color:var(--mu);font-size:.74rem;text-transform:uppercase;letter-spacing:.08em}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:#000c;z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;animation:fi .15s ease}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.modal{background:#131313;border:1px solid var(--b2);border-radius:20px;padding:26px;width:100%;max-width:380px;animation:su .2s cubic-bezier(.34,1.56,.64,1)}
+@keyframes su{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.modal-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;color:var(--tx);margin-bottom:18px}
+.modal-lbl{font-size:.66rem;color:var(--mu);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}
+.modal-in{width:100%;background:var(--s);border:1px solid var(--b2);border-radius:9px;padding:10px 13px;color:var(--tx);font-family:'Instrument Mono',monospace;font-size:.86rem;outline:none;margin-bottom:15px;transition:border-color .15s}
+.modal-in:focus{border-color:var(--ac)}
+.swatches{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.sw{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.sw.sel{border-color:#fff;transform:scale(1.2)}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.btn-c{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:'Instrument Mono',monospace;font-size:.76rem;transition:all .15s}
+.btn-c:hover{color:var(--tx);border-color:var(--mu)}
+.btn-ok{background:var(--ac);color:#000;border:none;border-radius:8px;padding:8px 16px;font-family:'Syne',sans-serif;font-weight:700;font-size:.84rem;cursor:pointer;transition:background .15s}
+.btn-ok:hover{background:#d9ff70}
+.hr-presets{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.hp{background:var(--s);border:1px solid var(--b2);border-radius:8px;padding:7px 14px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;color:var(--tx2);transition:all .15s}
+.hp.sel{background:var(--ac);border-color:var(--ac);color:#000}
+.del-folder{background:none;border:1px solid #ef444420;color:#ef4444;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:'Instrument Mono',monospace;font-size:.7rem;transition:all .15s;margin-top:18px}
+.del-folder:hover{background:#ef444412;border-color:#ef4444}
+`;
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+export default function App() {
+  // Auth
+  const [user,        setUser]        = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Data
+  const [folders,        setFolders]    = useState(INIT_FOLDERS);
+  const [tasks,          setTasks]      = useState(INIT_TASKS);
+  const [completedDates, setComplDates] = useState([]);
+  const [bestStreak,     setBest]       = useState(0);
+  const [dayHours,       setDayHours]   = useState({});
+  const [loaded,         setLoaded]     = useState(false);
+
+  // Nav
+  const [view,         setView]         = useState("home");
+  const [activeDay,    setActiveDay]    = useState(null);
+  const [activeFolder, setActiveFolder] = useState(null);
+
+  // Modals
+  const [showFolderModal, setShowFolderModal] = useState(false);
+  const [showHoursModal,  setShowHoursModal]  = useState(false);
+  const [hoursModalDay,   setHoursModalDay]   = useState(null);
+  const [confetti,        setConfetti]        = useState(false);
+
+  // Forms
+  const [nfName,      setNfName]      = useState("");
+  const [nfColor,     setNfColor]     = useState(COLORS[0]);
+  const [taskText,    setTaskText]    = useState("");
+  const [taskMins,    setTaskMins]    = useState(30);
+  const [taskRecur,   setTaskRecur]   = useState(false);
+  const [taskRecDays, setTaskRecDays] = useState([]);
+  const [pendingHrs,  setPendingHrs]  = useState(8);
+
+  const inputRef = useRef(null);
+
+  // ── Auth listener ──────────────────────────────────────────────────────────
+  useEffect(()=>{
+    const unsub = onAuthStateChanged(auth, u=>{ setUser(u); setAuthLoading(false); });
+    return unsub;
+  },[]);
+
+  // ── Load data when user logs in ────────────────────────────────────────────
+  useEffect(()=>{
+    if(!user) return;
+    (async()=>{
+      const ref = doc(db,"users",user.uid);
+      const snap = await getDoc(ref);
+      if(snap.exists()){
+        const d=snap.data();
+        setFolders(d.folders??INIT_FOLDERS);
+        setTasks(d.tasks??INIT_TASKS);
+        setComplDates(d.completedDates??[]);
+        setBest(d.bestStreak??0);
+        setDayHours(d.dayHours??{});
+      } else {
+        await setDoc(ref, INIT_DATA);
+      }
+      setLoaded(true);
+    })();
+  },[user]);
+
+  // ── Save helpers ───────────────────────────────────────────────────────────
+  const saveField = async (field,val)=>{
+    if(!user||!loaded) return;
+    await setDoc(doc(db,"users",user.uid),{[field]:val},{merge:true});
+  };
+
+  useEffect(()=>{ saveField("folders",folders); },          [folders,loaded]);
+  useEffect(()=>{ saveField("tasks",tasks); },              [tasks,loaded]);
+  useEffect(()=>{ saveField("dayHours",dayHours); },        [dayHours,loaded]);
+  useEffect(()=>{
+    if(!user||!loaded) return;
+    saveField("completedDates",completedDates);
+    const s=calcStreak(completedDates);
+    if(s>bestStreak){ setBest(s); saveField("bestStreak",s); }
+  },[completedDates,loaded]);
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const isDone      = (task,dk)=>task.recurring?(task.doneOn??[]).includes(dateForDK(dk)):task.done;
+  const tasksForDay = dk=>tasks.filter(t=>(!t.recurring&&t.day===dk)||(t.recurring&&t.recurringDays?.includes(dk)));
+  const folderTasks = fid=>tasks.filter(t=>t.folderId===fid);
+  const donePct     = (arr,dk)=>arr.length?Math.round(arr.filter(t=>isDone(t,dk)).length/arr.length*100):0;
+  const hoursFor    = dk=>dayHours[dk]??8;
+  const minsUsed    = dk=>tasksForDay(dk).filter(t=>isDone(t,dk)).reduce((s,t)=>s+(t.estimatedMinutes??30),0);
+  const minsTotal   = dk=>tasksForDay(dk).reduce((s,t)=>s+(t.estimatedMinutes??30),0);
+  const hoursLeft   = dk=>Math.max(0,hoursFor(dk)-minsUsed(dk)/60);
+  const hoursPct    = dk=>Math.min(100,Math.round(minsUsed(dk)/60/hoursFor(dk)*100));
+  const isOverload  = dk=>minsTotal(dk)/60>hoursFor(dk);
+  const weekPct     = ()=>{ let t=0,d=0; DAY_KEYS.forEach(dk=>{const dt=tasksForDay(dk);t+=dt.length;d+=dt.filter(x=>isDone(x,dk)).length;}); return t?Math.round(d/t*100):0; };
+
+  // ── Toggle ─────────────────────────────────────────────────────────────────
+  const toggle=(id,dk)=>{
+    const task=tasks.find(t=>t.id===id), wasDone=isDone(task,dk);
+    if(!wasDone) playCheck(); else playUncheck();
+    setTasks(prev=>{
+      const next=prev.map(t=>{
+        if(t.id!==id) return t;
+        if(!t.recurring) return{...t,done:!t.done};
+        const date=dateForDK(dk),doneOn=t.doneOn??[];
+        return{...t,doneOn:doneOn.includes(date)?doneOn.filter(d=>d!==date):[...doneOn,date]};
+      });
+      if(!wasDone){
+        const dayT=next.filter(t=>(!t.recurring&&t.day===dk)||(t.recurring&&t.recurringDays?.includes(dk)));
+        const allDone=dayT.length>0&&dayT.every(t=>!t.recurring?t.done:(t.doneOn??[]).includes(dateForDK(dk)));
+        if(allDone){ setTimeout(()=>{playWin();setConfetti(true);},80); if(dk===todayKey()) setComplDates(cd=>cd.includes(dStr())?cd:[...cd,dStr()]); }
+      }
+      return next;
+    });
+  };
+  const deleteTask=(e,id)=>{e.stopPropagation();setTasks(p=>p.filter(t=>t.id!==id));};
+
+  // ── Add task ───────────────────────────────────────────────────────────────
+  const addTask=(dk,fid)=>{
+    const text=taskText.trim(); if(!text) return;
+    const base={id:Date.now(),text,folderId:fid??folders[0]?.id??null,estimatedMinutes:taskMins};
+    setTasks(p=>[...p,taskRecur?{...base,recurring:true,recurringDays:taskRecDays.length?taskRecDays:[dk??todayKey()],doneOn:[]}:{...base,recurring:false,day:dk??todayKey(),done:false}]);
+    setTaskText(""); inputRef.current?.focus();
+  };
+  const toggleRecDay=dk=>setTaskRecDays(p=>p.includes(dk)?p.filter(d=>d!==dk):[...p,dk]);
+
+  // ── Folders ────────────────────────────────────────────────────────────────
+  const createFolder=()=>{
+    const name=nfName.trim(); if(!name) return;
+    setFolders(p=>[...p,{id:Date.now(),name,color:nfColor,icon:ICONS[p.length%ICONS.length]}]);
+    setNfName("");setNfColor(COLORS[0]);setShowFolderModal(false);
+  };
+  const deleteFolder=fid=>{ setFolders(p=>p.filter(f=>f.id!==fid)); setTasks(p=>p.filter(t=>t.folderId!==fid)); goHome(); };
+
+  // ── Hours ──────────────────────────────────────────────────────────────────
+  const openHours=dk=>{setPendingHrs(hoursFor(dk));setHoursModalDay(dk);setShowHoursModal(true);};
+  const saveHours=()=>{setDayHours(p=>({...p,[hoursModalDay]:pendingHrs}));setShowHoursModal(false);};
+
+  // ── Nav ────────────────────────────────────────────────────────────────────
+  const resetForm=()=>{setTaskText("");setTaskMins(30);setTaskRecur(false);setTaskRecDays([]);};
+  const goHome=()=>{setView("home");resetForm();};
+  const goDay=dk=>{setActiveDay(dk);setView("day");resetForm();};
+  const goFolder=fid=>{setActiveFolder(fid);setView("folder");resetForm();};
+  const streak=calcStreak(completedDates);
+
+  // ── Auth handlers ──────────────────────────────────────────────────────────
+  const handleSignIn =async()=>{ try{ await signInWithPopup(auth,googleProvider); }catch(e){} };
+  const handleSignOut=async()=>{ await signOut(auth); setLoaded(false); setView("home"); };
+
+  // ── Sub-components ─────────────────────────────────────────────────────────
+  const RingsCard=({dk})=>(
+    <div className="rings-card">
+      <Ring pct={weekPct()} color="#a78bfa" size={82} stroke={8} label={"This\nWeek"} val={`${weekPct()}%`}/>
+      <div className="ring-div"/>
+      <Ring pct={donePct(tasksForDay(dk),dk)} color="#c8ff57" size={90} stroke={9} label="Today" val={`${donePct(tasksForDay(dk),dk)}%`}/>
+      <div className="ring-div"/>
+      <Ring pct={hoursPct(dk)} color="#fb923c" size={82} stroke={8} label={"Hours\nUsed"} val={fmtH(hoursLeft(dk))} sub="remaining" onClick={()=>openHours(dk)}/>
+      {isOverload(dk)&&<div className="overload">⚠ Day overloaded</div>}
+    </div>
+  );
+
+  const TaskRow=({task,dk,color})=>{
+    const done=isDone(task,dk);
+    const tl=TIME_LBL[TIME_OPTS.indexOf(task.estimatedMinutes)]??`${task.estimatedMinutes}m`;
+    return(
+      <div className={`task-row${done?" done":""}`} style={{"--rc":color}} onClick={()=>toggle(task.id,dk)}>
+        <div className="chk"><span className="chk-v">✓</span></div>
+        {task.recurring&&<div className="rec-dot" style={{background:color}}/>}
+        <span className="task-txt">{task.text}</span>
+        <span className="time-pill">{tl}</span>
+        <button className="del-btn" onClick={e=>deleteTask(e,task.id)}>×</button>
+      </div>
+    );
+  };
+
+  const AddRow=({dk,fid,placeholder})=>(
+    <div className="add-area">
+      <div className="add-row">
+        <input ref={inputRef} className="add-in" value={taskText} onChange={e=>setTaskText(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&addTask(dk,fid)} placeholder={placeholder}/>
+        <button className="add-main" onClick={()=>addTask(dk,fid)}>+</button>
+      </div>
+      <div className="add-opts">
+        <span style={{fontSize:".62rem",color:"var(--mu)"}}>Est:</span>
+        {TIME_OPTS.map((m,i)=>(<button key={m} className={`time-opt${taskMins===m?" sel":""}`} onClick={()=>setTaskMins(m)}>{TIME_LBL[i]}</button>))}
+        <button className={`rec-btn${taskRecur?" on":""}`} onClick={()=>setTaskRecur(r=>!r)}>🔁</button>
+      </div>
+      {taskRecur&&(<div className="day-chips">{DAY_KEYS.map((d,i)=>(<div key={d} className={`dc${taskRecDays.includes(d)?" sel":""}`} onClick={()=>toggleRecDay(d)}>{DAYS[i]}</div>))}</div>)}
+    </div>
+  );
+
+  // ── Loading ────────────────────────────────────────────────────────────────
+  if(authLoading) return(
+    <>
+      <style>{css}</style>
+      <div style={{minHeight:"100vh",background:"#060606",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{color:"#333",fontSize:".8rem",letterSpacing:".1em",textTransform:"uppercase"}}>Loading…</div>
+      </div>
+    </>
+  );
+
+  // ── Login screen ───────────────────────────────────────────────────────────
+  if(!user) return(
+    <>
+      <style>{css}</style>
+      <div className="login">
+        <div className="login-card">
+          <div className="login-logo">focus<span>.</span></div>
+          <div className="login-tagline">The ADHD task manager that<br/>makes time visible</div>
+          <button className="google-btn" onClick={handleSignIn}>
+            <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Continue with Google
+          </button>
+          <div className="login-note">Your data syncs across all your devices.<br/>Free forever.</div>
+        </div>
+      </div>
+    </>
+  );
+
+  // ── App ────────────────────────────────────────────────────────────────────
+  const HomeView=()=>{
+    const dk=todayKey();
+    return(
+      <div className="page">
+        {streak>0&&(
+          <div className="streak">
+            <span style={{fontSize:"1.4rem"}}>🔥</span>
+            <div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>
+            {bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".68rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}
+          </div>
+        )}
+        <RingsCard dk={dk}/>
+        <div className="page-title">My Week</div>
+        <div className="page-sub">Tap a day to manage tasks</div>
+        <div className="day-grid">
+          {DAY_KEYS.map((d,i)=>{
+            const dt=tasksForDay(d),pct=donePct(dt,d),isT=i===todayIdx();
+            return(
+              <div key={d} className={`day-card${isT?" today":""}`} onClick={()=>goDay(d)}>
+                <div className="day-lbl">{DAYS[i]}</div>
+                <div className="day-bar"><div className="day-bar-f" style={{width:`${pct}%`,background:isT?"#c8ff57":pct===100?"#34d399":"#3a3a3a"}}/></div>
+                <div className="day-cnt">{dt.filter(t=>isDone(t,d)).length}/{dt.length}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="sec-hdr">
+          <span className="sec-title">Folders</span>
+          <button className="ghost" onClick={()=>setShowFolderModal(true)}>+ New</button>
+        </div>
+        {folders.length===0?<div className="empty">No folders — create one above</div>:(
+          <div className="folders-grid">
+            {folders.map(f=>{
+              const ft=folderTasks(f.id),done=ft.filter(t=>isDone(t,todayKey())).length,pct=ft.length?Math.round(done/ft.length*100):0;
+              return(
+                <div key={f.id} className="folder-card" style={{"--fc":f.color}} onClick={()=>goFolder(f.id)}>
+                  <div style={{fontSize:"1rem",marginBottom:5}}>{f.icon}</div>
+                  <div className="f-name">{f.name}</div>
+                  <div className="f-bar-bg"><div className="f-bar-f" style={{width:`${pct}%`}}/></div>
+                  <div className="f-foot">
+                    <span style={{fontSize:".69rem",fontWeight:500,color:f.color}}>{pct}%</span>
+                    <span style={{fontSize:".65rem",color:"var(--tx2)"}}>{done}/{ft.length}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const DayView=()=>{
+    const dk=activeDay,idx=DAY_KEYS.indexOf(dk),label=DAYS[idx],isT=idx===todayIdx();
+    const dt=tasksForDay(dk),done=dt.filter(t=>isDone(t,dk)).length,pct=donePct(dt,dk);
+    const hl=hoursLeft(dk),mu=minsUsed(dk);
+    const grouped=folders.map(f=>({f,ts:dt.filter(t=>t.folderId===f.id)})).filter(g=>g.ts.length);
+    const other=dt.filter(t=>!folders.find(f=>f.id===t.folderId));
+    return(
+      <div className="page">
+        <div className="view-hdr">
+          <div className="view-title">{label}{isT?" · Today":""}</div>
+          <div className="view-sub">{dt.length} tasks · {done} completed</div>
+        </div>
+        <RingsCard dk={dk}/>
+        <div className="hours-row">
+          {[{val:fmtH(hoursFor(dk)),lbl:"Allocated",cls:"clickable",onClick:()=>openHours(dk)},{val:fmtH(mu/60),lbl:"Completed",color:"#fb923c"},{val:fmtH(hl),lbl:"Remaining",color:hl<1?"#ef4444":"var(--tx)"}].map((c,i)=>(
+            <div key={i} className={`h-chip${c.cls?" "+c.cls:""}`} onClick={c.onClick}>
+              <div className="h-val" style={c.color?{color:c.color}:{}}>{c.val}</div>
+              <div className="h-lbl">{c.lbl}{c.cls?" · tap to set":""}</div>
+            </div>
+          ))}
+        </div>
+        <div className="big-prog">
+          <div className="big-top"><span className="big-frac">{done}<span className="d">/{dt.length}</span></span><span className="big-pct" style={{color:"#c8ff57"}}>{pct}%</span></div>
+          <div className="big-bar"><div className="big-fill" style={{width:`${pct}%`,background:"#c8ff57"}}/></div>
+          {dt.length>0&&done===dt.length&&<div className="all-done">✦ All done — incredible!</div>}
+        </div>
+        {grouped.map(({f,ts})=>(
+          <div className="task-grp" key={f.id}>
+            <div className="grp-hdr">
+              <span className="grp-lbl" style={{color:f.color}}>{f.icon} {f.name}</span>
+              {ts.some(t=>t.recurring)&&<span className="rec-badge">🔁 recurring</span>}
+              <span style={{marginLeft:"auto",fontSize:".62rem",color:f.color}}>{donePct(ts,dk)}%</span>
+            </div>
+            {ts.map(t=><TaskRow key={t.id} task={t} dk={dk} color={f.color}/>)}
+          </div>
+        ))}
+        {other.length>0&&(<div className="task-grp"><div className="grp-hdr"><span className="grp-lbl" style={{color:"var(--mu)"}}>Other</span></div>{other.map(t=><TaskRow key={t.id} task={t} dk={dk} color="var(--ac)"/>)}</div>)}
+        {dt.length===0&&<div className="empty">Nothing for {label} — add below ↓</div>}
+        <AddRow dk={dk} fid={folders[0]?.id} placeholder={`Add task for ${label}...`}/>
+      </div>
+    );
+  };
+
+  const FolderView=()=>{
+    const folder=folders.find(f=>f.id===activeFolder); if(!folder) return null;
+    const ft=folderTasks(activeFolder),dk=todayKey(),done=ft.filter(t=>isDone(t,dk)).length,pct=ft.length?Math.round(done/ft.length*100):0;
+    const byDay=DAY_KEYS.map((d,i)=>({d,lbl:DAYS[i],ts:ft.filter(t=>(!t.recurring&&t.day===d)||(t.recurring&&t.recurringDays?.includes(d)))})).filter(g=>g.ts.length);
+    return(
+      <div className="page">
+        <div className="view-hdr">
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:9,height:9,borderRadius:"50%",background:folder.color,flexShrink:0}}/>
+            <div className="view-title">{folder.name}</div>
+          </div>
+          <div className="view-sub">{ft.length} tasks total</div>
+        </div>
+        <div className="big-prog">
+          <div className="big-top"><span className="big-frac">{done}<span className="d">/{ft.length}</span></span><span className="big-pct" style={{color:folder.color}}>{pct}% today</span></div>
+          <div className="big-bar"><div className="big-fill" style={{width:`${pct}%`,background:folder.color}}/></div>
+        </div>
+        {byDay.map(({d,lbl,ts})=>(
+          <div className="task-grp" key={d}>
+            <div className="grp-hdr"><span className="grp-lbl" style={{color:DAY_KEYS.indexOf(d)===todayIdx()?folder.color:"var(--mu)"}}>{lbl}{DAY_KEYS.indexOf(d)===todayIdx()?" · Today":""}</span></div>
+            {ts.map(t=><TaskRow key={t.id} task={t} dk={d} color={folder.color}/>)}
+          </div>
+        ))}
+        {ft.length===0&&<div className="empty">No tasks yet — add below ↓</div>}
+        <AddRow dk={dk} fid={activeFolder} placeholder={`Add task to ${folder.name}...`}/>
+        <button className="del-folder" onClick={()=>deleteFolder(activeFolder)}>Delete folder</button>
+      </div>
+    );
+  };
+
+  return(
+    <>
+      <style>{css}</style>
+      <div className="app">
+        <div className="nav">
+          <div className="logo">focus<em>.</em></div>
+          <div className="nav-right">
+            {view!=="home"&&<button className="back-btn" onClick={goHome}>← Home</button>}
+            {user.photoURL&&<img src={user.photoURL} className="avatar" alt=""/>}
+            <button className="signout-btn" onClick={handleSignOut}>Sign out</button>
+          </div>
+        </div>
+        {view==="home"&&<HomeView/>}
+        {view==="day"&&<DayView/>}
+        {view==="folder"&&<FolderView/>}
+      </div>
+
+      {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
+
+      {showFolderModal&&(
+        <div className="overlay" onClick={()=>setShowFolderModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">New Folder</div>
+            <div className="modal-lbl">Name</div>
+            <input className="modal-in" value={nfName} autoFocus onChange={e=>setNfName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createFolder()} placeholder="e.g. House Chores"/>
+            <div className="modal-lbl">Color</div>
+            <div className="swatches">{COLORS.map(c=>(<div key={c} className={`sw${nfColor===c?" sel":""}`} style={{background:c}} onClick={()=>setNfColor(c)}/>))}</div>
+            <div className="modal-btns"><button className="btn-c" onClick={()=>setShowFolderModal(false)}>Cancel</button><button className="btn-ok" onClick={createFolder}>Create</button></div>
+          </div>
+        </div>
+      )}
+
+      {showHoursModal&&(
+        <div className="overlay" onClick={()=>setShowHoursModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">Set Work Hours</div>
+            <div className="modal-lbl">Hours for {DAYS[DAY_KEYS.indexOf(hoursModalDay)]}</div>
+            <div className="hr-presets">{HR_PRESET.map(h=>(<button key={h} className={`hp${pendingHrs===h?" sel":""}`} onClick={()=>setPendingHrs(h)}>{h}h</button>))}</div>
+            <div style={{fontSize:".68rem",color:"var(--mu)",marginBottom:16}}>
+              Your tasks total {(minsTotal(hoursModalDay)/60).toFixed(1)}h of estimated work.
+              {isOverload(hoursModalDay)&&<span style={{color:"#ef4444"}}> ⚠ That's more than {pendingHrs}h!</span>}
+            </div>
+            <div className="modal-btns"><button className="btn-c" onClick={()=>setShowHoursModal(false)}>Cancel</button><button className="btn-ok" onClick={saveHours}>Save</button></div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
