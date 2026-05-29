@@ -658,58 +658,126 @@ export default function App() {
 
   const HomeView=()=>{
     const dk=todayKey();
+    const tMonth=tasksCompletedThisMonth();
+    const hMonth=hoursCompletedThisMonth();
+    const hWeek=hoursCompletedThisWeek();
+    const weekDone=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0);
+    const weekTotal=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0);
+
     return(
-      <div className="page">
-        {streak>0&&(
-          <div className="streak">
-            <span style={{fontSize:"1.4rem"}}>🔥</span>
-            <div>
-              <div className="streak-num">{streak} day streak</div>
-              <div className="streak-lbl">Keep going</div>
-            </div>
-            {bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}
-          </div>
-        )}
-        <RingsCard dk={dk}/>
-        <div className="page-title">My Week</div>
-        <div className="page-sub">Tap a day to manage tasks</div>
-        <div className="day-grid">
-          {DAY_KEYS.map((d,i)=>{
-            const dt=tasksForDay(d),pct=donePct(dt,d),isT=i===todayIdx();
-            return(
-              <div key={d} className={`day-card${isT?" today":""}`} onClick={()=>goDay(d)}>
-                <div className="day-lbl">{DAYS[i]}</div>
-                <div className="day-bar">
-                  <div className="day-bar-f" style={{width:`${pct}%`,background:isT?"#c8ff57":pct===100?"#34d399":"#3a3a3a"}}/>
-                </div>
-                <div className="day-cnt">{dt.filter(t=>isDone(t,d)).length}/{dt.length}</div>
+      <div className="home-layout">
+        {/* ── Main column ── */}
+        <div className="main-col">
+          {streak>0&&(
+            <div className="streak" style={{marginBottom:16}}>
+              <span style={{fontSize:"1.4rem"}}>🔥</span>
+              <div>
+                <div className="streak-num">{streak} day streak</div>
+                <div className="streak-lbl">Keep going</div>
               </div>
-            );
-          })}
-        </div>
-        <div className="sec-hdr">
-          <span className="sec-title">Folders</span>
-          <button className="ghost-btn" onClick={()=>setShowFolderModal(true)}>+ New Folder</button>
-        </div>
-        {folders.length===0
-          ?<div className="empty">No folders yet — create one above ↑</div>
-          :<div className="folders-grid">
-            {folders.map(f=>{
-              const ft=folderTasks(f.id),done=ft.filter(t=>isDone(t,todayKey())).length,pct=ft.length?Math.round(done/ft.length*100):0;
+              {bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}
+            </div>
+          )}
+          <RingsCard dk={dk}/>
+          <div className="page-title">My Week</div>
+          <div className="page-sub">Tap a day to manage tasks</div>
+          <div className="day-grid">
+            {DAY_KEYS.map((d,i)=>{
+              const dt=tasksForDay(d),pct=donePct(dt,d),isT=i===todayIdx();
               return(
-                <div key={f.id} className="folder-card" style={{"--fc":f.color}} onClick={()=>goFolder(f.id)}>
-                  <div style={{fontSize:"1.1rem",marginBottom:6}}>{f.icon}</div>
-                  <div className="f-name">{f.name}</div>
-                  <div className="f-bar-bg"><div className="f-bar-f" style={{width:`${pct}%`}}/></div>
-                  <div className="f-foot">
-                    <span style={{fontSize:".72rem",fontWeight:600,color:f.color}}>{pct}%</span>
-                    <span style={{fontSize:".7rem",color:"var(--tx2)"}}>{done}/{ft.length}</span>
+                <div key={d} className={`day-card${isT?" today":""}`} onClick={()=>goDay(d)}>
+                  <div className="day-lbl">{DAYS[i]}</div>
+                  <div className="day-bar">
+                    <div className="day-bar-f" style={{width:`${pct}%`,background:isT?"#c8ff57":pct===100?"#34d399":"#3a3a3a"}}/>
                   </div>
+                  <div className="day-cnt">{dt.filter(t=>isDone(t,d)).length}/{dt.length}</div>
                 </div>
               );
             })}
           </div>
-        }
+          <div className="sec-hdr">
+            <span className="sec-title">Folders</span>
+            <button className="ghost-btn" onClick={()=>setShowFolderModal(true)}>+ New Folder</button>
+          </div>
+          {folders.length===0
+            ?<div className="empty">No folders yet — create one above ↑</div>
+            :<div className="folders-grid">
+              {folders.map(f=>{
+                const ft=folderTasks(f.id),done=ft.filter(t=>isDone(t,todayKey())).length,pct=ft.length?Math.round(done/ft.length*100):0;
+                return(
+                  <div key={f.id} className="folder-card" style={{"--fc":f.color}} onClick={()=>goFolder(f.id)}>
+                    <div style={{fontSize:"1.1rem",marginBottom:6}}>{f.icon}</div>
+                    <div className="f-name">{f.name}</div>
+                    <div className="f-bar-bg"><div className="f-bar-f" style={{width:`${pct}%`}}/></div>
+                    <div className="f-foot">
+                      <span style={{fontSize:".72rem",fontWeight:600,color:f.color}}>{pct}%</span>
+                      <span style={{fontSize:".7rem",color:"var(--tx2)"}}>{done}/{ft.length}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          }
+        </div>
+
+        {/* ── Stats sidebar ── */}
+        <div className="stats-col">
+
+          {/* Tasks this month */}
+          <div className="stat-card">
+            <div className="stat-card-title">✅ Tasks Completed</div>
+            <div className="stat-big" style={{color:"#c8ff57"}}>{tMonth}</div>
+            <div className="stat-desc">this month · {monthName}</div>
+            <div className="stat-divider"/>
+            <div className="stat-row">
+              <span className="stat-row-lbl">This week</span>
+              <span className="stat-row-val" style={{color:"#c8ff57"}}>{weekDone}</span>
+            </div>
+            <div className="stat-row">
+              <span className="stat-row-lbl">Total tasks</span>
+              <span className="stat-row-val" style={{color:"var(--tx2)"}}>{weekTotal}</span>
+            </div>
+            <div className="stat-row">
+              <span className="stat-row-lbl">Week progress</span>
+              <span className="stat-row-val" style={{color:"#a78bfa"}}>{weekTotal?Math.round(weekDone/weekTotal*100):0}%</span>
+            </div>
+          </div>
+
+          {/* Work hours */}
+          <div className="stat-card">
+            <div className="stat-card-title">⏱ Work Hours</div>
+            <div className="stat-big" style={{color:"#fb923c"}}>{fmtNum(hMonth)}h</div>
+            <div className="stat-desc">completed this month · {monthName}</div>
+            <div className="stat-divider"/>
+            <div className="stat-row">
+              <span className="stat-row-lbl">This week</span>
+              <span className="stat-row-val" style={{color:"#fb923c"}}>{fmtNum(hWeek)}h</span>
+            </div>
+            <div className="stat-row">
+              <span className="stat-row-lbl">Today</span>
+              <span className="stat-row-val" style={{color:"#fb923c"}}>{fmtNum(minsUsed(dk)/60)}h</span>
+            </div>
+            <div className="stat-row">
+              <span className="stat-row-lbl">Today's budget</span>
+              <span className="stat-row-val" style={{color:"var(--tx2)"}}>{fmtH(hoursFor(dk))}</span>
+            </div>
+          </div>
+
+          {/* Streak */}
+          {streak>0&&(
+            <div className="stat-card">
+              <div className="stat-card-title">🔥 Streak</div>
+              <div className="stat-big" style={{color:"#f97316"}}>{streak}</div>
+              <div className="stat-desc">days in a row</div>
+              <div className="stat-divider"/>
+              <div className="stat-row">
+                <span className="stat-row-lbl">Best ever</span>
+                <span className="stat-row-val" style={{color:"#f97316"}}>{bestStreak} days</span>
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
     );
   };
