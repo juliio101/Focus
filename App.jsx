@@ -309,7 +309,20 @@ body{background:#080808;font-family:'Montserrat',sans-serif;color:#e0e0e0;-webki
 .remind-opt:hover{border-color:var(--ac);color:var(--ac);background:#c8ff5708}
 .task-done-badge{display:inline-flex;align-items:center;gap:6px;background:#34d39920;border:1px solid #34d39940;color:#34d399;border-radius:99px;padding:6px 16px;font-size:.78rem;font-weight:700;margin-bottom:20px}
 
-/* ── Add row ── */
+/* ── Time worked progress bar ── */
+.time-progress-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:18px 20px;margin-bottom:20px}
+.time-progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.time-progress-worked{font-family:'Syne',sans-serif;font-weight:800;font-size:1.5rem;color:var(--ac);line-height:1}
+.time-progress-goal{font-size:.78rem;color:var(--mu);font-weight:500}
+.time-progress-bar-bg{width:100%;height:12px;background:var(--b2);border-radius:99px;overflow:hidden;margin-bottom:8px;position:relative}
+.time-progress-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#c8ff57,#a8e040);transition:width .8s cubic-bezier(.34,1.56,.64,1);position:relative}
+.time-progress-bar-fill::after{content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);width:16px;height:16px;background:#c8ff57;border-radius:50%;box-shadow:0 0 10px #c8ff5780}
+.time-progress-bar-fill.zero::after{display:none}
+.time-progress-milestones{display:flex;justify-content:space-between}
+.time-milestone{font-size:.62rem;color:var(--mu);font-weight:600}
+.time-milestone.hit{color:var(--ac)}
+.time-win-msg{font-size:.75rem;color:var(--ac);font-weight:600;margin-top:6px;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .add-area{margin-top:12px}
 .add-row{display:flex;gap:8px}
 .add-in{flex:1;background:var(--s);border:1px solid var(--b2);border-radius:11px;padding:13px 16px;color:var(--tx);font-family:'Montserrat',sans-serif;font-size:.9rem;outline:none;transition:border-color .15s;font-weight:500}
@@ -768,18 +781,51 @@ export default function App() {
           <div className="view-sub">{dt.length} tasks · {done} completed</div>
         </div>
         <RingsCard dk={dk}/>
-        <div className="hours-row">
-          {[
-            {val:fmtHrsBudget(hoursFor(dk)), lbl:"Budget · tap to change", cls:"clickable", onClick:()=>openHours(dk)},
-            {val:fmtTimer(st),               lbl:"Time tracked",           color:"#fb923c"},
-            {val:fmtHrs(hl),                 lbl:"Remaining",              color:hl<=0?"#ef4444":"var(--tx)"},
-          ].map((c,i)=>(
-            <div key={i} className={`h-chip${c.cls?" "+c.cls:""}`} onClick={c.onClick}>
-              <div className="h-val" style={c.color?{color:c.color}:{}}>{c.val}</div>
-              <div className="h-lbl">{c.lbl}</div>
+
+        {/* Time worked progress bar — shows momentum not deficit */}
+        {(()=>{
+          const budgetSecs = hoursFor(dk) * 3600;
+          const pctWorked  = Math.min(100, (st/budgetSecs)*100);
+          const workedMins = Math.floor(st/60);
+          const budgetHrs  = hoursFor(dk);
+          const milestones = [
+            {pct:25, label:fmtHrs(budgetHrs*0.25)},
+            {pct:50, label:fmtHrs(budgetHrs*0.5)},
+            {pct:75, label:fmtHrs(budgetHrs*0.75)},
+            {pct:100,label:`${budgetHrs} hrs`},
+          ];
+          let winMsg = null;
+          if(pctWorked>=100)     winMsg = "🎉 Full day's work done!";
+          else if(pctWorked>=75) winMsg = "🔥 75% there — you're on fire!";
+          else if(pctWorked>=50) winMsg = "⚡ Halfway through your day!";
+          else if(pctWorked>=25) winMsg = "✨ 25% done — great start!";
+          else if(workedMins>=1) winMsg = `✓ ${workedMins} min in — keep it up!`;
+          return(
+            <div className="time-progress-card">
+              <div className="time-progress-top">
+                <div>
+                  <div className="time-progress-worked">
+                    {workedMins < 60 ? `${workedMins} min` : fmtHrs(st/3600)} worked today
+                  </div>
+                  {winMsg && <div className="time-win-msg">{winMsg}</div>}
+                </div>
+                <div className="time-progress-goal">
+                  Goal: {budgetHrs} hrs
+                  <button style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".7rem",marginLeft:8,fontFamily:"'Montserrat',sans-serif",fontWeight:600,textDecoration:"underline"}} onClick={()=>openHours(dk)}>change</button>
+                </div>
+              </div>
+              <div className="time-progress-bar-bg">
+                <div className={`time-progress-bar-fill${pctWorked===0?" zero":""}`} style={{width:`${Math.max(pctWorked,pctWorked>0?1:0)}%`}}/>
+              </div>
+              <div className="time-progress-milestones">
+                {milestones.map(m=>(
+                  <span key={m.pct} className={`time-milestone${pctWorked>=m.pct?" hit":""}`}>{m.label}</span>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })()}
+
         <div className="big-prog">
           <div className="big-top">
             <span className="big-frac">{done}<span className="d">/{dt.length}</span></span>
