@@ -150,7 +150,7 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
   background:radial-gradient(ellipse at 50% 0%, #c8ff5708 0%, var(--bg) 60%)}
 .login-card{background:var(--s);border:1px solid var(--b2);border-radius:24px;padding:52px 44px;max-width:420px;width:100%;text-align:center;
   box-shadow:0 40px 80px #000a,0 0 0 1px #ffffff06}
-.login-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:2.8rem;color:var(--tx);letter-spacing:-1.5px;margin-bottom:10px;line-height:1}
+.login-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:2.2rem;color:var(--tx);letter-spacing:-1px;margin-bottom:10px;line-height:1}
 .login-logo span{color:var(--ac)}
 .login-tagline{font-size:.9rem;color:var(--mu);margin-bottom:44px;line-height:1.7;font-weight:400}
 .google-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:#fff;color:#111;border:none;border-radius:14px;padding:16px 20px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;transition:transform .15s,box-shadow .2s;box-shadow:0 2px 12px #0005}
@@ -161,7 +161,7 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 /* ── Shell ── */
 .app{min-height:100vh;background:var(--bg)}
 .nav{display:flex;align-items:center;justify-content:space-between;padding:20px 28px 0;max-width:1160px;margin:0 auto}
-.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.25rem;color:var(--tx);letter-spacing:-.5px}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;color:var(--tx);letter-spacing:-.5px}
 .logo em{color:var(--ac);font-style:normal}
 .nav-right{display:flex;align-items:center;gap:12px}
 .back-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:99px;padding:7px 18px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;transition:all .15s;letter-spacing:.01em}
@@ -1675,8 +1675,8 @@ export default function App() {
       <style>{css}</style>
       <div className="login">
         <div className="login-card">
-          <div className="login-logo">focus<span>.</span></div>
-          <div className="login-tagline">The ADHD task manager that makes time visible</div>
+          <div className="login-logo">effingFocus<span>.</span></div>
+          <div className="login-tagline">The task manager built for ADHD brains</div>
           <button className="google-btn" onClick={()=>signInWithPopup(auth,googleProvider)}>
             <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
             Continue with Google
@@ -1694,7 +1694,7 @@ export default function App() {
       <style>{css}</style>
       <div className="app">
         <div className="nav">
-          <div className="logo">focus<em>.</em></div>
+          <div className="logo">effingFocus<em>.</em></div>
           <div className="nav-right">
             {view==="task" && <button className="back-btn" onClick={goBack}>← Back</button>}
             {(view==="day"||view==="folder") && <button className="back-btn" onClick={goHome}>← Home</button>}
