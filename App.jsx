@@ -673,23 +673,6 @@ export default function App() {
     setLockDone(false);
     setShowLockModal(true);
   };
-  const isDone      = (task,dk) => task.recurring?(task.doneOn??[]).includes(dateForDK(dk)):task.done;
-  const tasksForDay = dk => {
-    const targetDate = dateForDK(dk);
-    return tasks.filter(t=>{
-      if(t.recurring)     return t.recurringDays?.includes(dk);
-      if(t.startDate)     return t.startDate === targetDate;
-      if(t.scheduledDate) return t.scheduledDate === targetDate;
-      return t.day === dk;
-    });
-  };
-  const folderTasks = fid => tasks.filter(t=>t.folderId===fid);
-  const donePct     = (arr,dk) => arr.length?Math.round(arr.filter(t=>isDone(t,dk)).length/arr.length*100):0;
-  const hoursFor    = dk => dayHours[dk]??8;
-  const secsTracked = dk => tasksForDay(dk).reduce((s,t)=>s+(t.timerSeconds??0),0);
-  const hoursLeft   = dk => Math.max(0, hoursFor(dk) - secsTracked(dk)/3600);
-  const hoursPct    = dk => Math.min(100, Math.round(secsTracked(dk)/3600/hoursFor(dk)*100));
-  const weekPct     = () => { let t=0,d=0; DAY_KEYS.forEach(dk=>{const dt=tasksForDay(dk);t+=dt.length;d+=dt.filter(x=>isDone(x,dk)).length;}); return t?Math.round(d/t*100):0; };
 
   // ── Timer controls (start/pause from task detail view) ─────────────────────
   const startTimer = (taskId) => {
