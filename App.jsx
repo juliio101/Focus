@@ -262,6 +262,21 @@ body{background:#060606;font-family:'Inter',sans-serif;color:#e2e2e2;-webkit-fon
 .day-task-row.done .day-task-txt{text-decoration:line-through;color:var(--mu)}
 .day-task-txt{flex:1;font-size:.88rem;color:var(--tx);line-height:1.5}
 .folder-badge{font-size:.62rem;padding:2px 7px;border-radius:5px;font-weight:500;flex-shrink:0}
+
+/* Stats sidebar */
+.home-layout{display:grid;grid-template-columns:1fr;gap:20px;max-width:1100px;margin:0 auto;padding:24px 20px 90px}
+@media(min-width:860px){.home-layout{grid-template-columns:1fr 260px;align-items:start}}
+.main-col{}
+.stats-col{display:flex;flex-direction:column;gap:10px}
+@media(min-width:860px){.stats-col{position:sticky;top:20px}}
+.stat-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:18px}
+.stat-card-title{font-size:.62rem;color:var(--mu);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:14px}
+.stat-big{font-family:'Syne',sans-serif;font-weight:800;font-size:2.2rem;color:var(--tx);line-height:1;margin-bottom:4px}
+.stat-desc{font-size:.7rem;color:var(--mu);line-height:1.5}
+.stat-divider{height:1px;background:var(--b);margin:10px 0}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
+.stat-row-lbl{font-size:.75rem;color:var(--tx2)}
+.stat-row-val{font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem}
 `;
 
 export default function App() {
@@ -435,6 +450,50 @@ export default function App() {
   const goDay=dk=>{ setActiveDay(dk); setView("day"); };
   const goFolder=fid=>{ setActiveFolder(fid); setView("folder"); };
   const streak=calcStreak(complDates);
+
+  // ── Stats calculations ──────────────────────────────────────────────────────
+  const now = new Date();
+  const monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const monthName = now.toLocaleString("default",{month:"long"});
+
+  // Get Monday of current week
+  const getWeekStart = () => {
+    const d = new Date(); d.setHours(0,0,0,0);
+    d.setDate(d.getDate() - todayIdx());
+    return dStr(d);
+  };
+  const weekStart = getWeekStart();
+
+  const tasksCompletedThisMonth = () => {
+    let count = 0;
+    tasks.forEach(t => {
+      if(!t.recurring && t.done) count++;
+      else if(t.recurring) count += (t.doneOn??[]).filter(d=>d.startsWith(monthStr)).length;
+    });
+    return count;
+  };
+
+  const hoursCompletedThisMonth = () => {
+    let mins = 0;
+    tasks.forEach(t => {
+      if(!t.recurring && t.done) mins += t.estimatedMinutes??30;
+      else if(t.recurring){
+        const n = (t.doneOn??[]).filter(d=>d.startsWith(monthStr)).length;
+        mins += n * (t.estimatedMinutes??30);
+      }
+    });
+    return mins/60;
+  };
+
+  const hoursCompletedThisWeek = () => {
+    let mins = 0;
+    DAY_KEYS.forEach(dk=>{
+      tasksForDay(dk).filter(t=>isDone(t,dk)).forEach(t=>{ mins += t.estimatedMinutes??30; });
+    });
+    return mins/60;
+  };
+
+  const fmtNum = n => n===Math.floor(n)?`${n}`:`${n.toFixed(1)}`;
 
   // ── All Tasks View ──────────────────────────────────────────────────────────
   const AllTasksView=()=>{
