@@ -480,6 +480,28 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .lock-dur-opt:hover{border-color:var(--b3);color:var(--tx);background:var(--s2)}
 .lock-dur-opt.sel{background:var(--ac);border-color:var(--ac);color:#000}
 
+/* ── Day Momentum Bar ── */
+.momentum-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:18px 20px;margin-bottom:20px}
+.momentum-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.momentum-title{font-size:.68rem;color:var(--mu);text-transform:uppercase;letter-spacing:.14em;font-weight:700;display:flex;align-items:center;gap:7px}
+.momentum-status{font-size:.75rem;font-weight:700;letter-spacing:.03em}
+.momentum-bars{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.momentum-bar-row{display:flex;align-items:center;gap:10px}
+.momentum-bar-lbl{font-size:.65rem;color:var(--mu);font-weight:600;width:72px;flex-shrink:0;text-transform:uppercase;letter-spacing:.06em}
+.momentum-bar-bg{flex:1;height:7px;background:var(--b2);border-radius:99px;overflow:hidden}
+.momentum-bar-fill{height:100%;border-radius:99px;transition:width .8s cubic-bezier(.34,1.56,.64,1)}
+.momentum-bar-pct{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--tx2);font-weight:700;width:32px;text-align:right;flex-shrink:0}
+.momentum-msg{font-size:.78rem;font-weight:500;color:var(--mu);padding-top:4px}
+
+/* ── Task detail actions ── */
+.task-action-row{display:flex;gap:8px;margin-top:10px;justify-content:center;flex-wrap:wrap}
+.task-action-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:99px;padding:7px 16px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;transition:all .15s;display:flex;align-items:center;gap:6px}
+.task-action-btn:hover{border-color:var(--b3);color:var(--tx);background:var(--s2)}
+.task-action-btn.danger{border-color:#ef444428;color:#ef444488}
+.task-action-btn.danger:hover{border-color:var(--red);color:var(--red);background:#ef44440a}
+.task-action-btn.warn{border-color:#fbbf2430;color:#fbbf2490}
+.task-action-btn.warn:hover{border-color:#fbbf24;color:#fbbf24;background:#fbbf2408}
+
 /* ── Icon grid ── */
 .icon-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:20px;max-height:150px;overflow-y:auto}
 .icon-opt{background:var(--s);border:2px solid transparent;border-radius:10px;padding:8px;cursor:pointer;font-size:1.1rem;text-align:center;transition:all .15s;line-height:1}
@@ -512,6 +534,8 @@ export default function App() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renamingFolder,  setRenamingFolder]  = useState(null);
   const [renameText,      setRenameText]      = useState("");
+  const [showEditTask,    setShowEditTask]    = useState(false);
+  const [editTaskText,    setEditTaskText]    = useState("");
   const [confetti,        setConfetti]        = useState(false);
 
   // Lock state
@@ -745,6 +769,30 @@ export default function App() {
 
   const deleteTask = (e,id) => { e.stopPropagation(); setTasks(p=>p.filter(t=>t.id!==id)); };
 
+  const uncompleteTask = () => {
+    if(!activeTask) return;
+    const dk = activeTaskDk;
+    setTasks(prev=>prev.map(t=>{
+      if(t.id!==activeTask.id) return t;
+      if(!t.recurring) return {...t, done:false};
+      const date = dateForDK(dk);
+      return {...t, doneOn:(t.doneOn??[]).filter(d=>d!==date)};
+    }));
+    goBack();
+  };
+
+  const deleteActiveTask = () => {
+    if(!activeTask) return;
+    setTasks(p=>p.filter(t=>t.id!==activeTask.id));
+    goBack();
+  };
+
+  const saveEditTask = () => {
+    const text = editTaskText.trim(); if(!text) return;
+    setTasks(prev=>prev.map(t=>t.id===activeTask.id?{...t,text}:t));
+    setShowEditTask(false);
+  };
+
   // ── Complete task ───────────────────────────────────────────────────────────
   const completeTask = (remindDays=null) => {
     if(!activeTask) return;
@@ -902,7 +950,7 @@ export default function App() {
       <div
         className={`task-row${done?" done":""}${hasTime&&!done?" has-timer":""}${task.dueDate&&!done&&dStr()>task.dueDate?" overdue":""}`}
         style={{"--rc":color}}
-        onClick={()=>!done&&goTask(task,dk,from??view)}
+        onClick={()=>goTask(task,dk,from??view)}
       >
         <div className="task-status"><span className="task-status-v">✓</span></div>
         {isRunning && <div className="task-running-dot"/>}
@@ -1236,6 +1284,53 @@ export default function App() {
     );
   };
 
+  // ── Day Momentum Bar ─────────────────────────────────────────────────────────
+  const DayMomentum = ({dk}) => {
+    if(dk !== todayKey()) return null; // Only meaningful for today
+    const now = new Date();
+    const hour = now.getHours() + now.getMinutes()/60;
+    const workStart = 9, workEnd = 18; // 9am–6pm default
+    if(hour < workStart) return null;
+
+    const dayPct  = Math.min(100, Math.round((hour-workStart)/(workEnd-workStart)*100));
+    const taskPct = donePct(tasksForDay(dk), dk);
+    const diff    = taskPct - dayPct;
+    const timeStr = now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+    let statusLabel, statusColor, msg, barColor;
+    if(taskPct===100)    { statusLabel="🎉 Complete";  statusColor="#c8ff57"; msg="All tasks done!";                    barColor="#c8ff57"; }
+    else if(diff>=15)    { statusLabel="🚀 Ahead";     statusColor="#c8ff57"; msg=`${diff}% ahead of schedule`;         barColor="#c8ff57"; }
+    else if(diff>= -5)   { statusLabel="⚡ On track";  statusColor="#60a5fa"; msg="Right on pace — keep it up";         barColor="#60a5fa"; }
+    else if(diff>=-20)   { statusLabel="⚠ Behind";    statusColor="#fbbf24"; msg=`${Math.abs(diff)}% behind — push!`;  barColor="#fbbf24"; }
+    else                 { statusLabel="🔴 Lagging";   statusColor="#ef4444"; msg="Focus up — time is moving fast";     barColor="#ef4444"; }
+
+    return(
+      <div className="momentum-card">
+        <div className="momentum-header">
+          <div className="momentum-title">⚡ Day Momentum · {timeStr}</div>
+          <div className="momentum-status" style={{color:statusColor}}>{statusLabel}</div>
+        </div>
+        <div className="momentum-bars">
+          <div className="momentum-bar-row">
+            <span className="momentum-bar-lbl">Tasks done</span>
+            <div className="momentum-bar-bg">
+              <div className="momentum-bar-fill" style={{width:`${taskPct}%`,background:barColor,boxShadow:`0 0 8px ${barColor}60`}}/>
+            </div>
+            <span className="momentum-bar-pct">{taskPct}%</span>
+          </div>
+          <div className="momentum-bar-row">
+            <span className="momentum-bar-lbl">Day elapsed</span>
+            <div className="momentum-bar-bg">
+              <div className="momentum-bar-fill" style={{width:`${dayPct}%`,background:"var(--b3)"}}/>
+            </div>
+            <span className="momentum-bar-pct">{dayPct}%</span>
+          </div>
+        </div>
+        <div className="momentum-msg" style={{color:statusColor!=="var(--mu)"?statusColor+"cc":"var(--mu)"}}>{msg}</div>
+      </div>
+    );
+  };
+
   // ── Day View ──────────────────────────────────────────────────────────────────
   const DayView = () => {
     const dk=activeDay, idx=DAY_KEYS.indexOf(dk), label=DAYS[idx], isT=idx===todayIdx();
@@ -1250,8 +1345,7 @@ export default function App() {
           <div className="view-sub">{dt.length} tasks · {done} completed</div>
         </div>
         <RingsCard dk={dk}/>
-
-        {/* Time worked progress bar — shows momentum not deficit */}
+        <DayMomentum dk={dk}/>
         {(()=>{
           const budgetSecs = hoursFor(dk) * 3600;
           const pctWorked  = Math.min(100, (st/budgetSecs)*100);
@@ -1398,6 +1492,13 @@ export default function App() {
       <div className="task-detail">
         {folder&&<div className="task-detail-folder" style={{color:folder.color}}>{folder.icon} {folder.name}</div>}
         <div className={`task-detail-name${done?" done":""}`}>{task.text}</div>
+
+        {/* Task action buttons — edit, uncomplete, delete */}
+        <div className="task-action-row">
+          <button className="task-action-btn" onClick={()=>{ setEditTaskText(task.text); setShowEditTask(true); }}>✏️ Edit name</button>
+          {done && <button className="task-action-btn warn" onClick={uncompleteTask}>↩ Uncomplete</button>}
+          <button className="task-action-btn danger" onClick={deleteActiveTask}>🗑 Delete</button>
+        </div>
 
         {/* Date info */}
         <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap",marginBottom:20}}>
@@ -1725,6 +1826,24 @@ export default function App() {
               label={pinStep===1?"Enter PIN":"Confirm PIN"}
             />
             <button className="btn-c" style={{width:"100%",marginTop:12,textAlign:"center"}} onClick={()=>{setShowPinSetModal(false);setPinInput("");setPinStep(1);}}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Task Modal */}
+      {showEditTask&&(
+        <div className="overlay" onClick={()=>setShowEditTask(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">Edit Task</div>
+            <div className="modal-lbl">Task name</div>
+            <input className="modal-in" value={editTaskText} autoFocus
+              onChange={e=>setEditTaskText(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&saveEditTask()}
+              placeholder="Task name"/>
+            <div className="modal-btns">
+              <button className="btn-c" onClick={()=>setShowEditTask(false)}>Cancel</button>
+              <button className="btn-ok" onClick={saveEditTask}>Save</button>
+            </div>
           </div>
         </div>
       )}
