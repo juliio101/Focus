@@ -178,7 +178,7 @@ input,button,select,textarea{font-family:'Montserrat',sans-serif !important}
 .streak-lbl{font-size:.76rem;color:var(--mu);margin-top:3px;font-weight:500}
 
 /* ── Rings ── */
-.rings-card{background:var(--s);border:1px solid var(--b);border-radius:20px;padding:24px 18px;margin-bottom:22px;display:flex;align-items:center;justify-content:space-around;position:relative}
+.rings-card{background:var(--s);border:1px solid var(--b);border-radius:20px;padding:24px 18px 48px;margin-bottom:22px;display:flex;align-items:center;justify-content:space-around;position:relative}
 .ring-div{width:1px;height:60px;background:var(--b)}
 .overload{position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;font-size:.68rem;padding:4px 12px;border-radius:99px;white-space:nowrap;font-family:'Montserrat',sans-serif;font-weight:700}
 
@@ -421,6 +421,9 @@ export default function App() {
   const [showHoursModal,  setShowHoursModal]  = useState(false);
   const [hoursModalDay,   setHoursModalDay]   = useState(null);
   const [showRemind,      setShowRemind]      = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renamingFolder,  setRenamingFolder]  = useState(null);
+  const [renameText,      setRenameText]      = useState("");
   const [confetti,        setConfetti]        = useState(false);
 
   const [nfName,    setNfName]    = useState("");
@@ -569,6 +572,15 @@ export default function App() {
     setFolders(p=>[...p,{id:Date.now(),name,color:nfColor,icon:nfIcon}]);
     setNfName(""); setNfColor(COLORS[0]); setNfIcon(ICON_OPTIONS[0]); setShowFolderModal(false);
   };
+  const openRename = (e, folder) => {
+    e.stopPropagation();
+    setRenamingFolder(folder); setRenameText(folder.name); setShowRenameModal(true);
+  };
+  const saveRename = () => {
+    const name=renameText.trim(); if(!name) return;
+    setFolders(p=>p.map(f=>f.id===renamingFolder.id?{...f,name}:f));
+    setShowRenameModal(false); setRenamingFolder(null);
+  };
   const deleteFolder = fid => { setFolders(p=>p.filter(f=>f.id!==fid)); setTasks(p=>p.filter(t=>t.folderId!==fid)); goHome(); };
   const openHours = dk => { setPendingHrs(hoursFor(dk)); setHoursModalDay(dk); setShowHoursModal(true); };
   const saveHours = () => { setDayHours(p=>({...p,[hoursModalDay]:pendingHrs})); setShowHoursModal(false); };
@@ -614,6 +626,23 @@ export default function App() {
         <div className="ring-div"/>
         <Ring pct={hp} color="#fb923c" size={82} stroke={8} label={"Hours\nUsed"} val={`${Math.round(hl*10)/10}h`} sub="left" onClick={()=>openHours(dk)}/>
         {hoursFor(dk)-secsTracked(dk)/3600<0&&<div className="overload">⚠ Over budget</div>}
+        {/* Hours progress bar */}
+        <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"0 18px 14px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+            <span style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>{fmtTimer(secsTracked(dk))} worked</span>
+            <span style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>{hoursFor(dk)} hrs goal</span>
+          </div>
+          <div style={{width:"100%",height:5,background:"#1a1a1a",borderRadius:99,overflow:"hidden"}}>
+            <div style={{
+              height:"100%",borderRadius:99,
+              background:"linear-gradient(90deg,#fb923c,#fbbf24)",
+              width:`${hp}%`,
+              transition:"width .8s cubic-bezier(.34,1.56,.64,1)",
+              minWidth:secsTracked(dk)>0?"6px":"0",
+              boxShadow:hp>0?"0 0 8px #fb923c60":"none"
+            }}/>
+          </div>
+        </div>
       </div>
     );
   };
@@ -755,6 +784,7 @@ export default function App() {
                         <span className="f-stat-lbl">Time</span>
                       </div>
                     </div>
+                    <button onClick={e=>openRename(e,f)} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".85rem",padding:"4px 6px",borderRadius:6,transition:"color .15s",flexShrink:0}} title="Rename folder">✏️</button>
                     <span className="folder-row-arrow">›</span>
                   </div>
                 ))
@@ -1146,6 +1176,24 @@ export default function App() {
       </div>
 
       {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
+
+      {/* Rename Folder Modal */}
+      {showRenameModal&&(
+        <div className="overlay" onClick={()=>setShowRenameModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">Rename Folder</div>
+            <div className="modal-lbl">New name</div>
+            <input className="modal-in" value={renameText} autoFocus
+              onChange={e=>setRenameText(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&saveRename()}
+              placeholder="Folder name"/>
+            <div className="modal-btns">
+              <button className="btn-c" onClick={()=>setShowRenameModal(false)}>Cancel</button>
+              <button className="btn-ok" onClick={saveRename}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New Folder Modal */}
       {showFolderModal&&(
