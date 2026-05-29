@@ -201,14 +201,21 @@ input,button,select,textarea{font-family:'Montserrat',sans-serif !important}
 .ghost-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:9px;padding:7px 16px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:.82rem;font-weight:600;transition:all .15s}
 .ghost-btn:hover{color:var(--tx);border-color:var(--mu)}
 
-/* ── Folder cards ── */
-.folders-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.folder-card{border-radius:var(--r);padding:18px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;border:1px solid transparent}
-.folder-card:hover{transform:translateY(-3px);box-shadow:0 8px 32px #0005}
-.f-name{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;color:#fff;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px #0004}
-.f-bar-bg{width:100%;height:4px;background:#ffffff20;border-radius:99px;overflow:hidden;margin-bottom:6px}
-.f-bar-f{height:100%;border-radius:99px;background:#ffffffa0;transition:width .4s}
-.f-foot{display:flex;justify-content:space-between;align-items:center}
+/* ── Folder rows (compact) ── */
+.folders-list{display:flex;flex-direction:column;gap:8px}
+.folder-row{background:var(--s);border:1px solid var(--b);border-left:3px solid var(--fc);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .18s}
+.folder-row:hover{border-color:var(--b2);transform:translateX(3px);box-shadow:0 4px 16px #0003}
+.folder-row-icon{font-size:1.2rem;flex-shrink:0;width:26px;text-align:center}
+.folder-row-main{flex:1;min-width:0}
+.folder-row-name{font-family:'Syne',sans-serif;font-weight:700;font-size:.88rem;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.folder-row-bar-bg{width:100%;height:3px;background:var(--b2);border-radius:99px;overflow:hidden}
+.folder-row-bar-f{height:100%;border-radius:99px;transition:width .4s ease}
+.folder-row-stats{display:flex;gap:14px;align-items:center;flex-shrink:0}
+.f-stat{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:36px}
+.f-stat-val{font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;line-height:1}
+.f-stat-lbl{font-size:.56rem;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.folder-row-arrow{color:var(--mu);font-size:1rem;flex-shrink:0;transition:color .15s}
+.folder-row:hover .folder-row-arrow{color:var(--tx2)}
 
 /* ── View header ── */
 .view-hdr{margin-bottom:20px}
@@ -712,25 +719,46 @@ export default function App() {
           </div>
           {folders.length===0
             ?<div className="empty">No folders yet — create one above ↑</div>
-            :<div className="folders-grid">
-              {folders.map(f=>{
-                const ft=folderTasks(f.id),done=ft.filter(t=>isDone(t,todayKey())).length,pct=ft.length?Math.round(done/ft.length*100):0;
-                return(
-                  <div key={f.id} className="folder-card" style={{
-                    background:`linear-gradient(145deg, ${f.color}ee, ${f.color}aa)`,
-                    borderColor:`${f.color}60`,
-                    boxShadow:`0 4px 20px ${f.color}25`,
-                  }} onClick={()=>goFolder(f.id)}>
-                    <div style={{fontSize:"1.4rem",marginBottom:8}}>{f.icon}</div>
-                    <div className="f-name">{f.name}</div>
-                    <div className="f-bar-bg"><div className="f-bar-f" style={{width:`${pct}%`}}/></div>
-                    <div className="f-foot">
-                      <span style={{fontSize:".78rem",fontWeight:700,color:"#fff"}}>{pct}%</span>
-                      <span style={{fontSize:".75rem",color:"#ffffff99",fontWeight:600}}>{done}/{ft.length}</span>
+            :<div className="folders-list">
+              {[...folders]
+                .map(f=>{
+                  const ft = folderTasks(f.id);
+                  const todayDk = todayKey();
+                  const todayFolderTasks = tasksForDay(todayDk).filter(t=>t.folderId===f.id);
+                  const doneToday = todayFolderTasks.filter(t=>isDone(t,todayDk)).length;
+                  const totalTasks = ft.length;
+                  const totalSecs = ft.reduce((s,t)=>s+(t.timerSeconds??0),0);
+                  const pct = totalTasks?Math.round(ft.filter(t=>isDone(t,todayDk)).length/totalTasks*100):0;
+                  return { f, todayCount:todayFolderTasks.length, doneToday, totalTasks, totalSecs, pct };
+                })
+                .sort((a,b)=>b.todayCount-a.todayCount) // rank by tasks due today
+                .map(({f,todayCount,doneToday,totalTasks,totalSecs,pct})=>(
+                  <div key={f.id} className="folder-row" style={{"--fc":f.color}} onClick={()=>goFolder(f.id)}>
+                    <div className="folder-row-icon">{f.icon}</div>
+                    <div className="folder-row-main">
+                      <div className="folder-row-name">{f.name}</div>
+                      <div className="folder-row-bar-bg">
+                        <div className="folder-row-bar-f" style={{width:`${pct}%`,background:f.color}}/>
+                      </div>
                     </div>
+                    <div className="folder-row-stats">
+                      <div className="f-stat">
+                        <span className="f-stat-val" style={{color:todayCount>0?f.color:"var(--tx2)"}}>{doneToday}/{todayCount}</span>
+                        <span className="f-stat-lbl">Today</span>
+                      </div>
+                      <div className="f-stat">
+                        <span className="f-stat-val" style={{color:"var(--tx2)"}}>{totalTasks}</span>
+                        <span className="f-stat-lbl">Total</span>
+                      </div>
+                      <div className="f-stat">
+                        <span className="f-stat-val" style={{color:"#fb923c"}}>{totalSecs>0?fmtTimer(totalSecs):"—"}</span>
+                        <span className="f-stat-lbl">Time</span>
+                      </div>
+                    </div>
+                    <span className="folder-row-arrow">›</span>
                   </div>
-                );
-              })}
+                ))
+              }
             </div>
           }
         </div>
