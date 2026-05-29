@@ -1184,9 +1184,22 @@ export default function App() {
           <div className="timer-digits">{fmtTimer(secs)}</div>
           <div className="timer-status">{isRunning?"Working on this task…":"Timer paused"}</div>
           {!done&&(
-            isRunning
-              ?<button className="timer-btn pause" onClick={()=>pauseTimer(task.id)}>⏸ Pause</button>
-              :<button className="timer-btn start" onClick={()=>startTimer(task.id)}>▶ Start Working</button>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
+              {isRunning
+                ?<button className="timer-btn pause" onClick={()=>pauseTimer(task.id)}>⏸ Pause</button>
+                :<button className="timer-btn start" onClick={()=>startTimer(task.id)}>▶ Start Working</button>
+              }
+              <button onClick={openLockFlow} style={{
+                background:"none",border:"1px solid #c8ff5740",color:"#c8ff5799",
+                borderRadius:10,padding:"8px 20px",cursor:"pointer",
+                fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".78rem",
+                transition:"all .2s",letterSpacing:".04em"
+              }}
+              onMouseEnter={e=>{e.target.style.borderColor="#c8ff57";e.target.style.color="#c8ff57";e.target.style.background="#c8ff5710";}}
+              onMouseLeave={e=>{e.target.style.borderColor="#c8ff5740";e.target.style.color="#c8ff5799";e.target.style.background="none";}}>
+                🔒 Lock In
+              </button>
+            </div>
           )}
           <div className="timer-stats">
             <div className="t-stat">
@@ -1206,24 +1219,10 @@ export default function App() {
 
         {/* Complete actions */}
         {!done&&!showRemind&&(
-          <>
-            <div className="detail-actions">
-              <button className="action-btn complete" onClick={()=>completeTask(null)}>✓ Mark Complete</button>
-              <button className="action-btn remind" onClick={()=>setShowRemind(true)}>⏰ Complete & Remind</button>
-            </div>
-            <div style={{textAlign:"center",marginBottom:16}}>
-              <button onClick={openLockFlow} style={{
-                background:"none",border:"1px solid #c8ff5730",color:"#c8ff5790",
-                borderRadius:12,padding:"10px 24px",cursor:"pointer",
-                fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".82rem",
-                transition:"all .2s",letterSpacing:".02em"
-              }}
-              onMouseEnter={e=>{e.target.style.borderColor="#c8ff57";e.target.style.color="#c8ff57";e.target.style.background="#c8ff5710";}}
-              onMouseLeave={e=>{e.target.style.borderColor="#c8ff5730";e.target.style.color="#c8ff5790";e.target.style.background="none";}}>
-                🔒 Lock In
-              </button>
-            </div>
-          </>
+          <div className="detail-actions">
+            <button className="action-btn complete" onClick={()=>completeTask(null)}>✓ Mark Complete</button>
+            <button className="action-btn remind" onClick={()=>setShowRemind(true)}>⏰ Complete & Remind</button>
+          </div>
         )}
 
         {/* Remind options */}
