@@ -14,8 +14,9 @@ const ICON_OPTIONS = [
   "💰","📊","📋","📱","💻","🎨","🎵","🏋️","🧘","🌿",
   "🐶","🦁","🌈","🎪","🎮","📚","🏗️","⚕️","🌟","🎁",
 ];
-const HR_PRESET   = [4,6,7,8,9,10,12];
-const REMIND_OPTS = [1,3,7,14,30];
+const HR_PRESET      = [4,6,7,8,9,10,12];
+const REMIND_OPTS    = [1,3,7,14,30];
+const LOCK_DURATIONS = [5,10,15,20,25,30];
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 const dStr = (d=new Date()) =>
@@ -397,6 +398,49 @@ input,button,select,textarea{font-family:'Montserrat',sans-serif !important}
 .day-badge.is-today{background:#c8ff5720;color:#c8ff57}
 .day-badge.is-past{background:#ef444415;color:#ef4444}
 .day-badge.is-future{background:var(--s);color:var(--mu)}
+
+/* ── Lock Screen ── */
+.lock-screen{position:fixed;inset:0;background:#060606;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 24px}
+.lock-icon{font-size:3rem;margin-bottom:16px;animation:lockBob 3s ease-in-out infinite}
+@keyframes lockBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.lock-eyebrow{font-size:.7rem;color:var(--mu);text-transform:uppercase;letter-spacing:.2em;font-weight:700;margin-bottom:14px}
+.lock-task-name{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(1.3rem,4vw,2rem);color:var(--tx);margin-bottom:36px;max-width:500px;line-height:1.3;padding:0 20px}
+.lock-countdown{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(5rem,18vw,9rem);color:var(--ac);line-height:1;letter-spacing:-4px;margin-bottom:4px;font-variant-numeric:tabular-nums;transition:color .3s}
+.lock-countdown.urgent{color:#ef4444;animation:urgentFlash .6s infinite}
+@keyframes urgentFlash{0%,100%{opacity:1}50%{opacity:.5}}
+.lock-countdown-lbl{font-size:.72rem;color:var(--mu);text-transform:uppercase;letter-spacing:.15em;font-weight:600;margin-bottom:20px}
+.lock-prog-wrap{width:100%;max-width:360px;margin-bottom:16px}
+.lock-prog-bg{width:100%;height:5px;background:#1a1a1a;border-radius:99px;overflow:hidden}
+.lock-prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--ac),#a8e040);transition:width 1s linear;box-shadow:0 0 10px #c8ff5760}
+.lock-prog-fill.urgent{background:linear-gradient(90deg,#ef4444,#fb923c)}
+.lock-working{font-size:.8rem;color:var(--mu);font-weight:500;margin-bottom:44px}
+.lock-working strong{color:var(--tx);font-weight:700}
+.lock-unlock-btn{background:none;border:1px solid #ef444428;color:#ef444488;border-radius:12px;padding:11px 22px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;transition:all .2s;letter-spacing:.02em}
+.lock-unlock-btn:hover{background:#ef444412;border-color:#ef4444;color:#ef4444}
+.lock-done-card{background:var(--s);border:1px solid #c8ff5740;border-radius:20px;padding:32px 28px;max-width:380px;width:100%}
+.lock-done-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.6rem;color:var(--ac);margin-bottom:8px}
+.lock-done-sub{font-size:.85rem;color:var(--mu);margin-bottom:24px;font-weight:500}
+.lock-done-btns{display:flex;flex-direction:column;gap:10px}
+.lock-more-btn{background:var(--ac);color:#000;border:none;border-radius:11px;padding:13px;font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;cursor:pointer;transition:background .15s}
+.lock-more-btn:hover{background:#d9ff70}
+.lock-back-btn{background:var(--s);border:1px solid var(--b2);color:var(--tx2);border-radius:11px;padding:13px;font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;cursor:pointer;transition:all .15s}
+.lock-back-btn:hover{color:var(--tx);border-color:var(--mu)}
+
+/* ── PIN numpad ── */
+.pin-dots{display:flex;gap:14px;justify-content:center;margin-bottom:28px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--b2);transition:all .2s}
+.pin-dot.filled{background:var(--ac);border-color:var(--ac)}
+.pin-numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto 16px}
+.pin-key{background:var(--s);border:1px solid var(--b2);border-radius:13px;padding:18px 10px;font-family:'Syne',sans-serif;font-weight:700;font-size:1.3rem;color:var(--tx);cursor:pointer;transition:all .12s;text-align:center;user-select:none}
+.pin-key:hover{background:var(--b2)}
+.pin-key:active{transform:scale(.93);background:var(--b2)}
+.pin-key.del{font-size:1rem;color:var(--mu)}
+.pin-error{color:#ef4444;font-size:.8rem;font-weight:600;text-align:center;margin-top:8px;animation:pinShake .3s ease}
+@keyframes pinShake{0%,100%{transform:translateX(0)}25%,75%{transform:translateX(-10px)}50%{transform:translateX(10px)}}
+.lock-dur-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:20px}
+.lock-dur-opt{background:var(--s);border:1px solid var(--b2);border-radius:11px;padding:14px 8px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--tx2);transition:all .15s;text-align:center}
+.lock-dur-opt:hover{border-color:var(--mu);color:var(--tx)}
+.lock-dur-opt.sel{background:var(--ac);border-color:var(--ac);color:#000}
 `;
 
 // ─── Initial data & App ───────────────────────────────────────────────────────
@@ -425,6 +469,22 @@ export default function App() {
   const [renamingFolder,  setRenamingFolder]  = useState(null);
   const [renameText,      setRenameText]      = useState("");
   const [confetti,        setConfetti]        = useState(false);
+
+  // Lock state
+  const [isLocked,         setIsLocked]         = useState(false);
+  const [lockEndTime,      setLockEndTime]      = useState(null);
+  const [lockedTaskId,     setLockedTaskId]     = useState(null);
+  const [lockedTaskDk,     setLockedTaskDk]     = useState(null);
+  const [userPin,          setUserPin]          = useState(null);
+  const [showLockModal,    setShowLockModal]    = useState(false);
+  const [showPinSetModal,  setShowPinSetModal]  = useState(false);
+  const [showPinUnlock,    setShowPinUnlock]    = useState(false);
+  const [lockDuration,     setLockDuration]     = useState(10);
+  const [pinInput,         setPinInput]         = useState("");
+  const [pinConfirm,       setPinConfirm]       = useState("");
+  const [pinStep,          setPinStep]          = useState(1); // 1=set, 2=confirm
+  const [pinError,         setPinError]         = useState("");
+  const [lockDone,         setLockDone]         = useState(false);
 
   const [nfName,    setNfName]    = useState("");
   const [nfColor,   setNfColor]   = useState(COLORS[0]);
@@ -471,6 +531,15 @@ export default function App() {
           setComplDates(d.completedDates??[]);
           setBest(d.bestStreak??0);
           setDayHours(d.dayHours??{});
+          if(d.userPin) setUserPin(d.userPin);
+          // Restore active lock if still valid
+          if(d.activeLock && d.activeLock.endTime > Date.now()){
+            setIsLocked(true);
+            setLockEndTime(d.activeLock.endTime);
+            setLockedTaskId(d.activeLock.taskId);
+            setLockedTaskDk(d.activeLock.taskDk);
+            setLockDone(false);
+          }
         } else {
           await setDoc(ref,INIT_DATA);
         }
@@ -490,7 +559,112 @@ export default function App() {
     if(s>bestStreak) setBest(s);
   },[user,loaded,complDates]);
 
+  // ── Lock tick — check if lock expired ────────────────────────────────────────
+  useEffect(()=>{
+    if(!isLocked || !lockEndTime || lockDone) return;
+    if(Date.now()>=lockEndTime){
+      setLockDone(true);
+      playWin();
+      setConfetti(true);
+      if(user) setDoc(doc(db,"users",user.uid),{activeLock:null},{merge:true}).catch(()=>{});
+      return;
+    }
+  },[tick, isLocked, lockEndTime, lockDone]);
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
+  const isDone      = (task,dk) => task.recurring?(task.doneOn??[]).includes(dateForDK(dk)):task.done;
+  const tasksForDay = dk => tasks.filter(t=>{
+    if(t.scheduledDate) return t.scheduledDate===dateForDK(dk);
+    return (!t.recurring&&t.day===dk)||(t.recurring&&t.recurringDays?.includes(dk));
+  });
+  const folderTasks = fid => tasks.filter(t=>t.folderId===fid);
+  const donePct     = (arr,dk) => arr.length?Math.round(arr.filter(t=>isDone(t,dk)).length/arr.length*100):0;
+  const hoursFor    = dk => dayHours[dk]??8;
+  const secsTracked = dk => tasksForDay(dk).reduce((s,t)=>s+(t.timerSeconds??0),0);
+  const hoursLeft   = dk => Math.max(0, hoursFor(dk) - secsTracked(dk)/3600);
+  const hoursPct    = dk => Math.min(100, Math.round(secsTracked(dk)/3600/hoursFor(dk)*100));
+  const weekPct     = () => { let t=0,d=0; DAY_KEYS.forEach(dk=>{const dt=tasksForDay(dk);t+=dt.length;d+=dt.filter(x=>isDone(x,dk)).length;}); return t?Math.round(d/t*100):0; };
+
+  // ── Lock functions ────────────────────────────────────────────────────────────
+  const activateLock = () => {
+    const endTime = Date.now() + lockDuration * 60 * 1000;
+    setIsLocked(true);
+    setLockEndTime(endTime);
+    setLockedTaskId(activeTask?.id);
+    setLockedTaskDk(activeTaskDk);
+    setLockDone(false);
+    setShowLockModal(false);
+    // Auto-start timer if not running
+    if(activeTask && !activeTask.timerRunning) startTimer(activeTask.id);
+    // Save to Firebase so lock persists on refresh
+    if(user) setDoc(doc(db,"users",user.uid),{
+      activeLock:{ endTime, taskId:activeTask?.id, taskDk:activeTaskDk }
+    },{merge:true}).catch(()=>{});
+  };
+
+  const openLockFlow = () => {
+    if(!userPin){ setPinStep(1); setPinInput(""); setPinConfirm(""); setPinError(""); setShowPinSetModal(true); }
+    else setShowLockModal(true);
+  };
+
+  const handlePinKey = (key) => {
+    if(showPinSetModal){
+      if(pinStep===1){
+        const next = (pinInput+key).slice(0,4);
+        setPinInput(next);
+        if(next.length===4){ setPinStep(2); setPinConfirm(""); }
+      } else {
+        const next = (pinConfirm+key).slice(0,4);
+        setPinConfirm(next);
+        if(next.length===4){
+          if(next===pinInput){
+            setUserPin(pinInput);
+            if(user) setDoc(doc(db,"users",user.uid),{userPin:pinInput},{merge:true}).catch(()=>{});
+            setShowPinSetModal(false);
+            setPinInput(""); setPinConfirm(""); setPinStep(1);
+            setShowLockModal(true);
+          } else {
+            setPinError("PINs don't match — try again");
+            setPinConfirm(""); setPinInput(""); setPinStep(1);
+            setTimeout(()=>setPinError(""),2000);
+          }
+        }
+      }
+    } else if(showPinUnlock){
+      const next = (pinInput+key).slice(0,4);
+      setPinInput(next);
+      if(next.length===4){
+        if(next===userPin){
+          setIsLocked(false); setLockEndTime(null); setLockedTaskId(null);
+          setShowPinUnlock(false); setPinInput("");
+          if(user) setDoc(doc(db,"users",user.uid),{activeLock:null},{merge:true}).catch(()=>{});
+        } else {
+          setPinError("Wrong PIN");
+          setPinInput("");
+          setTimeout(()=>setPinError(""),1500);
+        }
+      }
+    }
+  };
+
+  const handlePinDel = () => {
+    if(showPinSetModal){
+      if(pinStep===2) setPinConfirm(p=>p.slice(0,-1));
+      else setPinInput(p=>p.slice(0,-1));
+    } else if(showPinUnlock){
+      setPinInput(p=>p.slice(0,-1));
+    }
+  };
+
+  const dismissLockDone = () => {
+    setIsLocked(false); setLockDone(false); setLockEndTime(null);
+    setLockedTaskId(null); setLockedTaskDk(null);
+  };
+
+  const lockMoreTime = () => {
+    setLockDone(false);
+    setShowLockModal(true);
+  };
   const isDone      = (task,dk) => task.recurring?(task.doneOn??[]).includes(dateForDK(dk)):task.done;
   const tasksForDay = dk => tasks.filter(t=>{
     if(t.scheduledDate) return t.scheduledDate===dateForDK(dk);
@@ -964,6 +1138,27 @@ export default function App() {
     );
   };
 
+  // ── PIN Numpad ────────────────────────────────────────────────────────────────
+  const PinNumpad = ({currentPin, label}) => (
+    <div>
+      <div style={{fontSize:".8rem",color:"var(--mu)",fontWeight:600,textAlign:"center",marginBottom:16}}>{label}</div>
+      <div className="pin-dots">
+        {[0,1,2,3].map(i=>(
+          <div key={i} className={`pin-dot${(currentPin||"").length>i?" filled":""}`}/>
+        ))}
+      </div>
+      <div className="pin-numpad">
+        {[1,2,3,4,5,6,7,8,9].map(n=>(
+          <div key={n} className="pin-key" onClick={()=>handlePinKey(String(n))}>{n}</div>
+        ))}
+        <div className="pin-key" style={{visibility:"hidden"}}/>
+        <div className="pin-key" onClick={()=>handlePinKey("0")}>0</div>
+        <div className="pin-key del" onClick={handlePinDel}>⌫</div>
+      </div>
+      {pinError&&<div className="pin-error">{pinError}</div>}
+    </div>
+  );
+
   // ── Task Detail View (Focus Mode) ─────────────────────────────────────────────
   const TaskDetailView = () => {
     if(!activeTask) return null;
@@ -1011,10 +1206,24 @@ export default function App() {
 
         {/* Complete actions */}
         {!done&&!showRemind&&(
-          <div className="detail-actions">
-            <button className="action-btn complete" onClick={()=>completeTask(null)}>✓ Mark Complete</button>
-            <button className="action-btn remind" onClick={()=>setShowRemind(true)}>⏰ Complete & Remind</button>
-          </div>
+          <>
+            <div className="detail-actions">
+              <button className="action-btn complete" onClick={()=>completeTask(null)}>✓ Mark Complete</button>
+              <button className="action-btn remind" onClick={()=>setShowRemind(true)}>⏰ Complete & Remind</button>
+            </div>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <button onClick={openLockFlow} style={{
+                background:"none",border:"1px solid #c8ff5730",color:"#c8ff5790",
+                borderRadius:12,padding:"10px 24px",cursor:"pointer",
+                fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".82rem",
+                transition:"all .2s",letterSpacing:".02em"
+              }}
+              onMouseEnter={e=>{e.target.style.borderColor="#c8ff57";e.target.style.color="#c8ff57";e.target.style.background="#c8ff5710";}}
+              onMouseLeave={e=>{e.target.style.borderColor="#c8ff5730";e.target.style.color="#c8ff5790";e.target.style.background="none";}}>
+                🔒 Lock In
+              </button>
+            </div>
+          </>
         )}
 
         {/* Remind options */}
@@ -1176,6 +1385,108 @@ export default function App() {
       </div>
 
       {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
+
+      {/* ── LOCK SCREEN ── */}
+      {isLocked&&(()=>{
+        const lockedTask = tasks.find(t=>t.id===lockedTaskId);
+        const secsLeft = lockEndTime ? Math.max(0,(lockEndTime-Date.now())/1000) : 0;
+        const totalSecs = lockDuration*60;
+        const pctLeft = totalSecs ? (secsLeft/totalSecs)*100 : 0;
+        const isUrgent = secsLeft < 60;
+        const workedSecs = lockedTask ? getLiveSecs(lockedTask) : 0;
+
+        if(lockDone) return(
+          <div className="lock-screen">
+            <div style={{fontSize:"3rem",marginBottom:16}}>🎉</div>
+            <div className="lock-done-card">
+              <div className="lock-done-title">Time's up!</div>
+              <div className="lock-done-sub">You stayed locked in on<br/><strong style={{color:"var(--tx)"}}>{lockedTask?.text}</strong></div>
+              <div className="lock-done-btns">
+                <button className="lock-more-btn" onClick={lockMoreTime}>🔒 Lock in for more time</button>
+                <button className="lock-back-btn" onClick={dismissLockDone}>← Go back</button>
+              </div>
+            </div>
+          </div>
+        );
+
+        return(
+          <div className="lock-screen">
+            <div className="lock-icon">🔒</div>
+            <div className="lock-eyebrow">Locked in · stay focused</div>
+            <div className="lock-task-name">{lockedTask?.text ?? "Working..."}</div>
+            <div className={`lock-countdown${isUrgent?" urgent":""}`}>{fmtTimer(secsLeft)}</div>
+            <div className="lock-countdown-lbl">remaining</div>
+            <div className="lock-prog-wrap">
+              <div className="lock-prog-bg">
+                <div className={`lock-prog-fill${isUrgent?" urgent":""}`} style={{width:`${pctLeft}%`}}/>
+              </div>
+            </div>
+            <div className="lock-working">
+              Working for <strong>{fmtTimer(workedSecs)}</strong>
+            </div>
+            <button className="lock-unlock-btn" onClick={()=>{ setPinInput(""); setPinError(""); setShowPinUnlock(true); }}>
+              🔓 Unlock early
+            </button>
+
+            {/* PIN unlock overlay */}
+            {showPinUnlock&&(
+              <div style={{position:"fixed",inset:0,background:"#000d",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+                <div className="modal" style={{maxWidth:300}}>
+                  <div className="modal-title" style={{textAlign:"center"}}>Enter PIN to unlock</div>
+                  <PinNumpad currentPin={pinInput} label=""/>
+                  <button className="btn-c" style={{width:"100%",marginTop:8,textAlign:"center"}} onClick={()=>{setShowPinUnlock(false);setPinInput("");}}>Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Lock duration modal ── */}
+      {showLockModal&&!isLocked&&(
+        <div className="overlay" onClick={()=>setShowLockModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">🔒 Lock In</div>
+            <div style={{fontSize:".82rem",color:"var(--mu)",marginBottom:18,fontWeight:500,lineHeight:1.6}}>
+              Lock yourself in on <strong style={{color:"var(--tx)"}}>{activeTask?.text}</strong>.<br/>
+              You'll need your PIN to exit early.
+            </div>
+            <div className="modal-lbl">How long?</div>
+            <div className="lock-dur-grid">
+              {LOCK_DURATIONS.map(d=>(
+                <div key={d} className={`lock-dur-opt${lockDuration===d?" sel":""}`} onClick={()=>setLockDuration(d)}>
+                  {d}<span style={{fontSize:".65rem",display:"block",fontWeight:500,marginTop:2}}>min</span>
+                </div>
+              ))}
+            </div>
+            <div className="modal-btns">
+              <button className="btn-c" onClick={()=>setShowLockModal(false)}>Cancel</button>
+              <button className="btn-ok" onClick={activateLock}>Lock In 🔒</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PIN setup modal ── */}
+      {showPinSetModal&&(
+        <div className="overlay">
+          <div className="modal" style={{maxWidth:320}}>
+            <div className="modal-title" style={{textAlign:"center"}}>
+              {pinStep===1?"Set your PIN":"Confirm your PIN"}
+            </div>
+            <div style={{fontSize:".8rem",color:"var(--mu)",textAlign:"center",marginBottom:20,fontWeight:500}}>
+              {pinStep===1
+                ?"Choose a 4-digit PIN. You'll need this to unlock early."
+                :"Enter the same PIN again to confirm."}
+            </div>
+            <PinNumpad
+              currentPin={pinStep===1?pinInput:pinConfirm}
+              label={pinStep===1?"Enter PIN":"Confirm PIN"}
+            />
+            <button className="btn-c" style={{width:"100%",marginTop:12,textAlign:"center"}} onClick={()=>{setShowPinSetModal(false);setPinInput("");setPinStep(1);}}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* Rename Folder Modal */}
       {showRenameModal&&(
