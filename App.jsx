@@ -124,9 +124,10 @@ const INIT_DATA={folders:INIT_FOLDERS,tasks:INIT_TASKS,completedDates:[],bestStr
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const css=`
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Montserrat:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{background:#080808;font-family:'Montserrat',sans-serif;color:#e0e0e0;-webkit-font-smoothing:antialiased;min-height:100vh;font-size:15px}
+body{background:#080808;font-family:'Montserrat',sans-serif !important;color:#e0e0e0;-webkit-font-smoothing:antialiased;min-height:100vh;font-size:15px}
+input,button,select,textarea{font-family:'Montserrat',sans-serif !important}
 :root{--bg:#080808;--s:#0f0f0f;--b:#1e1e1e;--b2:#2c2c2c;--mu:#565656;--tx:#e0e0e0;--tx2:#888;--ac:#c8ff57;--r:14px}
 
 /* ── Login ── */
@@ -746,12 +747,24 @@ export default function App() {
             <div className="stat-row"><span className="stat-row-lbl">Week progress</span><span className="stat-row-val" style={{color:"#a78bfa"}}>{weekTotal?Math.round(weekDone/weekTotal*100):0}%</span></div>
           </div>
           <div className="stat-card">
-            <div className="stat-card-title">⏱ Time Tracked</div>
-            <div className="stat-big" style={{color:"#fb923c"}}>{fmtHrs(hMonth)}</div>
-            <div className="stat-desc">worked this month · {monthName}</div>
+            <div className="stat-card-title">⏱ Time Tracked Today</div>
+            <div className="stat-big" style={{color:"#fb923c",fontVariantNumeric:"tabular-nums",letterSpacing:"-.5px",fontSize:"2.4rem"}}>{fmtTimer(secsTracked(dk))}</div>
+            <div style={{marginTop:10,marginBottom:6}}>
+              <div style={{width:"100%",height:6,background:"var(--b2)",borderRadius:99,overflow:"hidden"}}>
+                <div style={{
+                  height:"100%",borderRadius:99,
+                  background:"linear-gradient(90deg,#fb923c,#fbbf24)",
+                  width:`${Math.min(100,(secsTracked(dk)/3600/hoursFor(dk))*100)}%`,
+                  transition:"width .8s ease",
+                  minWidth:secsTracked(dk)>0?"6px":"0"
+                }}/>
+              </div>
+            </div>
+            <div className="stat-desc">of {hoursFor(dk)} hr daily goal</div>
             <div className="stat-divider"/>
             <div className="stat-row"><span className="stat-row-lbl">This week</span><span className="stat-row-val" style={{color:"#fb923c"}}>{fmtHrs(hWeek)}</span></div>
-            <div className="stat-row"><span className="stat-row-lbl">Today's budget</span><span className="stat-row-val" style={{color:"var(--tx2)"}}>{fmtHrsBudget(hoursFor(dk))}</span></div>
+            <div className="stat-row"><span className="stat-row-lbl">This month</span><span className="stat-row-val" style={{color:"#fb923c"}}>{fmtHrs(hMonth)}</span></div>
+            <div className="stat-row"><span className="stat-row-lbl">Daily goal</span><span className="stat-row-val" style={{color:"var(--tx2)"}}>{hoursFor(dk)} hrs</span></div>
           </div>
           {streak>0&&(
             <div className="stat-card">
