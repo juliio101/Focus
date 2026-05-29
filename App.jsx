@@ -272,7 +272,7 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 @keyframes fadeSlideUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .time-progress-bar-bg{width:100%;height:10px;background:var(--b2);border-radius:99px;overflow:hidden;margin-bottom:10px;position:relative}
 .time-progress-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#c8ff57,#a8e040);transition:width .9s cubic-bezier(.34,1.56,.64,1);position:relative}
-.time-progress-bar-fill::after{content:'';position:absolute;right:-1px;top:50%;transform:translateY(-50%);width:14px;height:14px;background:#c8ff57;border-radius:50%;box-shadow:0 0 12px #c8ff57;opacity:1}
+.time-progress-bar-fill::after{content:'';position:absolute;right:-1px;top:50%;transform:translateY(-50%);width:14px;height:14px;background:#c8ff57;border-radius:50%;box-shadow:0 0 12px #c8ff57;opacity:1;pointer-events:none}
 .time-progress-bar-fill.zero::after{display:none}
 .time-progress-milestones{display:flex;justify-content:space-between}
 .time-milestone{font-size:.62rem;color:var(--mu);font-weight:600;font-family:'DM Mono',monospace;transition:color .3s}
@@ -328,9 +328,9 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 
 /* ── Timer card ── */
 .timer-card{background:var(--s);border:1px solid var(--b);border-radius:24px;padding:40px 28px 32px;margin-bottom:20px;position:relative;overflow:hidden;transition:all .4s}
-.timer-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,#c8ff5706 0%,transparent 60%);transition:opacity .4s}
+.timer-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,#c8ff5706 0%,transparent 60%);transition:opacity .4s;pointer-events:none}
 .timer-card.running{border-color:#c8ff5730;background:linear-gradient(160deg,#c8ff570a,var(--s) 60%)}
-.timer-card.running::before{opacity:2}
+.timer-card.running::before{opacity:2;pointer-events:none}
 .timer-digits{font-family:'DM Mono',monospace;font-weight:700;font-size:clamp(4.5rem,14vw,7rem);color:var(--tx);line-height:1;margin-bottom:8px;letter-spacing:-3px;transition:color .4s}
 .timer-card.running .timer-digits{color:var(--ac);text-shadow:0 0 60px #c8ff5740}
 .timer-status{font-size:.75rem;color:var(--mu);text-transform:uppercase;letter-spacing:.14em;font-weight:700;margin-bottom:28px;transition:color .4s}
