@@ -1184,19 +1184,26 @@ export default function App() {
           <div className="timer-digits">{fmtTimer(secs)}</div>
           <div className="timer-status">{isRunning?"Working on this task…":"Timer paused"}</div>
           {!done&&(
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
               {isRunning
                 ?<button className="timer-btn pause" onClick={()=>pauseTimer(task.id)}>⏸ Pause</button>
                 :<button className="timer-btn start" onClick={()=>startTimer(task.id)}>▶ Start Working</button>
               }
               <button onClick={openLockFlow} style={{
-                background:"none",border:"1px solid #c8ff5740",color:"#c8ff5799",
-                borderRadius:10,padding:"8px 20px",cursor:"pointer",
-                fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".78rem",
-                transition:"all .2s",letterSpacing:".04em"
+                background:"#c8ff5718",
+                border:"1px solid #c8ff57",
+                color:"#c8ff57",
+                borderRadius:10,
+                padding:"10px 28px",
+                cursor:"pointer",
+                fontFamily:"'Syne',sans-serif",
+                fontWeight:700,
+                fontSize:".85rem",
+                letterSpacing:".04em",
+                transition:"all .2s",
               }}
-              onMouseEnter={e=>{e.target.style.borderColor="#c8ff57";e.target.style.color="#c8ff57";e.target.style.background="#c8ff5710";}}
-              onMouseLeave={e=>{e.target.style.borderColor="#c8ff5740";e.target.style.color="#c8ff5799";e.target.style.background="none";}}>
+              onMouseEnter={e=>{e.currentTarget.style.background="#c8ff5730";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="#c8ff5718";}}>
                 🔒 Lock In
               </button>
             </div>
