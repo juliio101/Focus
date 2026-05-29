@@ -922,48 +922,96 @@ export default function App() {
           </div>
           {folders.length===0
             ?<div className="empty">No folders yet — create one above ↑</div>
-            :<div className="folders-list">
-              {[...folders]
-                .map(f=>{
-                  const ft = folderTasks(f.id);
-                  const todayDk = todayKey();
-                  const todayFolderTasks = tasksForDay(todayDk).filter(t=>t.folderId===f.id);
-                  const doneToday = todayFolderTasks.filter(t=>isDone(t,todayDk)).length;
-                  const totalTasks = ft.length;
-                  const totalSecs = ft.reduce((s,t)=>s+(t.timerSeconds??0),0);
-                  const pct = totalTasks?Math.round(ft.filter(t=>isDone(t,todayDk)).length/totalTasks*100):0;
-                  return { f, todayCount:todayFolderTasks.length, doneToday, totalTasks, totalSecs, pct };
-                })
-                .sort((a,b)=>b.todayCount-a.todayCount) // rank by tasks due today
-                .map(({f,todayCount,doneToday,totalTasks,totalSecs,pct})=>(
-                  <div key={f.id} className="folder-row" style={{"--fc":f.color}} onClick={()=>goFolder(f.id)}>
-                    <div className="folder-row-icon">{f.icon}</div>
+            :(()=>{
+              const todayDk = todayKey();
+              // Get start of current week (Monday)
+              const weekStart = new Date(); weekStart.setHours(0,0,0,0);
+              weekStart.setDate(weekStart.getDate() - todayIdx());
+              const weekStartStr = dStr(weekStart);
+
+              const enriched = [...folders].map(f=>{
+                // Tasks due today in this folder
+                const todayFolderTasks = tasksForDay(todayDk).filter(t=>t.folderId===f.id);
+                const doneToday = todayFolderTasks.filter(t=>isDone(t,todayDk)).length;
+                const todayCount = todayFolderTasks.length;
+
+                // % = tasks completed this week / tasks due this week (not total ever)
+                let weekDue=0, weekDone=0;
+                DAY_KEYS.forEach(dk=>{
+                  const dayF = tasksForDay(dk).filter(t=>t.folderId===f.id);
+                  weekDue += dayF.length;
+                  weekDone += dayF.filter(t=>isDone(t,dk)).length;
+                });
+                const weekPctF = weekDue>0 ? Math.round(weekDone/weekDue*100) : 0;
+
+                const totalSecs = folderTasks(f.id).reduce((s,t)=>s+(t.timerSeconds??0),0);
+                const hasTasksToday = todayCount > 0;
+
+                return { f, todayCount, doneToday, weekDue, weekDone, weekPctF, totalSecs, hasTasksToday };
+              });
+
+              // Split: active (has tasks today) vs inactive (no tasks today)
+              const active   = enriched.filter(e=>e.hasTasksToday).sort((a,b)=>b.todayCount-a.todayCount);
+              const inactive = enriched.filter(e=>!e.hasTasksToday);
+
+              const FolderRow = ({e, dimmed}) => {
+                const {f,todayCount,doneToday,weekDue,weekDone,weekPctF,totalSecs} = e;
+                return(
+                  <div key={f.id}
+                    className="folder-row"
+                    style={{"--fc": dimmed?"#444":f.color, opacity: dimmed?0.45:1}}
+                    onClick={()=>goFolder(f.id)}
+                  >
+                    <div className="folder-row-icon" style={{filter:dimmed?"grayscale(1)":"none"}}>{f.icon}</div>
                     <div className="folder-row-main">
-                      <div className="folder-row-name">{f.name}</div>
+                      <div className="folder-row-name" style={{color:dimmed?"var(--mu)":"var(--tx)"}}>{f.name}</div>
                       <div className="folder-row-bar-bg">
-                        <div className="folder-row-bar-f" style={{width:`${pct}%`,background:f.color}}/>
+                        <div className="folder-row-bar-f" style={{width:`${weekPctF}%`,background:dimmed?"#444":f.color}}/>
                       </div>
                     </div>
                     <div className="folder-row-stats">
                       <div className="f-stat">
-                        <span className="f-stat-val" style={{color:todayCount>0?f.color:"var(--tx2)"}}>{doneToday}/{todayCount}</span>
+                        <span className="f-stat-val" style={{color:dimmed?"var(--mu)":todayCount>0?f.color:"var(--tx2)"}}>
+                          {dimmed?"—":`${doneToday}/${todayCount}`}
+                        </span>
                         <span className="f-stat-lbl">Today</span>
                       </div>
                       <div className="f-stat">
-                        <span className="f-stat-val" style={{color:"var(--tx2)"}}>{totalTasks}</span>
-                        <span className="f-stat-lbl">Total</span>
+                        <span className="f-stat-val" style={{color:dimmed?"var(--mu)":"var(--tx2)"}}>{weekDone}/{weekDue}</span>
+                        <span className="f-stat-lbl">This week</span>
                       </div>
                       <div className="f-stat">
-                        <span className="f-stat-val" style={{color:"#fb923c"}}>{totalSecs>0?fmtTimer(totalSecs):"—"}</span>
+                        <span className="f-stat-val" style={{color:dimmed?"var(--mu)":"#fb923c"}}>{totalSecs>0?fmtTimer(totalSecs):"—"}</span>
                         <span className="f-stat-lbl">Time</span>
                       </div>
                     </div>
-                    <button onClick={e=>openRename(e,f)} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".85rem",padding:"4px 6px",borderRadius:6,transition:"color .15s",flexShrink:0}} title="Rename folder">✏️</button>
+                    <button onClick={ev=>openRename(ev,f)} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".85rem",padding:"4px 6px",borderRadius:6,flexShrink:0}} title="Rename">✏️</button>
                     <span className="folder-row-arrow">›</span>
                   </div>
-                ))
-              }
-            </div>
+                );
+              };
+
+              return(
+                <div className="folders-list">
+                  {/* Active folders — have tasks due today */}
+                  {active.map(e=><FolderRow key={e.f.id} e={e} dimmed={false}/>)}
+
+                  {/* Inactive folders — nothing due today */}
+                  {inactive.length>0&&(
+                    <>
+                      {active.length>0&&(
+                        <div style={{display:"flex",alignItems:"center",gap:10,margin:"8px 0 4px"}}>
+                          <div style={{flex:1,height:1,background:"var(--b)"}}/>
+                          <span style={{fontSize:".62rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",whiteSpace:"nowrap"}}>No tasks today</span>
+                          <div style={{flex:1,height:1,background:"var(--b)"}}/>
+                        </div>
+                      )}
+                      {inactive.map(e=><FolderRow key={e.f.id} e={e} dimmed={true}/>)}
+                    </>
+                  )}
+                </div>
+              );
+            })()
           }
         </div>
 
