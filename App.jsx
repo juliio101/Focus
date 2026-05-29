@@ -36,7 +36,6 @@ const calcStreak = (dates=[]) => {
   return s;
 };
 
-// Format seconds → "00:00" or "1:23:45"
 const fmtTimer = secs => {
   const s=Math.floor(Math.max(0,secs));
   const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
@@ -44,7 +43,6 @@ const fmtTimer = secs => {
   return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
 };
 
-// Format hours nicely — avoids the "oh" problem
 const fmtHrs = h => {
   if(h<=0) return "—";
   if(h<1/60) return "—";
@@ -53,7 +51,6 @@ const fmtHrs = h => {
 };
 const fmtHrsBudget = h => h===Math.floor(h)?`${h} hrs`:`${h.toFixed(1)} hrs`;
 
-// Get live seconds for a task (including running time)
 const getLiveSecs = task => {
   const base = task.timerSeconds ?? 0;
   if(!task.timerRunning || !task.timerStartedAt) return base;
@@ -140,12 +137,10 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
   --r:14px; --r2:20px;
 }
 
-/* ── Scrollbar ── */
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--b2);border-radius:99px}
 
-/* ── Login ── */
 .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
   background:radial-gradient(ellipse at 50% 0%, #c8ff5708 0%, var(--bg) 60%)}
 .login-card{background:var(--s);border:1px solid var(--b2);border-radius:24px;padding:52px 44px;max-width:420px;width:100%;text-align:center;
@@ -158,7 +153,6 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .google-btn svg{width:20px;height:20px;flex-shrink:0}
 .login-note{font-size:.78rem;color:var(--mu2);margin-top:22px;line-height:1.7}
 
-/* ── Shell ── */
 .app{min-height:100vh;background:var(--bg)}
 .nav{display:flex;align-items:center;justify-content:space-between;padding:20px 28px 0;max-width:1160px;margin:0 auto}
 .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;color:var(--tx);letter-spacing:-.5px}
@@ -170,13 +164,11 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .signout-btn:hover{color:var(--tx2);background:var(--s)}
 .avatar{width:32px;height:32px;border-radius:50%;border:2px solid var(--b2);object-fit:cover}
 
-/* ── Home layout ── */
 .home-layout{display:grid;grid-template-columns:1fr;gap:24px;max-width:1160px;margin:0 auto;padding:28px 24px 100px}
 @media(min-width:900px){.home-layout{grid-template-columns:1fr 280px;align-items:start}}
 .stats-col{display:flex;flex-direction:column;gap:12px}
 @media(min-width:900px){.stats-col{position:sticky;top:24px}}
 
-/* ── Stat cards ── */
 .stat-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:22px}
 .stat-card-title{font-size:.65rem;color:var(--mu);text-transform:uppercase;letter-spacing:.14em;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:7px}
 .stat-big{font-family:'Syne',sans-serif;font-weight:800;font-size:2.4rem;line-height:1;margin-bottom:5px;letter-spacing:-1px}
@@ -186,7 +178,6 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .stat-row-lbl{font-size:.82rem;color:var(--tx2);font-weight:500}
 .stat-row-val{font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem}
 
-/* ── Rings card (hero redesign) ── */
 .rings-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r2);padding:28px 24px 52px;margin-bottom:24px;display:flex;align-items:center;gap:0;position:relative;overflow:hidden}
 .rings-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% -20%,#c8ff5709 0%,transparent 60%);pointer-events:none}
 .ring-stat{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px}
@@ -197,26 +188,21 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .ring-div-v{width:1px;height:60px;background:var(--b);flex-shrink:0}
 .overload{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:var(--red);color:#fff;font-size:.65rem;padding:4px 12px;border-radius:99px;white-space:nowrap;font-weight:700}
 
-/* Hours progress bar inside rings card */
 .rings-hours-bar{position:absolute;bottom:0;left:0;right:0;padding:0 24px 16px}
 .rings-hours-labels{display:flex;justify-content:space-between;margin-bottom:5px}
 .rings-hours-lbl{font-size:.6rem;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
 .rings-hours-bg{width:100%;height:4px;background:var(--b2);border-radius:99px;overflow:hidden}
 .rings-hours-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#fb923c,#fbbf24);transition:width .8s cubic-bezier(.34,1.56,.64,1)}
 
-/* ── Page ── */
 .page{max-width:760px;margin:0 auto;padding:28px 24px 100px}
 
-/* ── Streak ── */
 .streak{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#c8ff5710,#c8ff5705);border:1px solid #c8ff5725;border-radius:16px;padding:16px 20px;margin-bottom:24px}
 .streak-num{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;color:var(--ac);line-height:1}
 .streak-lbl{font-size:.76rem;color:var(--mu);margin-top:3px;font-weight:500}
 
-/* ── Page titles ── */
 .page-title{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,5vw,2.8rem);font-weight:800;letter-spacing:-1px;color:var(--tx);margin-bottom:6px;line-height:1.1}
 .page-sub{font-size:.82rem;color:var(--mu);margin-bottom:24px;font-weight:500}
 
-/* ── Day grid ── */
 .day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:32px}
 .day-card{background:var(--s);border:1px solid var(--b);border-radius:12px;padding:12px 4px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all .2s}
 .day-card:hover{border-color:var(--b2);transform:translateY(-3px);box-shadow:0 8px 20px #0003}
@@ -227,13 +213,11 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .day-bar-f{height:100%;border-radius:99px;transition:width .5s ease}
 .day-cnt{font-size:.62rem;color:var(--tx2);font-weight:600;font-family:'DM Mono',monospace}
 
-/* ── Section header ── */
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .sec-title{font-family:'Syne',sans-serif;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--mu)}
 .ghost-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:10px;padding:7px 16px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;transition:all .15s}
 .ghost-btn:hover{color:var(--tx);border-color:var(--b3);background:var(--s)}
 
-/* ── Folder rows ── */
 .folders-list{display:flex;flex-direction:column;gap:8px}
 .folder-row{background:var(--s);border:1px solid var(--b);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
 .folder-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--fc);border-radius:3px 0 0 3px}
@@ -250,12 +234,10 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .folder-row-arrow{color:var(--mu);font-size:.9rem;flex-shrink:0;transition:all .2s;opacity:.5}
 .folder-row:hover .folder-row-arrow{opacity:1;color:var(--tx2);transform:translateX(2px)}
 
-/* ── View header ── */
 .view-hdr{margin-bottom:22px}
 .view-title{font-family:'Syne',sans-serif;font-size:clamp(1.5rem,4vw,2.2rem);font-weight:800;letter-spacing:-.8px;color:var(--tx);margin-bottom:4px;line-height:1.1}
 .view-sub{font-size:.82rem;color:var(--mu);font-weight:500}
 
-/* ── Hours chips ── */
 .hours-row{display:flex;gap:10px;margin-bottom:20px}
 .h-chip{flex:1;background:var(--s);border:1px solid var(--b);border-radius:14px;padding:14px 16px;cursor:default;transition:all .15s}
 .h-chip.clickable{cursor:pointer}
@@ -263,7 +245,6 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .h-val{font-family:'DM Mono',monospace;font-weight:700;font-size:1rem;color:var(--tx);letter-spacing:.02em}
 .h-lbl{font-size:.65rem;color:var(--mu);margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
 
-/* ── Time progress ── */
 .time-progress-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:20px 22px;margin-bottom:20px}
 .time-progress-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
 .time-progress-worked{font-family:'Syne',sans-serif;font-weight:800;font-size:1.6rem;color:var(--ac);line-height:1;letter-spacing:-1px}
@@ -278,7 +259,6 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .time-milestone{font-size:.62rem;color:var(--mu);font-weight:600;font-family:'DM Mono',monospace;transition:color .3s}
 .time-milestone.hit{color:var(--ac)}
 
-/* ── Big progress ── */
 .big-prog{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:22px;margin-bottom:20px}
 .big-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
 .big-frac{font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:var(--tx);letter-spacing:-1px}
@@ -288,13 +268,11 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .big-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.34,1.56,.64,1)}
 .all-done{text-align:center;font-size:.75rem;color:var(--ac);text-transform:uppercase;letter-spacing:.1em;margin-top:10px;font-weight:700}
 
-/* ── Task groups ── */
 .task-grp{margin-bottom:22px}
 .grp-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .grp-lbl{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em}
 .rec-badge{font-size:.62rem;background:#ffffff08;border:1px solid #ffffff10;border-radius:5px;padding:2px 7px;color:var(--tx2);font-weight:600}
 
-/* ── Task Row ── */
 .task-row{background:var(--s);border:1px solid var(--b);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:all .2s;animation:slideIn .25s cubic-bezier(.34,1.56,.64,1);margin-bottom:8px;user-select:none}
 @keyframes slideIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .task-row:hover{border-color:var(--b2);transform:translateY(-2px);box-shadow:0 6px 20px #0004}
@@ -319,14 +297,12 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .task-row:hover .del-btn{opacity:1}
 .del-btn:hover{color:var(--red);background:#ef444415}
 
-/* ── Task Detail (Focus Mode) ── */
 .task-detail{max-width:600px;margin:0 auto;padding:28px 24px 100px;text-align:center}
 .task-detail-folder{font-size:.7rem;color:var(--mu);text-transform:uppercase;letter-spacing:.14em;font-weight:700;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:7px}
 .task-detail-name{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(1.5rem,5vw,2.2rem);color:var(--tx);letter-spacing:-.5px;line-height:1.2;margin-bottom:28px}
 .task-detail-name.done{text-decoration:line-through;color:var(--mu)}
 .task-done-badge{display:inline-flex;align-items:center;gap:7px;background:#34d39918;border:1px solid #34d39935;color:#34d399;border-radius:99px;padding:7px 18px;font-size:.8rem;font-weight:700;margin-bottom:24px;letter-spacing:.03em}
 
-/* ── Timer card ── */
 .timer-card{background:var(--s);border:1px solid var(--b);border-radius:24px;padding:40px 28px 32px;margin-bottom:20px;position:relative;overflow:hidden;transition:all .4s}
 .timer-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,#c8ff5706 0%,transparent 60%);transition:opacity .4s}
 .timer-card.running{border-color:#c8ff5730;background:linear-gradient(160deg,#c8ff570a,var(--s) 60%)}
@@ -336,20 +312,17 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .timer-status{font-size:.75rem;color:var(--mu);text-transform:uppercase;letter-spacing:.14em;font-weight:700;margin-bottom:28px;transition:color .4s}
 .timer-card.running .timer-status{color:#c8ff5780}
 
-/* ── Timer buttons ── */
 .timer-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:none;border-radius:99px;padding:16px 40px;font-family:'Syne',sans-serif;font-weight:800;font-size:.95rem;cursor:pointer;transition:all .2s;letter-spacing:.03em}
 .timer-btn.start{background:var(--ac);color:#000;box-shadow:0 4px 28px #c8ff5745}
 .timer-btn.start:hover{background:#d9ff70;transform:scale(1.06);box-shadow:0 8px 40px #c8ff5760}
 .timer-btn.pause{background:var(--s2);color:var(--tx);border:1px solid var(--b2)}
 .timer-btn.pause:hover{border-color:var(--b3);background:var(--float)}
 
-/* ── Timer stats ── */
 .timer-stats{display:flex;gap:10px;margin-top:24px}
 .t-stat{flex:1;text-align:center;background:var(--bg);border:1px solid var(--b);border-radius:12px;padding:12px 8px}
 .t-stat-val{font-family:'DM Mono',monospace;font-weight:700;font-size:.95rem;color:var(--tx);margin-bottom:4px;letter-spacing:.02em}
 .t-stat-lbl{font-size:.6rem;color:var(--mu);font-weight:700;text-transform:uppercase;letter-spacing:.1em}
 
-/* ── Complete/remind buttons ── */
 .detail-actions{display:flex;gap:10px;margin-bottom:14px}
 .action-btn{flex:1;border:none;border-radius:14px;padding:15px;font-family:'Syne',sans-serif;font-weight:700;font-size:.88rem;cursor:pointer;transition:all .18s;letter-spacing:.02em}
 .action-btn.complete{background:#c8ff5718;color:var(--ac);border:1px solid #c8ff5730}
@@ -357,14 +330,12 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .action-btn.remind{background:var(--s);color:var(--tx2);border:1px solid var(--b2)}
 .action-btn.remind:hover{border-color:var(--b3);color:var(--tx);transform:translateY(-1px)}
 
-/* ── Remind section ── */
 .remind-section{background:var(--s);border:1px solid var(--b);border-radius:16px;padding:18px}
 .remind-title{font-size:.68rem;color:var(--mu);font-weight:700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:14px}
 .remind-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .remind-opt{background:var(--bg);border:1px solid var(--b2);border-radius:10px;padding:11px 6px;cursor:pointer;font-family:'DM Mono',monospace;font-weight:700;font-size:.78rem;color:var(--tx2);transition:all .15s;text-align:center}
 .remind-opt:hover{border-color:var(--ac);color:var(--ac);background:#c8ff570a;transform:translateY(-1px)}
 
-/* ── Add row ── */
 .add-area{margin-top:12px}
 .add-row{display:flex;gap:8px}
 .add-in{flex:1;background:var(--s);border:1px solid var(--b2);border-radius:12px;padding:13px 16px;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;transition:all .2s;font-weight:500}
@@ -381,10 +352,8 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .dc:hover{border-color:var(--b3);color:var(--tx)}
 .dc.sel{background:var(--ac);border-color:var(--ac);color:#000}
 
-/* ── Empty state ── */
 .empty{text-align:center;padding:36px 0;color:var(--mu);font-size:.85rem;font-weight:500}
 
-/* ── Modals ── */
 .overlay{position:fixed;inset:0;background:#000d;z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .15s ease;backdrop-filter:blur(4px)}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .modal{background:var(--s2);border:1px solid var(--b2);border-radius:22px;padding:28px;width:100%;max-width:420px;animation:slideUp .2s cubic-bezier(.34,1.56,.64,1);box-shadow:0 40px 80px #000c}
@@ -408,7 +377,6 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .del-folder-btn{background:none;border:1px solid #ef444425;color:var(--red);border-radius:10px;padding:8px 18px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;transition:all .15s;margin-top:20px}
 .del-folder-btn:hover{background:#ef44440f;border-color:var(--red)}
 
-/* ── Tab bar ── */
 .tab-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(5,5,5,.92);border-top:1px solid var(--b);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(20px)}
 .tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 0 10px;cursor:pointer;background:none;border:none;gap:4px;transition:all .15s}
 .tab-btn .tab-icon{font-size:1.1rem;line-height:1;transition:transform .2s}
@@ -418,7 +386,6 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .tab-btn .tab-dot{width:4px;height:4px;border-radius:50%;background:var(--ac);margin-top:2px;opacity:0;transition:all .2s;transform:scale(0)}
 .tab-btn.active .tab-dot{opacity:1;transform:scale(1)}
 
-/* ── All tasks ── */
 .all-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;gap:14px}
 .sort-tabs{display:flex;gap:6px;flex-shrink:0}
 .sort-tab{background:var(--s);border:1px solid var(--b2);color:var(--tx2);border-radius:10px;padding:7px 14px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;transition:all .15s}
@@ -434,7 +401,6 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .day-badge.is-past{background:#ef444415;color:#ef4444}
 .day-badge.is-future{background:var(--s);color:var(--mu);border:1px solid var(--b)}
 
-/* ── Lock screen ── */
 .lock-screen{position:fixed;inset:0;background:#050505;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 24px;
   background:radial-gradient(ellipse at 50% 30%,#c8ff5708 0%,#050505 60%)}
 .lock-icon{font-size:3rem;margin-bottom:16px;animation:lockFloat 3s ease-in-out infinite}
@@ -462,7 +428,6 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .lock-back-btn{background:var(--s2);border:1px solid var(--b2);color:var(--tx2);border-radius:14px;padding:15px;font-family:'Syne',sans-serif;font-weight:700;font-size:.92rem;cursor:pointer;transition:all .15s}
 .lock-back-btn:hover{color:var(--tx);border-color:var(--b3)}
 
-/* ── PIN numpad ── */
 .pin-dots{display:flex;gap:14px;justify-content:center;margin-bottom:30px}
 .pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--b2);transition:all .25s}
 .pin-dot.filled{background:var(--ac);border-color:var(--ac);transform:scale(1.1)}
@@ -474,13 +439,11 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .pin-error{color:var(--red);font-size:.82rem;font-weight:700;text-align:center;margin-top:10px;animation:shake .3s ease}
 @keyframes shake{0%,100%{transform:translateX(0)}25%,75%{transform:translateX(-10px)}50%{transform:translateX(10px)}}
 
-/* ── Lock duration ── */
 .lock-dur-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px}
 .lock-dur-opt{background:var(--s);border:1px solid var(--b2);border-radius:12px;padding:16px 8px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--tx2);transition:all .15s;text-align:center}
 .lock-dur-opt:hover{border-color:var(--b3);color:var(--tx);background:var(--s2)}
 .lock-dur-opt.sel{background:var(--ac);border-color:var(--ac);color:#000}
 
-/* ── Day Momentum Bar ── */
 .momentum-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:18px 20px;margin-bottom:20px}
 .momentum-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .momentum-title{font-size:.68rem;color:var(--mu);text-transform:uppercase;letter-spacing:.14em;font-weight:700;display:flex;align-items:center;gap:7px}
@@ -493,7 +456,6 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .momentum-bar-pct{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--tx2);font-weight:700;width:32px;text-align:right;flex-shrink:0}
 .momentum-msg{font-size:.78rem;font-weight:500;color:var(--mu);padding-top:4px}
 
-/* ── Task detail actions ── */
 .task-action-row{display:flex;gap:8px;margin-top:10px;justify-content:center;flex-wrap:wrap}
 .task-action-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:99px;padding:7px 16px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;transition:all .15s;display:flex;align-items:center;gap:6px}
 .task-action-btn:hover{border-color:var(--b3);color:var(--tx);background:var(--s2)}
@@ -502,14 +464,13 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif !important}
 .task-action-btn.warn{border-color:#fbbf2430;color:#fbbf2490}
 .task-action-btn.warn:hover{border-color:#fbbf24;color:#fbbf24;background:#fbbf2408}
 
-/* ── Icon grid ── */
 .icon-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:20px;max-height:150px;overflow-y:auto}
 .icon-opt{background:var(--s);border:2px solid transparent;border-radius:10px;padding:8px;cursor:pointer;font-size:1.1rem;text-align:center;transition:all .15s;line-height:1}
 .icon-opt:hover{border-color:var(--b2);background:var(--s2)}
 .icon-opt.sel{border-color:var(--ac);background:#c8ff5715}
 `
 
-// ─── Initial data & App ───────────────────────────────────────────────────────
+// ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [user,          setUser]          = useState(null);
   const [authLoading,   setAuthLoading]   = useState(true);
@@ -523,8 +484,8 @@ export default function App() {
   const [view,          setView]          = useState("home");
   const [activeDay,     setActiveDay]     = useState(null);
   const [activeFolder,  setActiveFolder]  = useState(null);
-  const [activeTask,    setActiveTask]    = useState(null); // task object
-  const [activeTaskDk,  setActiveTaskDk]  = useState(null); // day key for that task
+  const [activeTask,    setActiveTask]    = useState(null);
+  const [activeTaskDk,  setActiveTaskDk]  = useState(null);
   const [prevView,      setPrevView]      = useState("home");
 
   const [showFolderModal, setShowFolderModal] = useState(false);
@@ -538,7 +499,6 @@ export default function App() {
   const [editTaskText,    setEditTaskText]    = useState("");
   const [confetti,        setConfetti]        = useState(false);
 
-  // Lock state
   const [isLocked,         setIsLocked]         = useState(false);
   const [lockEndTime,      setLockEndTime]      = useState(null);
   const [lockedTaskId,     setLockedTaskId]     = useState(null);
@@ -550,7 +510,7 @@ export default function App() {
   const [lockDuration,     setLockDuration]     = useState(10);
   const [pinInput,         setPinInput]         = useState("");
   const [pinConfirm,       setPinConfirm]       = useState("");
-  const [pinStep,          setPinStep]          = useState(1); // 1=set, 2=confirm
+  const [pinStep,          setPinStep]          = useState(1);
   const [pinError,         setPinError]         = useState("");
   const [lockDone,         setLockDone]         = useState(false);
 
@@ -563,7 +523,7 @@ export default function App() {
   const [taskStartDate,setTaskStartDate]=useState(dStr());
   const [taskDueDate,  setTaskDueDate]  =useState(null);
 
-  const [tick, setTick] = useState(0); // for live timer re-renders
+  const [tick, setTick] = useState(0);
 
   // ── Timer tick ──────────────────────────────────────────────────────────────
   useEffect(()=>{
@@ -589,7 +549,20 @@ export default function App() {
 
   // ── Load ────────────────────────────────────────────────────────────────────
   useEffect(()=>{
-    if(!user) return;
+    // ✅ FIX: Always reset loaded first so save effects can't fire with stale state
+    setLoaded(false);
+
+    if(!user){
+      // Clear all state when signed out
+      setFolders(INIT_FOLDERS);
+      setTasks(INIT_TASKS);
+      setComplDates([]);
+      setBest(0);
+      setDayHours({});
+      setUserPin(null);
+      return;
+    }
+
     (async()=>{
       try{
         const ref=doc(db,"users",user.uid);
@@ -602,7 +575,6 @@ export default function App() {
           setBest(d.bestStreak??0);
           setDayHours(d.dayHours??{});
           if(d.userPin) setUserPin(d.userPin);
-          // Restore active lock if still valid
           if(d.activeLock && d.activeLock.endTime > Date.now()){
             setIsLocked(true);
             setLockEndTime(d.activeLock.endTime);
@@ -629,7 +601,7 @@ export default function App() {
     if(s>bestStreak) setBest(s);
   },[user,loaded,complDates]);
 
-  // ── Lock tick — check if lock expired ────────────────────────────────────────
+  // ── Lock tick ────────────────────────────────────────────────────────────────
   useEffect(()=>{
     if(!isLocked || !lockEndTime || lockDone) return;
     if(Date.now()>=lockEndTime){
@@ -669,9 +641,7 @@ export default function App() {
     setLockedTaskDk(activeTaskDk);
     setLockDone(false);
     setShowLockModal(false);
-    // Auto-start timer if not running
     if(activeTask && !activeTask.timerRunning) startTimer(activeTask.id);
-    // Save to Firebase so lock persists on refresh
     if(user) setDoc(doc(db,"users",user.uid),{
       activeLock:{ endTime, taskId:activeTask?.id, taskDk:activeTaskDk }
     },{merge:true}).catch(()=>{});
@@ -741,7 +711,7 @@ export default function App() {
     setShowLockModal(true);
   };
 
-  // ── Timer controls (start/pause from task detail view) ─────────────────────
+  // ── Timer controls ──────────────────────────────────────────────────────────
   const startTimer = (taskId) => {
     const now = Date.now();
     playStart();
@@ -749,7 +719,6 @@ export default function App() {
       if(t.id===taskId){
         return {...t, timerRunning:true, timerStartedAt:now};
       } else if(t.timerRunning){
-        // pause any other running timer
         const elapsed = Math.floor((now-t.timerStartedAt)/1000);
         return {...t, timerRunning:false, timerStartedAt:null, timerSeconds:(t.timerSeconds??0)+elapsed};
       }
@@ -817,7 +786,6 @@ export default function App() {
           done:false, timerSeconds:0, timerRunning:false, timerStartedAt:null, isReminder:true,
         }];
       }
-      // Check day complete
       const dayT=next.filter(t=>(!t.recurring&&(t.day===dk||t.scheduledDate===dateForDK(dk)))||(t.recurring&&t.recurringDays?.includes(dk)));
       const allDone=dayT.length>0&&dayT.every(t=>!t.recurring?t.done:(t.doneOn??[]).includes(dateForDK(dk)));
       if(allDone){ setTimeout(()=>{playWin();setConfetti(true);},100); if(dk===todayKey()) setComplDates(cd=>cd.includes(dStr())?cd:[...cd,dStr()]); }
@@ -851,7 +819,6 @@ export default function App() {
   const goDay    = dk  => { setActiveDay(dk); setView("day"); setTaskStartDate(dateForDK(dk)); setTaskDueDate(null); };
   const goFolder = fid => { setActiveFolder(fid); setView("folder"); setTaskStartDate(dStr()); setTaskDueDate(null); };
   const goTask   = (task, dk, from) => {
-    // Pause any running timer that isn't this task
     const now = Date.now();
     const runningOther = tasks.find(t=>t.timerRunning && t.id!==task.id);
     if(runningOther){
@@ -882,44 +849,30 @@ export default function App() {
     const st=secsTracked(dk);
     return(
       <div className="rings-card">
-        {/* Left stat — week */}
         <div className="ring-stat">
           <div className="ring-stat-val" style={{color:"#a78bfa"}}>{wp}%</div>
           <div className="ring-stat-lbl">This Week</div>
           <div className="ring-stat-sub">{DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0)}/{DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0)} tasks</div>
         </div>
-
         <div className="ring-div-v"/>
-
-        {/* Center hero — today */}
         <div className="ring-hero">
           <Ring pct={dp} color="#c8ff57" size={110} stroke={10} label="Today" val={`${dp}%`}/>
         </div>
-
         <div className="ring-div-v"/>
-
-        {/* Right stat — hours */}
         <div className="ring-stat" onClick={()=>openHours(dk)} style={{cursor:"pointer"}}>
           <div className="ring-stat-val" style={{color:"#fb923c",fontFamily:"'DM Mono',monospace",fontSize:"1.6rem"}}>{fmtTimer(st)}</div>
           <div className="ring-stat-lbl">Tracked</div>
           <div className="ring-stat-sub">{hoursFor(dk)} hr goal</div>
         </div>
-
-        {/* Hours bar at bottom */}
         <div className="rings-hours-bar">
           <div className="rings-hours-labels">
             <span className="rings-hours-lbl">{fmtTimer(st)} worked</span>
             <span className="rings-hours-lbl">{hoursFor(dk)} hr goal</span>
           </div>
           <div className="rings-hours-bg">
-            <div className="rings-hours-fill" style={{
-              width:`${hp}%`,
-              minWidth:st>0?"6px":"0",
-              boxShadow:hp>0?"0 0 8px #fb923c50":"none"
-            }}/>
+            <div className="rings-hours-fill" style={{width:`${hp}%`,minWidth:st>0?"6px":"0",boxShadow:hp>0?"0 0 8px #fb923c50":"none"}}/>
           </div>
         </div>
-
         {hoursFor(dk)-st/3600<0&&<div className="overload">⚠ Over budget</div>}
       </div>
     );
@@ -931,8 +884,6 @@ export default function App() {
     const secs = getLiveSecs(task);
     const hasTime = secs > 0;
     const isRunning = task.timerRunning;
-
-    // Due date badge
     const DueBadge = () => {
       if(!task.dueDate || done) return null;
       const today = dStr();
@@ -945,7 +896,6 @@ export default function App() {
       else              { label=`Due ${task.dueDate.slice(5)}`; bg="#ffffff08"; col="var(--mu)"; }
       return <span style={{fontSize:".6rem",padding:"2px 7px",borderRadius:5,background:bg,color:col,fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}}>{label}</span>;
     };
-
     return(
       <div
         className={`task-row${done?" done":""}${hasTime&&!done?" has-timer":""}${task.dueDate&&!done&&dStr()>task.dueDate?" overdue":""}`}
@@ -971,15 +921,11 @@ export default function App() {
     const [text, setText] = useState("");
     const [showDates, setShowDates] = useState(false);
     const inputRef = useRef(null);
-
-    // Generate next 8 days as start options
     const startOptions = Array.from({length:8},(_,i)=>{
       const d=new Date(); d.setDate(d.getDate()+i); d.setHours(0,0,0,0);
       const label = i===0?"Today":i===1?"Tomorrow":DAYS[(d.getDay()+6)%7]+(i>6?" +1wk":"");
       return { value:dStr(d), label };
     });
-
-    // Due date options relative to start date
     const getDueOptions = () => {
       const start = new Date(taskStartDate);
       return [
@@ -991,7 +937,6 @@ export default function App() {
         }),
       ];
     };
-
     const submit = () => {
       const t=text.trim(); if(!t) return;
       const startDt = new Date(taskStartDate);
@@ -1002,7 +947,7 @@ export default function App() {
         timerSeconds:0, timerRunning:false, timerStartedAt:null,
         startDate:taskStartDate,
         dueDate:taskDueDate||null,
-        day:dayKey, // backward compat
+        day:dayKey,
       };
       setTasks(p=>[...p, taskRecur
         ?{...base,recurring:true,recurringDays:taskRecDays.length?taskRecDays:[dk??todayKey()],doneOn:[],startDate:undefined,dueDate:undefined}
@@ -1012,7 +957,6 @@ export default function App() {
       setShowDates(false);
       inputRef.current?.focus();
     };
-
     return(
       <div className="add-area">
         <div className="add-row">
@@ -1020,68 +964,36 @@ export default function App() {
             onKeyDown={e=>e.key==="Enter"&&submit()} placeholder={placeholder}/>
           <button className="add-btn" onClick={submit}>+</button>
         </div>
-
-        {/* Options toggle row */}
         <div className="add-opts">
-          <button
-            className={`rec-btn${showDates?" on":""}`}
-            onClick={()=>setShowDates(d=>!d)}
-            style={{fontSize:".78rem"}}
-          >
+          <button className={`rec-btn${showDates?" on":""}`} onClick={()=>setShowDates(d=>!d)} style={{fontSize:".78rem"}}>
             📅 {showDates?"Hide dates":"Set dates"}
           </button>
           <button className={`rec-btn${taskRecur?" on":""}`} onClick={()=>setTaskRecur(r=>!r)}>🔁 Repeat</button>
         </div>
-
-        {/* Date pickers */}
         {showDates&&!taskRecur&&(
           <div style={{background:"var(--s)",border:"1px solid var(--b2)",borderRadius:12,padding:"14px",marginTop:8,display:"flex",flexDirection:"column",gap:14}}>
-
-            {/* Start date */}
             <div>
-              <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>
-                📅 Start working on
-              </div>
+              <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>📅 Start working on</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {startOptions.map(opt=>(
-                  <button key={opt.value}
-                    onClick={()=>{ setTaskStartDate(opt.value); setTaskDueDate(null); }}
-                    style={{
-                      background:taskStartDate===opt.value?"var(--ac)":"var(--bg)",
-                      color:taskStartDate===opt.value?"#000":"var(--tx2)",
-                      border:`1px solid ${taskStartDate===opt.value?"var(--ac)":"var(--b2)"}`,
-                      borderRadius:8,padding:"5px 11px",cursor:"pointer",
-                      fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".75rem",
-                      transition:"all .15s",
-                    }}
-                  >{opt.label}</button>
+                  <button key={opt.value} onClick={()=>{ setTaskStartDate(opt.value); setTaskDueDate(null); }}
+                    style={{background:taskStartDate===opt.value?"var(--ac)":"var(--bg)",color:taskStartDate===opt.value?"#000":"var(--tx2)",border:`1px solid ${taskStartDate===opt.value?"var(--ac)":"var(--b2)"}`,borderRadius:8,padding:"5px 11px",cursor:"pointer",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".75rem",transition:"all .15s"}}>
+                    {opt.label}
+                  </button>
                 ))}
               </div>
             </div>
-
-            {/* Due date */}
             <div>
-              <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>
-                ⏰ Due by
-              </div>
+              <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>⏰ Due by</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {getDueOptions().map((opt,i)=>(
-                  <button key={i}
-                    onClick={()=>setTaskDueDate(opt.value)}
-                    style={{
-                      background:taskDueDate===opt.value?"#ef4444":opt.value===null&&taskDueDate===null?"var(--b2)":"var(--bg)",
-                      color:taskDueDate===opt.value?"#fff":opt.value===null&&taskDueDate===null?"var(--tx2)":"var(--tx2)",
-                      border:`1px solid ${taskDueDate===opt.value?"#ef4444":opt.value===null&&taskDueDate===null?"var(--mu)":"var(--b2)"}`,
-                      borderRadius:8,padding:"5px 11px",cursor:"pointer",
-                      fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".75rem",
-                      transition:"all .15s",
-                    }}
-                  >{opt.label}</button>
+                  <button key={i} onClick={()=>setTaskDueDate(opt.value)}
+                    style={{background:taskDueDate===opt.value?"#ef4444":opt.value===null&&taskDueDate===null?"var(--b2)":"var(--bg)",color:taskDueDate===opt.value?"#fff":"var(--tx2)",border:`1px solid ${taskDueDate===opt.value?"#ef4444":opt.value===null&&taskDueDate===null?"var(--mu)":"var(--b2)"}`,borderRadius:8,padding:"5px 11px",cursor:"pointer",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".75rem",transition:"all .15s"}}>
+                    {opt.label}
+                  </button>
                 ))}
               </div>
             </div>
-
-            {/* Summary */}
             <div style={{fontSize:".72rem",color:"var(--mu)",fontWeight:500,padding:"8px 10px",background:"var(--bg)",borderRadius:8,lineHeight:1.6}}>
               {taskRecur?"Recurring task":(<>
                 Starts <strong style={{color:"var(--tx)"}}>{startOptions.find(o=>o.value===taskStartDate)?.label??taskStartDate}</strong>
@@ -1091,8 +1003,6 @@ export default function App() {
             </div>
           </div>
         )}
-
-        {/* Recurring day picker */}
         {taskRecur&&(
           <div className="day-chips">
             {DAY_KEYS.map((d,i)=>(
@@ -1148,18 +1058,10 @@ export default function App() {
             ?<div className="empty">No folders yet — create one above ↑</div>
             :(()=>{
               const todayDk = todayKey();
-              // Get start of current week (Monday)
-              const weekStart = new Date(); weekStart.setHours(0,0,0,0);
-              weekStart.setDate(weekStart.getDate() - todayIdx());
-              const weekStartStr = dStr(weekStart);
-
               const enriched = [...folders].map(f=>{
-                // Tasks due today in this folder
                 const todayFolderTasks = tasksForDay(todayDk).filter(t=>t.folderId===f.id);
                 const doneToday = todayFolderTasks.filter(t=>isDone(t,todayDk)).length;
                 const todayCount = todayFolderTasks.length;
-
-                // % = tasks completed this week / tasks due this week (not total ever)
                 let weekDue=0, weekDone=0;
                 DAY_KEYS.forEach(dk=>{
                   const dayF = tasksForDay(dk).filter(t=>t.folderId===f.id);
@@ -1167,25 +1069,16 @@ export default function App() {
                   weekDone += dayF.filter(t=>isDone(t,dk)).length;
                 });
                 const weekPctF = weekDue>0 ? Math.round(weekDone/weekDue*100) : 0;
-
                 const totalSecs = folderTasks(f.id).reduce((s,t)=>s+(t.timerSeconds??0),0);
                 const hasTasksToday = todayCount > 0;
-
                 return { f, todayCount, doneToday, weekDue, weekDone, weekPctF, totalSecs, hasTasksToday };
               });
-
-              // Split: active (has tasks today) vs inactive (no tasks today)
               const active   = enriched.filter(e=>e.hasTasksToday).sort((a,b)=>b.todayCount-a.todayCount);
               const inactive = enriched.filter(e=>!e.hasTasksToday);
-
               const FolderRow = ({e, dimmed}) => {
                 const {f,todayCount,doneToday,weekDue,weekDone,weekPctF,totalSecs} = e;
                 return(
-                  <div key={f.id}
-                    className="folder-row"
-                    style={{"--fc": dimmed?"#444":f.color, opacity: dimmed?0.45:1}}
-                    onClick={()=>goFolder(f.id)}
-                  >
+                  <div key={f.id} className="folder-row" style={{"--fc": dimmed?"#444":f.color, opacity: dimmed?0.45:1}} onClick={()=>goFolder(f.id)}>
                     <div className="folder-row-icon" style={{filter:dimmed?"grayscale(1)":"none"}}>{f.icon}</div>
                     <div className="folder-row-main">
                       <div className="folder-row-name" style={{color:dimmed?"var(--mu)":"var(--tx)"}}>{f.name}</div>
@@ -1195,9 +1088,7 @@ export default function App() {
                     </div>
                     <div className="folder-row-stats">
                       <div className="f-stat">
-                        <span className="f-stat-val" style={{color:dimmed?"var(--mu)":todayCount>0?f.color:"var(--tx2)"}}>
-                          {dimmed?"—":`${doneToday}/${todayCount}`}
-                        </span>
+                        <span className="f-stat-val" style={{color:dimmed?"var(--mu)":todayCount>0?f.color:"var(--tx2)"}}>{dimmed?"—":`${doneToday}/${todayCount}`}</span>
                         <span className="f-stat-lbl">Today</span>
                       </div>
                       <div className="f-stat">
@@ -1214,13 +1105,9 @@ export default function App() {
                   </div>
                 );
               };
-
               return(
                 <div className="folders-list">
-                  {/* Active folders — have tasks due today */}
                   {active.map(e=><FolderRow key={e.f.id} e={e} dimmed={false}/>)}
-
-                  {/* Inactive folders — nothing due today */}
                   {inactive.length>0&&(
                     <>
                       {active.length>0&&(
@@ -1238,8 +1125,6 @@ export default function App() {
             })()
           }
         </div>
-
-        {/* Stats sidebar */}
         <div className="stats-col">
           <div className="stat-card">
             <div className="stat-card-title">✅ Tasks Completed</div>
@@ -1255,13 +1140,7 @@ export default function App() {
             <div className="stat-big" style={{color:"#fb923c",fontVariantNumeric:"tabular-nums",letterSpacing:"-.5px",fontSize:"2.4rem"}}>{fmtTimer(secsTracked(dk))}</div>
             <div style={{marginTop:10,marginBottom:6}}>
               <div style={{width:"100%",height:6,background:"var(--b2)",borderRadius:99,overflow:"hidden"}}>
-                <div style={{
-                  height:"100%",borderRadius:99,
-                  background:"linear-gradient(90deg,#fb923c,#fbbf24)",
-                  width:`${Math.min(100,(secsTracked(dk)/3600/hoursFor(dk))*100)}%`,
-                  transition:"width .8s ease",
-                  minWidth:secsTracked(dk)>0?"6px":"0"
-                }}/>
+                <div style={{height:"100%",borderRadius:99,background:"linear-gradient(90deg,#fb923c,#fbbf24)",width:`${Math.min(100,(secsTracked(dk)/3600/hoursFor(dk))*100)}%`,transition:"width .8s ease",minWidth:secsTracked(dk)>0?"6px":"0"}}/>
               </div>
             </div>
             <div className="stat-desc">of {hoursFor(dk)} hr daily goal</div>
@@ -1286,24 +1165,21 @@ export default function App() {
 
   // ── Day Momentum Bar ─────────────────────────────────────────────────────────
   const DayMomentum = ({dk}) => {
-    if(dk !== todayKey()) return null; // Only meaningful for today
+    if(dk !== todayKey()) return null;
     const now = new Date();
     const hour = now.getHours() + now.getMinutes()/60;
-    const workStart = 9, workEnd = 18; // 9am–6pm default
+    const workStart = 9, workEnd = 18;
     if(hour < workStart) return null;
-
     const dayPct  = Math.min(100, Math.round((hour-workStart)/(workEnd-workStart)*100));
     const taskPct = donePct(tasksForDay(dk), dk);
     const diff    = taskPct - dayPct;
     const timeStr = now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-
     let statusLabel, statusColor, msg, barColor;
     if(taskPct===100)    { statusLabel="🎉 Complete";  statusColor="#c8ff57"; msg="All tasks done!";                    barColor="#c8ff57"; }
     else if(diff>=15)    { statusLabel="🚀 Ahead";     statusColor="#c8ff57"; msg=`${diff}% ahead of schedule`;         barColor="#c8ff57"; }
     else if(diff>= -5)   { statusLabel="⚡ On track";  statusColor="#60a5fa"; msg="Right on pace — keep it up";         barColor="#60a5fa"; }
     else if(diff>=-20)   { statusLabel="⚠ Behind";    statusColor="#fbbf24"; msg=`${Math.abs(diff)}% behind — push!`;  barColor="#fbbf24"; }
     else                 { statusLabel="🔴 Lagging";   statusColor="#ef4444"; msg="Focus up — time is moving fast";     barColor="#ef4444"; }
-
     return(
       <div className="momentum-card">
         <div className="momentum-header">
@@ -1313,16 +1189,12 @@ export default function App() {
         <div className="momentum-bars">
           <div className="momentum-bar-row">
             <span className="momentum-bar-lbl">Tasks done</span>
-            <div className="momentum-bar-bg">
-              <div className="momentum-bar-fill" style={{width:`${taskPct}%`,background:barColor,boxShadow:`0 0 8px ${barColor}60`}}/>
-            </div>
+            <div className="momentum-bar-bg"><div className="momentum-bar-fill" style={{width:`${taskPct}%`,background:barColor,boxShadow:`0 0 8px ${barColor}60`}}/></div>
             <span className="momentum-bar-pct">{taskPct}%</span>
           </div>
           <div className="momentum-bar-row">
             <span className="momentum-bar-lbl">Day elapsed</span>
-            <div className="momentum-bar-bg">
-              <div className="momentum-bar-fill" style={{width:`${dayPct}%`,background:"var(--b3)"}}/>
-            </div>
+            <div className="momentum-bar-bg"><div className="momentum-bar-fill" style={{width:`${dayPct}%`,background:"var(--b3)"}}/></div>
             <span className="momentum-bar-pct">{dayPct}%</span>
           </div>
         </div>
@@ -1335,7 +1207,7 @@ export default function App() {
   const DayView = () => {
     const dk=activeDay, idx=DAY_KEYS.indexOf(dk), label=DAYS[idx], isT=idx===todayIdx();
     const dt=tasksForDay(dk), done=dt.filter(t=>isDone(t,dk)).length, pct=donePct(dt,dk);
-    const hl=hoursLeft(dk), st=secsTracked(dk);
+    const st=secsTracked(dk);
     const grouped=folders.map(f=>({f,ts:dt.filter(t=>t.folderId===f.id)})).filter(g=>g.ts.length);
     const other=dt.filter(t=>!folders.find(f=>f.id===t.folderId));
     return(
@@ -1367,28 +1239,23 @@ export default function App() {
             <div className="time-progress-card">
               <div className="time-progress-top">
                 <div>
-                  <div className="time-progress-worked">
-                    {workedMins < 60 ? `${workedMins} min` : fmtHrs(st/3600)} worked today
-                  </div>
+                  <div className="time-progress-worked">{workedMins < 60 ? `${workedMins} min` : fmtHrs(st/3600)} worked today</div>
                   {winMsg && <div className="time-win-msg">{winMsg}</div>}
                 </div>
                 <div className="time-progress-goal">
                   Goal: {budgetHrs} hrs
-                  <button style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".7rem",marginLeft:8,fontFamily:"'Montserrat',sans-serif",fontWeight:600,textDecoration:"underline"}} onClick={()=>openHours(dk)}>change</button>
+                  <button style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".7rem",marginLeft:8,fontFamily:"'DM Sans',sans-serif",fontWeight:600,textDecoration:"underline"}} onClick={()=>openHours(dk)}>change</button>
                 </div>
               </div>
               <div className="time-progress-bar-bg">
                 <div className={`time-progress-bar-fill${pctWorked===0?" zero":""}`} style={{width:`${Math.max(pctWorked,pctWorked>0?1:0)}%`}}/>
               </div>
               <div className="time-progress-milestones">
-                {milestones.map(m=>(
-                  <span key={m.pct} className={`time-milestone${pctWorked>=m.pct?" hit":""}`}>{m.label}</span>
-                ))}
+                {milestones.map(m=>(<span key={m.pct} className={`time-milestone${pctWorked>=m.pct?" hit":""}`}>{m.label}</span>))}
               </div>
             </div>
           );
         })()}
-
         <div className="big-prog">
           <div className="big-top">
             <span className="big-frac">{done}<span className="d">/{dt.length}</span></span>
@@ -1461,14 +1328,10 @@ export default function App() {
     <div>
       <div style={{fontSize:".8rem",color:"var(--mu)",fontWeight:600,textAlign:"center",marginBottom:16}}>{label}</div>
       <div className="pin-dots">
-        {[0,1,2,3].map(i=>(
-          <div key={i} className={`pin-dot${(currentPin||"").length>i?" filled":""}`}/>
-        ))}
+        {[0,1,2,3].map(i=>(<div key={i} className={`pin-dot${(currentPin||"").length>i?" filled":""}`}/>))}
       </div>
       <div className="pin-numpad">
-        {[1,2,3,4,5,6,7,8,9].map(n=>(
-          <div key={n} className="pin-key" onClick={()=>handlePinKey(String(n))}>{n}</div>
-        ))}
+        {[1,2,3,4,5,6,7,8,9].map(n=>(<div key={n} className="pin-key" onClick={()=>handlePinKey(String(n))}>{n}</div>))}
         <div className="pin-key" style={{visibility:"hidden"}}/>
         <div className="pin-key" onClick={()=>handlePinKey("0")}>0</div>
         <div className="pin-key del" onClick={handlePinDel}>⌫</div>
@@ -1477,7 +1340,7 @@ export default function App() {
     </div>
   );
 
-  // ── Task Detail View (Focus Mode) ─────────────────────────────────────────────
+  // ── Task Detail View ──────────────────────────────────────────────────────────
   const TaskDetailView = () => {
     if(!activeTask) return null;
     const task = tasks.find(t=>t.id===activeTask.id) ?? activeTask;
@@ -1487,20 +1350,15 @@ export default function App() {
     const folder = folders.find(f=>f.id===task.folderId);
     const isRunning = task.timerRunning;
     const totalSecsToday = secsTracked(dk);
-
     return(
       <div className="task-detail">
         {folder&&<div className="task-detail-folder" style={{color:folder.color}}>{folder.icon} {folder.name}</div>}
         <div className={`task-detail-name${done?" done":""}`}>{task.text}</div>
-
-        {/* Task action buttons — edit, uncomplete, delete */}
         <div className="task-action-row">
           <button className="task-action-btn" onClick={()=>{ setEditTaskText(task.text); setShowEditTask(true); }}>✏️ Edit name</button>
           {done && <button className="task-action-btn warn" onClick={uncompleteTask}>↩ Uncomplete</button>}
           <button className="task-action-btn danger" onClick={deleteActiveTask}>🗑 Delete</button>
         </div>
-
-        {/* Date info */}
         <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap",marginBottom:20}}>
           {task.startDate&&<span style={{fontSize:".72rem",color:"var(--mu)",background:"var(--s)",border:"1px solid var(--b2)",padding:"4px 12px",borderRadius:99,fontWeight:600}}>📅 Starts {task.startDate===dStr()?"today":task.startDate}</span>}
           {task.dueDate&&(()=>{
@@ -1510,12 +1368,7 @@ export default function App() {
             return <span style={{fontSize:".72rem",color:col,background:col+"15",border:`1px solid ${col}40`,padding:"4px 12px",borderRadius:99,fontWeight:700}}>⏰ {lbl}</span>;
           })()}
         </div>
-
-        {done&&(
-          <div className="task-done-badge">✓ Completed</div>
-        )}
-
-        {/* Big Timer Card */}
+        {done&&<div className="task-done-badge">✓ Completed</div>}
         <div className={`timer-card${isRunning?" running":""}`}>
           <div className="timer-digits">{fmtTimer(secs)}</div>
           <div className="timer-status">{isRunning?"Working on this task…":"Timer paused"}</div>
@@ -1525,62 +1378,33 @@ export default function App() {
                 ?<button className="timer-btn pause" onClick={()=>pauseTimer(task.id)}>⏸ Pause</button>
                 :<button className="timer-btn start" onClick={()=>startTimer(task.id)}>▶ Start Working</button>
               }
-              <button onClick={openLockFlow} style={{
-                background:"#c8ff5718",
-                border:"1px solid #c8ff57",
-                color:"#c8ff57",
-                borderRadius:10,
-                padding:"10px 28px",
-                cursor:"pointer",
-                fontFamily:"'Syne',sans-serif",
-                fontWeight:700,
-                fontSize:".85rem",
-                letterSpacing:".04em",
-                transition:"all .2s",
-              }}
-              onMouseEnter={e=>{e.currentTarget.style.background="#c8ff5730";}}
-              onMouseLeave={e=>{e.currentTarget.style.background="#c8ff5718";}}>
+              <button onClick={openLockFlow} style={{background:"#c8ff5718",border:"1px solid #c8ff57",color:"#c8ff57",borderRadius:10,padding:"10px 28px",cursor:"pointer",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".85rem",letterSpacing:".04em",transition:"all .2s"}}
+                onMouseEnter={e=>{e.currentTarget.style.background="#c8ff5730";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="#c8ff5718";}}>
                 🔒 Lock In
               </button>
             </div>
           )}
           <div className="timer-stats">
-            <div className="t-stat">
-              <div className="t-stat-val">{fmtTimer(task.timerSeconds??0)}</div>
-              <div className="t-stat-lbl">This task</div>
-            </div>
-            <div className="t-stat">
-              <div className="t-stat-val">{fmtTimer(totalSecsToday)}</div>
-              <div className="t-stat-lbl">Today total</div>
-            </div>
-            <div className="t-stat">
-              <div className="t-stat-val">{fmtHrs(hoursLeft(dk))}</div>
-              <div className="t-stat-lbl">Budget left</div>
-            </div>
+            <div className="t-stat"><div className="t-stat-val">{fmtTimer(task.timerSeconds??0)}</div><div className="t-stat-lbl">This task</div></div>
+            <div className="t-stat"><div className="t-stat-val">{fmtTimer(totalSecsToday)}</div><div className="t-stat-lbl">Today total</div></div>
+            <div className="t-stat"><div className="t-stat-val">{fmtHrs(hoursLeft(dk))}</div><div className="t-stat-lbl">Budget left</div></div>
           </div>
         </div>
-
-        {/* Complete actions */}
         {!done&&!showRemind&&(
           <div className="detail-actions">
             <button className="action-btn complete" onClick={()=>completeTask(null)}>✓ Mark Complete</button>
             <button className="action-btn remind" onClick={()=>setShowRemind(true)}>⏰ Complete & Remind</button>
           </div>
         )}
-
-        {/* Remind options */}
         {!done&&showRemind&&(
           <div className="remind-section">
             <div className="remind-title">Remind me in</div>
             <div className="remind-grid">
-              {REMIND_OPTS.map(d=>(
-                <button key={d} className="remind-opt" onClick={()=>completeTask(d)}>
-                  {d===1?"Tomorrow":`${d}d`}
-                </button>
-              ))}
+              {REMIND_OPTS.map(d=>(<button key={d} className="remind-opt" onClick={()=>completeTask(d)}>{d===1?"Tomorrow":`${d}d`}</button>))}
             </div>
             <div style={{textAlign:"center",marginTop:12}}>
-              <button style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".8rem",fontFamily:"'Montserrat',sans-serif",fontWeight:500}} onClick={()=>setShowRemind(false)}>← Back</button>
+              <button style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".8rem",fontFamily:"'DM Sans',sans-serif",fontWeight:500}} onClick={()=>setShowRemind(false)}>← Back</button>
             </div>
           </div>
         )}
@@ -1641,9 +1465,7 @@ export default function App() {
               <span style={{fontSize:".72rem",color:"var(--mu)",fontWeight:500}}>{g.date}</span>
               <span style={{marginLeft:"auto",fontSize:".72rem",color:"var(--mu)",fontWeight:600}}>{g.items.filter(i=>i.done).length}/{g.items.length}</span>
             </div>
-            {g.items.map((item,idx)=>(
-              <TaskRow key={`${item.task.id}-${item.dk}-${idx}`} task={item.task} dk={item.dk} color={item.folder?.color??"var(--ac)"} from="all"/>
-            ))}
+            {g.items.map((item,idx)=>(<TaskRow key={`${item.task.id}-${item.dk}-${idx}`} task={item.task} dk={item.dk} color={item.folder?.color??"var(--ac)"} from="all"/>))}
           </div>
         )):groups.map(g=>(
           <div className="day-section" key={g.key}>
@@ -1651,9 +1473,7 @@ export default function App() {
               <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".88rem",color:g.color}}>{g.icon} {g.label}</span>
               <span style={{marginLeft:"auto",fontSize:".72rem",color:"var(--mu)",fontWeight:600}}>{g.items.filter(i=>i.done).length}/{g.items.length}</span>
             </div>
-            {g.items.map((item,idx)=>(
-              <TaskRow key={`${item.task.id}-${item.dk}-${idx}`} task={item.task} dk={item.dk} color={g.color} from="all"/>
-            ))}
+            {g.items.map((item,idx)=>(<TaskRow key={`${item.task.id}-${item.dk}-${idx}`} task={item.task} dk={item.dk} color={g.color} from="all"/>))}
           </div>
         ))}
       </div>
@@ -1665,7 +1485,7 @@ export default function App() {
     <>
       <style>{css}</style>
       <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <div style={{color:"#333",fontSize:".9rem",fontFamily:"'Montserrat',sans-serif",fontWeight:600}}>Loading…</div>
+        <div style={{color:"#333",fontSize:".9rem",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>Loading…</div>
       </div>
     </>
   );
@@ -1687,8 +1507,7 @@ export default function App() {
     </>
   );
 
-  // ── Main ───────────────────────────────────────────────────────────────────────
-  const isInSubView = view==="day"||view==="folder"||view==="task";
+  // ── Main render ───────────────────────────────────────────────────────────────
   return(
     <>
       <style>{css}</style>
@@ -1709,7 +1528,6 @@ export default function App() {
         {view==="task"   && <TaskDetailView/>}
         {view==="all"    && <AllTasksView/>}
 
-        {/* Hide tab bar when in task detail */}
         {view!=="task" && (
           <div className="tab-bar">
             <button className={`tab-btn${(view==="home"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}>
@@ -1728,7 +1546,7 @@ export default function App() {
 
       {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
 
-      {/* ── LOCK SCREEN ── */}
+      {/* ── Lock Screen ── */}
       {isLocked&&(()=>{
         const lockedTask = tasks.find(t=>t.id===lockedTaskId);
         const secsLeft = lockEndTime ? Math.max(0,(lockEndTime-Date.now())/1000) : 0;
@@ -1736,7 +1554,6 @@ export default function App() {
         const pctLeft = totalSecs ? (secsLeft/totalSecs)*100 : 0;
         const isUrgent = secsLeft < 60;
         const workedSecs = lockedTask ? getLiveSecs(lockedTask) : 0;
-
         if(lockDone) return(
           <div className="lock-screen">
             <div style={{fontSize:"3rem",marginBottom:16}}>🎉</div>
@@ -1750,7 +1567,6 @@ export default function App() {
             </div>
           </div>
         );
-
         return(
           <div className="lock-screen">
             <div className="lock-icon">🔒</div>
@@ -1763,14 +1579,8 @@ export default function App() {
                 <div className={`lock-prog-fill${isUrgent?" urgent":""}`} style={{width:`${pctLeft}%`}}/>
               </div>
             </div>
-            <div className="lock-working">
-              Working for <strong>{fmtTimer(workedSecs)}</strong>
-            </div>
-            <button className="lock-unlock-btn" onClick={()=>{ setPinInput(""); setPinError(""); setShowPinUnlock(true); }}>
-              🔓 Unlock early
-            </button>
-
-            {/* PIN unlock overlay */}
+            <div className="lock-working">Working for <strong>{fmtTimer(workedSecs)}</strong></div>
+            <button className="lock-unlock-btn" onClick={()=>{ setPinInput(""); setPinError(""); setShowPinUnlock(true); }}>🔓 Unlock early</button>
             {showPinUnlock&&(
               <div style={{position:"fixed",inset:0,background:"#000d",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
                 <div className="modal" style={{maxWidth:300}}>
@@ -1784,14 +1594,13 @@ export default function App() {
         );
       })()}
 
-      {/* ── Lock duration modal ── */}
+      {/* Lock duration modal */}
       {showLockModal&&!isLocked&&(
         <div className="overlay" onClick={()=>setShowLockModal(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()}>
             <div className="modal-title">🔒 Lock In</div>
             <div style={{fontSize:".82rem",color:"var(--mu)",marginBottom:18,fontWeight:500,lineHeight:1.6}}>
-              Lock yourself in on <strong style={{color:"var(--tx)"}}>{activeTask?.text}</strong>.<br/>
-              You'll need your PIN to exit early.
+              Lock yourself in on <strong style={{color:"var(--tx)"}}>{activeTask?.text}</strong>.<br/>You'll need your PIN to exit early.
             </div>
             <div className="modal-lbl">How long?</div>
             <div className="lock-dur-grid">
@@ -1809,22 +1618,15 @@ export default function App() {
         </div>
       )}
 
-      {/* ── PIN setup modal ── */}
+      {/* PIN setup modal */}
       {showPinSetModal&&(
         <div className="overlay">
           <div className="modal" style={{maxWidth:320}}>
-            <div className="modal-title" style={{textAlign:"center"}}>
-              {pinStep===1?"Set your PIN":"Confirm your PIN"}
-            </div>
+            <div className="modal-title" style={{textAlign:"center"}}>{pinStep===1?"Set your PIN":"Confirm your PIN"}</div>
             <div style={{fontSize:".8rem",color:"var(--mu)",textAlign:"center",marginBottom:20,fontWeight:500}}>
-              {pinStep===1
-                ?"Choose a 4-digit PIN. You'll need this to unlock early."
-                :"Enter the same PIN again to confirm."}
+              {pinStep===1?"Choose a 4-digit PIN. You'll need this to unlock early.":"Enter the same PIN again to confirm."}
             </div>
-            <PinNumpad
-              currentPin={pinStep===1?pinInput:pinConfirm}
-              label={pinStep===1?"Enter PIN":"Confirm PIN"}
-            />
+            <PinNumpad currentPin={pinStep===1?pinInput:pinConfirm} label={pinStep===1?"Enter PIN":"Confirm PIN"}/>
             <button className="btn-c" style={{width:"100%",marginTop:12,textAlign:"center"}} onClick={()=>{setShowPinSetModal(false);setPinInput("");setPinStep(1);}}>Cancel</button>
           </div>
         </div>
@@ -1836,10 +1638,7 @@ export default function App() {
           <div className="modal" onClick={e=>e.stopPropagation()}>
             <div className="modal-title">Edit Task</div>
             <div className="modal-lbl">Task name</div>
-            <input className="modal-in" value={editTaskText} autoFocus
-              onChange={e=>setEditTaskText(e.target.value)}
-              onKeyDown={e=>e.key==="Enter"&&saveEditTask()}
-              placeholder="Task name"/>
+            <input className="modal-in" value={editTaskText} autoFocus onChange={e=>setEditTaskText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveEditTask()} placeholder="Task name"/>
             <div className="modal-btns">
               <button className="btn-c" onClick={()=>setShowEditTask(false)}>Cancel</button>
               <button className="btn-ok" onClick={saveEditTask}>Save</button>
@@ -1854,10 +1653,7 @@ export default function App() {
           <div className="modal" onClick={e=>e.stopPropagation()}>
             <div className="modal-title">Rename Folder</div>
             <div className="modal-lbl">New name</div>
-            <input className="modal-in" value={renameText} autoFocus
-              onChange={e=>setRenameText(e.target.value)}
-              onKeyDown={e=>e.key==="Enter"&&saveRename()}
-              placeholder="Folder name"/>
+            <input className="modal-in" value={renameText} autoFocus onChange={e=>setRenameText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveRename()} placeholder="Folder name"/>
             <div className="modal-btns">
               <button className="btn-c" onClick={()=>setShowRenameModal(false)}>Cancel</button>
               <button className="btn-ok" onClick={saveRename}>Save</button>
@@ -1872,25 +1668,17 @@ export default function App() {
           <div className="modal" onClick={e=>e.stopPropagation()}>
             <div className="modal-title">New Folder</div>
             <div className="modal-lbl">Name</div>
-            <input className="modal-in" value={nfName} autoFocus onChange={e=>setNfName(e.target.value)}
-              onKeyDown={e=>e.key==="Enter"&&createFolder()} placeholder="e.g. House Chores"/>
+            <input className="modal-in" value={nfName} autoFocus onChange={e=>setNfName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createFolder()} placeholder="e.g. House Chores"/>
             <div className="modal-lbl">Icon</div>
             <div className="icon-grid">
-              {ICON_OPTIONS.map(icon=>(
-                <div key={icon} className={`icon-opt${nfIcon===icon?" sel":""}`} onClick={()=>setNfIcon(icon)}>{icon}</div>
-              ))}
+              {ICON_OPTIONS.map(icon=>(<div key={icon} className={`icon-opt${nfIcon===icon?" sel":""}`} onClick={()=>setNfIcon(icon)}>{icon}</div>))}
             </div>
             <div className="modal-lbl">Color</div>
             <div className="swatches">{COLORS.map(c=>(<div key={c} className={`sw${nfColor===c?" sel":""}`} style={{background:c}} onClick={()=>setNfColor(c)}/>))}</div>
-
-            {/* Preview */}
-            <div style={{borderRadius:12,padding:"14px 16px",marginBottom:18,
-              background:`linear-gradient(145deg, ${nfColor}ee, ${nfColor}aa)`,
-              display:"flex",alignItems:"center",gap:10}}>
+            <div style={{borderRadius:12,padding:"14px 16px",marginBottom:18,background:`linear-gradient(145deg, ${nfColor}ee, ${nfColor}aa)`,display:"flex",alignItems:"center",gap:10}}>
               <span style={{fontSize:"1.3rem"}}>{nfIcon}</span>
               <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".9rem",color:"#fff"}}>{nfName||"Folder name"}</span>
             </div>
-
             <div className="modal-btns">
               <button className="btn-c" onClick={()=>setShowFolderModal(false)}>Cancel</button>
               <button className="btn-ok" onClick={createFolder}>Create</button>
