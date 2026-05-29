@@ -95,10 +95,10 @@ const INIT_DATA={folders:INIT_FOLDERS,tasks:INIT_TASKS,completedDates:[],bestStr
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const css=`
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{background:#060606;font-family:'Instrument Mono',monospace;color:#e2e2e2;-webkit-font-smoothing:antialiased;min-height:100vh}
+html{scroll-behavior:smooth;height:100%}
+body{background:#060606;font-family:'Inter',sans-serif;color:#e2e2e2;-webkit-font-smoothing:antialiased;min-height:100vh;overflow-y:scroll}
 :root{--bg:#060606;--s:#101010;--b:#1e1e1e;--b2:#272727;--mu:#484848;--tx:#e2e2e2;--tx2:#6a6a6a;--ac:#c8ff57;--r:14px}
 
 /* Login */
@@ -211,13 +211,13 @@ body{background:#060606;font-family:'Instrument Mono',monospace;color:#e2e2e2;-w
 /* Add task */
 .add-area{margin-top:8px}
 .add-row{display:flex;gap:7px}
-.add-in{flex:1;background:var(--s);border:1px solid var(--b2);border-radius:10px;padding:10px 13px;color:var(--tx);font-family:'Instrument Mono',monospace;font-size:.8rem;outline:none;transition:border-color .15s}
+.add-in{flex:1;background:var(--s);border:1px solid var(--b2);border-radius:10px;padding:10px 13px;color:var(--tx);font-family:'Inter',sans-serif;font-size:.85rem;outline:none;transition:border-color .15s}
 .add-in::placeholder{color:var(--mu)}
 .add-in:focus{border-color:var(--ac)}
 .add-main{background:var(--ac);color:#000;border:none;border-radius:10px;padding:10px 16px;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;flex-shrink:0;transition:transform .15s,background .15s}
 .add-main:hover{background:#d9ff70;transform:scale(1.04)}
 .add-opts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
-.time-opt{background:var(--s);border:1px solid var(--b2);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:.68rem;color:var(--tx2);transition:all .15s;font-family:'Instrument Mono',monospace}
+.time-opt{background:var(--s);border:1px solid var(--b2);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:.72rem;color:var(--tx2);transition:all .15s;font-family:'Inter',sans-serif}
 .time-opt.sel{background:var(--ac);border-color:var(--ac);color:#000}
 .rec-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:.9rem;transition:all .15s}
 .rec-btn.on{border-color:var(--ac);color:var(--ac);background:#c8ff5710}
@@ -235,7 +235,7 @@ body{background:#060606;font-family:'Instrument Mono',monospace;color:#e2e2e2;-w
 @keyframes su{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .modal-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;color:var(--tx);margin-bottom:18px}
 .modal-lbl{font-size:.66rem;color:var(--mu);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}
-.modal-in{width:100%;background:var(--s);border:1px solid var(--b2);border-radius:9px;padding:10px 13px;color:var(--tx);font-family:'Instrument Mono',monospace;font-size:.86rem;outline:none;margin-bottom:15px;transition:border-color .15s}
+.modal-in{width:100%;background:var(--s);border:1px solid var(--b2);border-radius:9px;padding:10px 13px;color:var(--tx);font-family:'Inter',sans-serif;font-size:.9rem;outline:none;margin-bottom:15px;transition:border-color .15s}
 .modal-in:focus{border-color:var(--ac)}
 .swatches{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
 .sw{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
