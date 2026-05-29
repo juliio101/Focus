@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase.js";
@@ -310,36 +310,48 @@ export default function App() {
   useEffect(()=>{
     if(!user) return;
     (async()=>{
-      const ref=doc(db,"users",user.uid);
-      const snap=await getDoc(ref);
-      if(snap.exists()){
-        const d=snap.data();
-        setFolders(d.folders??INIT_FOLDERS);
-        setTasks(d.tasks??INIT_TASKS);
-        setComplDates(d.completedDates??[]);
-        setBest(d.bestStreak??0);
-        setDayHours(d.dayHours??{});
-      } else {
-        await setDoc(ref,INIT_DATA);
-      }
+      try {
+        const ref=doc(db,"users",user.uid);
+        const snap=await getDoc(ref);
+        if(snap.exists()){
+          const d=snap.data();
+          setFolders(d.folders??INIT_FOLDERS);
+          setTasks(d.tasks??INIT_TASKS);
+          setComplDates(d.completedDates??[]);
+          setBest(d.bestStreak??0);
+          setDayHours(d.dayHours??{});
+        } else {
+          await setDoc(ref,INIT_DATA);
+        }
+      } catch(e){ console.error("Load error:",e); }
       setLoaded(true);
     })();
   },[user]);
 
-  const saveField=useCallback(async(field,val)=>{
-    if(!user||!loaded) return;
-    await setDoc(doc(db,"users",user.uid),{[field]:val},{merge:true});
-  },[user,loaded]);
-
-  useEffect(()=>{ saveField("folders",folders); },[folders,loaded]);
-  useEffect(()=>{ saveField("tasks",tasks); },[tasks,loaded]);
-  useEffect(()=>{ saveField("dayHours",dayHours); },[dayHours,loaded]);
+  // ── Save to Firebase whenever data changes ─────────────────────────────────
   useEffect(()=>{
     if(!user||!loaded) return;
-    saveField("completedDates",complDates);
+    setDoc(doc(db,"users",user.uid),{folders},{merge:true}).catch(e=>console.error("Save folders:",e));
+  },[user,loaded,folders]);
+
+  useEffect(()=>{
+    if(!user||!loaded) return;
+    setDoc(doc(db,"users",user.uid),{tasks},{merge:true}).catch(e=>console.error("Save tasks:",e));
+  },[user,loaded,tasks]);
+
+  useEffect(()=>{
+    if(!user||!loaded) return;
+    setDoc(doc(db,"users",user.uid),{dayHours},{merge:true}).catch(e=>console.error("Save hours:",e));
+  },[user,loaded,dayHours]);
+
+  useEffect(()=>{
+    if(!user||!loaded) return;
     const s=calcStreak(complDates);
-    if(s>bestStreak){ setBest(s); saveField("bestStreak",s); }
-  },[complDates,loaded]);
+    const newBest=s>bestStreak?s:bestStreak;
+    setDoc(doc(db,"users",user.uid),{completedDates:complDates,bestStreak:newBest},{merge:true})
+      .catch(e=>console.error("Save dates:",e));
+    if(s>bestStreak) setBest(s);
+  },[user,loaded,complDates]);
 
   const isDone      = (task,dk)=>task.recurring?(task.doneOn??[]).includes(dateForDK(dk)):task.done;
   const tasksForDay = dk=>tasks.filter(t=>(!t.recurring&&t.day===dk)||(t.recurring&&t.recurringDays?.includes(dk)));
