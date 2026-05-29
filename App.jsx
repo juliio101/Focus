@@ -1035,7 +1035,7 @@ export default function App() {
               {bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".78rem",color:"var(--mu)",fontWeight:600}}>Best: {bestStreak}</span>}
             </div>
           )}
-          <RingsCard dk={dk}/>
+          {RingsCard({dk})}
           <div className="page-title">My Week</div>
           <div className="page-sub">Tap a day to manage tasks</div>
           <div className="day-grid">
@@ -1522,10 +1522,10 @@ export default function App() {
           </div>
         </div>
 
-        {view==="home"   && <HomeView/>}
-        {view==="day"    && <DayView/>}
-        {view==="folder" && <FolderView/>}
-        {view==="task"   && <TaskDetailView/>}
+        {view==="home"   && HomeView()}
+        {view==="day"    && DayView()}
+        {view==="folder" && FolderView()}
+        {view==="task"   && TaskDetailView()}
         {view==="all"    && <AllTasksView/>}
 
         {view!=="task" && (
