@@ -8,6 +8,12 @@ const DAYS     = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_KEYS = ["mon","tue","wed","thu","fri","sat","sun"];
 const COLORS   = ["#c8ff57","#60a5fa","#fb923c","#c084fc","#f472b6","#34d399","#fbbf24"];
 const ICONS    = ["🏠","💼","🎯","🛒","📚","🏋️","🎮","🧘","🌿","✈️"];
+const ICON_OPTIONS = [
+  "👤","👥","🏢","💼","🤝","🏆","⭐","💡","🎯","🔑",
+  "🏠","🛒","🍕","☕","🚗","✈️","🌍","❤️","⚡","🔥",
+  "💰","📊","📋","📱","💻","🎨","🎵","🏋️","🧘","🌿",
+  "🐶","🦁","🌈","🎪","🎮","📚","🏗️","⚕️","🌟","🎁",
+];
 const HR_PRESET   = [4,6,7,8,9,10,12];
 const REMIND_OPTS = [1,3,7,14,30];
 
@@ -118,9 +124,9 @@ const INIT_DATA={folders:INIT_FOLDERS,tasks:INIT_TASKS,completedDates:[],bestStr
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const css=`
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Montserrat:wght@400;500;600;700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{background:#080808;font-family:'Plus Jakarta Sans',sans-serif;color:#e0e0e0;-webkit-font-smoothing:antialiased;min-height:100vh;font-size:15px}
+body{background:#080808;font-family:'Montserrat',sans-serif;color:#e0e0e0;-webkit-font-smoothing:antialiased;min-height:100vh;font-size:15px}
 :root{--bg:#080808;--s:#0f0f0f;--b:#1e1e1e;--b2:#2c2c2c;--mu:#565656;--tx:#e0e0e0;--tx2:#888;--ac:#c8ff57;--r:14px}
 
 /* ── Login ── */
@@ -129,7 +135,7 @@ body{background:#080808;font-family:'Plus Jakarta Sans',sans-serif;color:#e0e0e0
 .login-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:2.6rem;color:var(--tx);letter-spacing:-1px;margin-bottom:10px}
 .login-logo span{color:var(--ac)}
 .login-tagline{font-size:.9rem;color:var(--mu);margin-bottom:40px;line-height:1.7;font-weight:500}
-.google-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:#fff;color:#111;border:none;border-radius:14px;padding:15px 20px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 2px 8px #0004}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:#fff;color:#111;border:none;border-radius:14px;padding:15px 20px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 2px 8px #0004}
 .google-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px #0006}
 .google-btn svg{width:20px;height:20px;flex-shrink:0}
 .login-note{font-size:.78rem;color:var(--mu);margin-top:20px;line-height:1.7}
@@ -140,9 +146,9 @@ body{background:#080808;font-family:'Plus Jakarta Sans',sans-serif;color:#e0e0e0
 .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.3rem;color:var(--tx);letter-spacing:-.3px}
 .logo em{color:var(--ac);font-style:normal}
 .nav-right{display:flex;align-items:center;gap:12px}
-.back-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:99px;padding:7px 16px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:.8rem;font-weight:600;transition:all .15s}
+.back-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:99px;padding:7px 16px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:.8rem;font-weight:600;transition:all .15s}
 .back-btn:hover{color:var(--tx);border-color:var(--mu)}
-.signout-btn{background:none;border:none;color:var(--mu);cursor:pointer;font-size:.8rem;font-family:'Plus Jakarta Sans',sans-serif;font-weight:500;transition:color .15s;padding:4px}
+.signout-btn{background:none;border:none;color:var(--mu);cursor:pointer;font-size:.8rem;font-family:'Montserrat',sans-serif;font-weight:500;transition:color .15s;padding:4px}
 .signout-btn:hover{color:var(--tx2)}
 .avatar{width:30px;height:30px;border-radius:50%;border:2px solid var(--b2);object-fit:cover}
 
@@ -173,7 +179,7 @@ body{background:#080808;font-family:'Plus Jakarta Sans',sans-serif;color:#e0e0e0
 /* ── Rings ── */
 .rings-card{background:var(--s);border:1px solid var(--b);border-radius:20px;padding:24px 18px;margin-bottom:22px;display:flex;align-items:center;justify-content:space-around;position:relative}
 .ring-div{width:1px;height:60px;background:var(--b)}
-.overload{position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;font-size:.68rem;padding:4px 12px;border-radius:99px;white-space:nowrap;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700}
+.overload{position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;font-size:.68rem;padding:4px 12px;border-radius:99px;white-space:nowrap;font-family:'Montserrat',sans-serif;font-weight:700}
 
 /* ── Day grid ── */
 .page-title{font-family:'Syne',sans-serif;font-size:clamp(1.7rem,4vw,2.6rem);font-weight:800;letter-spacing:-.5px;color:var(--tx);margin-bottom:5px}
@@ -191,17 +197,16 @@ body{background:#080808;font-family:'Plus Jakarta Sans',sans-serif;color:#e0e0e0
 /* ── Sections ── */
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .sec-title{font-family:'Syne',sans-serif;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--mu)}
-.ghost-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:9px;padding:7px 16px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:.82rem;font-weight:600;transition:all .15s}
+.ghost-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:9px;padding:7px 16px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:.82rem;font-weight:600;transition:all .15s}
 .ghost-btn:hover{color:var(--tx);border-color:var(--mu)}
 
 /* ── Folder cards ── */
 .folders-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.folder-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:18px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
-.folder-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--fc)}
-.folder-card:hover{border-color:var(--b2);transform:translateY(-2px)}
-.f-name{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;color:var(--tx);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.f-bar-bg{width:100%;height:3px;background:var(--b2);border-radius:99px;overflow:hidden;margin-bottom:6px}
-.f-bar-f{height:100%;border-radius:99px;background:var(--fc);transition:width .4s}
+.folder-card{border-radius:var(--r);padding:18px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;border:1px solid transparent}
+.folder-card:hover{transform:translateY(-3px);box-shadow:0 8px 32px #0005}
+.f-name{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;color:#fff;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px #0004}
+.f-bar-bg{width:100%;height:4px;background:#ffffff20;border-radius:99px;overflow:hidden;margin-bottom:6px}
+.f-bar-f{height:100%;border-radius:99px;background:#ffffffa0;transition:width .4s}
 .f-foot{display:flex;justify-content:space-between;align-items:center}
 
 /* ── View header ── */
@@ -307,13 +312,13 @@ body{background:#080808;font-family:'Plus Jakarta Sans',sans-serif;color:#e0e0e0
 /* ── Add row ── */
 .add-area{margin-top:12px}
 .add-row{display:flex;gap:8px}
-.add-in{flex:1;background:var(--s);border:1px solid var(--b2);border-radius:11px;padding:13px 16px;color:var(--tx);font-family:'Plus Jakarta Sans',sans-serif;font-size:.9rem;outline:none;transition:border-color .15s;font-weight:500}
+.add-in{flex:1;background:var(--s);border:1px solid var(--b2);border-radius:11px;padding:13px 16px;color:var(--tx);font-family:'Montserrat',sans-serif;font-size:.9rem;outline:none;transition:border-color .15s;font-weight:500}
 .add-in::placeholder{color:var(--mu)}
 .add-in:focus{border-color:var(--ac)}
 .add-btn{background:var(--ac);color:#000;border:none;border-radius:11px;padding:13px 20px;font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;cursor:pointer;flex-shrink:0;transition:transform .15s,background .15s;line-height:1}
 .add-btn:hover{background:#d9ff70;transform:scale(1.05)}
 .add-opts{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;align-items:center}
-.rec-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:.82rem;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;transition:all .15s}
+.rec-btn{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:.82rem;font-family:'Montserrat',sans-serif;font-weight:600;transition:all .15s}
 .rec-btn.on{border-color:var(--ac);color:var(--ac);background:#c8ff5710}
 .day-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .dc{background:var(--s);border:1px solid var(--b2);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:.72rem;font-family:'Syne',sans-serif;font-weight:700;color:var(--tx2);transition:all .15s}
@@ -326,20 +331,23 @@ body{background:#080808;font-family:'Plus Jakarta Sans',sans-serif;color:#e0e0e0
 @keyframes su{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .modal-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.15rem;color:var(--tx);margin-bottom:18px}
 .modal-lbl{font-size:.7rem;color:var(--mu);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em}
-.modal-in{width:100%;background:var(--s);border:1px solid var(--b2);border-radius:10px;padding:12px 15px;color:var(--tx);font-family:'Plus Jakarta Sans',sans-serif;font-size:.92rem;font-weight:500;outline:none;margin-bottom:16px;transition:border-color .15s}
+.modal-in{width:100%;background:var(--s);border:1px solid var(--b2);border-radius:10px;padding:12px 15px;color:var(--tx);font-family:'Montserrat',sans-serif;font-size:.92rem;font-weight:500;outline:none;margin-bottom:16px;transition:border-color .15s}
 .modal-in:focus{border-color:var(--ac)}
 .swatches{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:20px}
 .sw{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
 .sw.sel{border-color:#fff;transform:scale(1.2)}
 .modal-btns{display:flex;gap:9px;justify-content:flex-end}
-.btn-c{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:9px;padding:10px 16px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:.82rem;font-weight:600;transition:all .15s}
+.btn-c{background:none;border:1px solid var(--b2);color:var(--tx2);border-radius:9px;padding:10px 16px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:.82rem;font-weight:600;transition:all .15s}
 .btn-c:hover{color:var(--tx);border-color:var(--mu)}
 .btn-ok{background:var(--ac);color:#000;border:none;border-radius:9px;padding:10px 20px;font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;cursor:pointer;transition:background .15s}
 .btn-ok:hover{background:#d9ff70}
-.hr-presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.icon-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:18px;max-height:140px;overflow-y:auto}
+.icon-opt{background:var(--s);border:2px solid transparent;border-radius:8px;padding:6px;cursor:pointer;font-size:1.1rem;text-align:center;transition:all .15s;line-height:1}
+.icon-opt:hover{border-color:var(--b2);background:var(--b)}
+.icon-opt.sel{border-color:var(--ac);background:#c8ff5715}
 .hp{background:var(--s);border:1px solid var(--b2);border-radius:9px;padding:8px 16px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:.92rem;color:var(--tx2);transition:all .15s}
 .hp.sel{background:var(--ac);border-color:var(--ac);color:#000}
-.del-folder-btn{background:none;border:1px solid #ef444430;color:#ef4444;border-radius:9px;padding:8px 16px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:.8rem;font-weight:600;transition:all .15s;margin-top:20px}
+.del-folder-btn{background:none;border:1px solid #ef444430;color:#ef4444;border-radius:9px;padding:8px 16px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:.8rem;font-weight:600;transition:all .15s;margin-top:20px}
 .del-folder-btn:hover{background:#ef444412;border-color:#ef4444}
 
 /* ── Empty ── */
@@ -349,7 +357,7 @@ body{background:#080808;font-family:'Plus Jakarta Sans',sans-serif;color:#e0e0e0
 .tab-bar{position:fixed;bottom:0;left:0;right:0;background:#0a0a0a;border-top:1px solid var(--b);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
 .tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:11px 0 9px;cursor:pointer;background:none;border:none;gap:4px;transition:all .15s}
 .tab-btn .tab-icon{font-size:1.1rem;line-height:1}
-.tab-btn .tab-lbl{font-size:.64rem;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;color:var(--mu);letter-spacing:.03em;transition:color .15s}
+.tab-btn .tab-lbl{font-size:.64rem;font-family:'Montserrat',sans-serif;font-weight:600;color:var(--mu);letter-spacing:.03em;transition:color .15s}
 .tab-btn.active .tab-lbl{color:var(--ac)}
 .tab-btn .tab-dot{width:4px;height:4px;border-radius:50%;background:var(--ac);margin-top:2px;opacity:0;transition:opacity .15s}
 .tab-btn.active .tab-dot{opacity:1}
@@ -357,10 +365,10 @@ body{background:#080808;font-family:'Plus Jakarta Sans',sans-serif;color:#e0e0e0
 /* ── All Tasks ── */
 .all-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:12px}
 .sort-tabs{display:flex;gap:6px;flex-shrink:0}
-.sort-tab{background:var(--s);border:1px solid var(--b2);color:var(--tx2);border-radius:9px;padding:6px 13px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:.78rem;font-weight:600;transition:all .15s}
+.sort-tab{background:var(--s);border:1px solid var(--b2);color:var(--tx2);border-radius:9px;padding:6px 13px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:.78rem;font-weight:600;transition:all .15s}
 .sort-tab.active{background:var(--ac);border-color:var(--ac);color:#000}
 .filter-tabs{display:flex;gap:7px;margin-bottom:20px}
-.filter-tab{background:var(--s);border:1px solid var(--b2);color:var(--tx2);border-radius:99px;padding:5px 14px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:.78rem;font-weight:600;transition:all .15s}
+.filter-tab{background:var(--s);border:1px solid var(--b2);color:var(--tx2);border-radius:99px;padding:5px 14px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:.78rem;font-weight:600;transition:all .15s}
 .filter-tab.active{background:var(--b2);color:var(--tx)}
 .day-section{margin-bottom:24px}
 .day-section-hdr{display:flex;align-items:center;gap:9px;margin-bottom:11px;padding-bottom:9px;border-bottom:1px solid var(--b)}
@@ -396,6 +404,7 @@ export default function App() {
 
   const [nfName,    setNfName]    = useState("");
   const [nfColor,   setNfColor]   = useState(COLORS[0]);
+  const [nfIcon,    setNfIcon]    = useState(ICON_OPTIONS[0]);
   const [pendingHrs,setPendingHrs]= useState(8);
   const [taskRecur, setTaskRecur] = useState(false);
   const [taskRecDays,setTaskRecDays]=useState([]);
@@ -536,8 +545,8 @@ export default function App() {
   // ── Folder ──────────────────────────────────────────────────────────────────
   const createFolder = () => {
     const name=nfName.trim(); if(!name) return;
-    setFolders(p=>[...p,{id:Date.now(),name,color:nfColor,icon:ICONS[p.length%ICONS.length]}]);
-    setNfName(""); setNfColor(COLORS[0]); setShowFolderModal(false);
+    setFolders(p=>[...p,{id:Date.now(),name,color:nfColor,icon:nfIcon}]);
+    setNfName(""); setNfColor(COLORS[0]); setNfIcon(ICON_OPTIONS[0]); setShowFolderModal(false);
   };
   const deleteFolder = fid => { setFolders(p=>p.filter(f=>f.id!==fid)); setTasks(p=>p.filter(t=>t.folderId!==fid)); goHome(); };
   const openHours = dk => { setPendingHrs(hoursFor(dk)); setHoursModalDay(dk); setShowHoursModal(true); };
@@ -693,13 +702,17 @@ export default function App() {
               {folders.map(f=>{
                 const ft=folderTasks(f.id),done=ft.filter(t=>isDone(t,todayKey())).length,pct=ft.length?Math.round(done/ft.length*100):0;
                 return(
-                  <div key={f.id} className="folder-card" style={{"--fc":f.color}} onClick={()=>goFolder(f.id)}>
-                    <div style={{fontSize:"1.1rem",marginBottom:7}}>{f.icon}</div>
+                  <div key={f.id} className="folder-card" style={{
+                    background:`linear-gradient(145deg, ${f.color}ee, ${f.color}aa)`,
+                    borderColor:`${f.color}60`,
+                    boxShadow:`0 4px 20px ${f.color}25`,
+                  }} onClick={()=>goFolder(f.id)}>
+                    <div style={{fontSize:"1.4rem",marginBottom:8}}>{f.icon}</div>
                     <div className="f-name">{f.name}</div>
                     <div className="f-bar-bg"><div className="f-bar-f" style={{width:`${pct}%`}}/></div>
                     <div className="f-foot">
-                      <span style={{fontSize:".78rem",fontWeight:700,color:f.color}}>{pct}%</span>
-                      <span style={{fontSize:".75rem",color:"var(--tx2)",fontWeight:600}}>{done}/{ft.length}</span>
+                      <span style={{fontSize:".78rem",fontWeight:700,color:"#fff"}}>{pct}%</span>
+                      <span style={{fontSize:".75rem",color:"#ffffff99",fontWeight:600}}>{done}/{ft.length}</span>
                     </div>
                   </div>
                 );
@@ -899,7 +912,7 @@ export default function App() {
               ))}
             </div>
             <div style={{textAlign:"center",marginTop:12}}>
-              <button style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".8rem",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:500}} onClick={()=>setShowRemind(false)}>← Back</button>
+              <button style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".8rem",fontFamily:"'Montserrat',sans-serif",fontWeight:500}} onClick={()=>setShowRemind(false)}>← Back</button>
             </div>
           </div>
         )}
@@ -984,7 +997,7 @@ export default function App() {
     <>
       <style>{css}</style>
       <div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <div style={{color:"#333",fontSize:".9rem",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:600}}>Loading…</div>
+        <div style={{color:"#333",fontSize:".9rem",fontFamily:"'Montserrat',sans-serif",fontWeight:600}}>Loading…</div>
       </div>
     </>
   );
@@ -1055,8 +1068,23 @@ export default function App() {
             <div className="modal-lbl">Name</div>
             <input className="modal-in" value={nfName} autoFocus onChange={e=>setNfName(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&createFolder()} placeholder="e.g. House Chores"/>
+            <div className="modal-lbl">Icon</div>
+            <div className="icon-grid">
+              {ICON_OPTIONS.map(icon=>(
+                <div key={icon} className={`icon-opt${nfIcon===icon?" sel":""}`} onClick={()=>setNfIcon(icon)}>{icon}</div>
+              ))}
+            </div>
             <div className="modal-lbl">Color</div>
             <div className="swatches">{COLORS.map(c=>(<div key={c} className={`sw${nfColor===c?" sel":""}`} style={{background:c}} onClick={()=>setNfColor(c)}/>))}</div>
+
+            {/* Preview */}
+            <div style={{borderRadius:12,padding:"14px 16px",marginBottom:18,
+              background:`linear-gradient(145deg, ${nfColor}ee, ${nfColor}aa)`,
+              display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:"1.3rem"}}>{nfIcon}</span>
+              <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".9rem",color:"#fff"}}>{nfName||"Folder name"}</span>
+            </div>
+
             <div className="modal-btns">
               <button className="btn-c" onClick={()=>setShowFolderModal(false)}>Cancel</button>
               <button className="btn-ok" onClick={createFolder}>Create</button>
