@@ -230,6 +230,38 @@ body{background:#060606;font-family:'Inter',sans-serif;color:#e2e2e2;-webkit-fon
 .hp.sel{background:var(--ac);border-color:var(--ac);color:#000}
 .del-folder-btn{background:none;border:1px solid #ef444430;color:#ef4444;border-radius:8px;padding:7px 14px;cursor:pointer;font-family:'Inter',sans-serif;font-size:.75rem;font-weight:500;transition:all .15s;margin-top:18px}
 .del-folder-btn:hover{background:#ef444412;border-color:#ef4444}
+
+/* Bottom tab bar */
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:#0d0d0d;border-top:1px solid var(--b);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 0 8px;cursor:pointer;background:none;border:none;gap:4px;transition:all .15s}
+.tab-btn .tab-icon{font-size:1.1rem;line-height:1}
+.tab-btn .tab-lbl{font-size:.62rem;font-family:'Inter',sans-serif;font-weight:500;color:var(--mu);letter-spacing:.03em;transition:color .15s}
+.tab-btn.active .tab-lbl{color:var(--ac)}
+.tab-btn .tab-dot{width:4px;height:4px;border-radius:50%;background:var(--ac);margin-top:2px;opacity:0;transition:opacity .15s}
+.tab-btn.active .tab-dot{opacity:1}
+.page{padding-bottom:90px}
+
+/* All tasks view */
+.all-tasks-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.sort-tabs{display:flex;gap:6px}
+.sort-tab{background:var(--s);border:1px solid var(--b2);color:var(--tx2);border-radius:8px;padding:5px 12px;cursor:pointer;font-family:'Inter',sans-serif;font-size:.75rem;font-weight:500;transition:all .15s}
+.sort-tab.active{background:var(--ac);border-color:var(--ac);color:#000;font-weight:600}
+.filter-tabs{display:flex;gap:6px;margin-bottom:18px}
+.filter-tab{background:var(--s);border:1px solid var(--b2);color:var(--tx2);border-radius:99px;padding:4px 12px;cursor:pointer;font-family:'Inter',sans-serif;font-size:.75rem;font-weight:500;transition:all .15s}
+.filter-tab.active{background:var(--b2);color:var(--tx)}
+.day-section{margin-bottom:22px}
+.day-section-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--b)}
+.day-badge{font-family:'Syne',sans-serif;font-weight:700;font-size:.78rem;padding:3px 10px;border-radius:6px}
+.day-badge.is-today{background:#c8ff5720;color:#c8ff57}
+.day-badge.is-past{background:#ef444415;color:#ef4444}
+.day-badge.is-future{background:var(--s);color:var(--mu)}
+.day-section-date{font-size:.7rem;color:var(--mu)}
+.day-task-row{background:var(--s);border:1px solid var(--b);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px;transition:border-color .15s,opacity .2s;animation:fup .22s ease}
+.day-task-row:hover{border-color:var(--b2)}
+.day-task-row.done{opacity:.35}
+.day-task-row.done .day-task-txt{text-decoration:line-through;color:var(--mu)}
+.day-task-txt{flex:1;font-size:.88rem;color:var(--tx);line-height:1.5}
+.folder-badge{font-size:.62rem;padding:2px 7px;border-radius:5px;font-weight:500;flex-shrink:0}
 `;
 
 export default function App() {
@@ -403,6 +435,156 @@ export default function App() {
   const goDay=dk=>{ setActiveDay(dk); setView("day"); };
   const goFolder=fid=>{ setActiveFolder(fid); setView("folder"); };
   const streak=calcStreak(complDates);
+
+  // ── All Tasks View ──────────────────────────────────────────────────────────
+  const AllTasksView=()=>{
+    const [sortBy,  setSortBy]  = useState("date");   // "date" | "folder"
+    const [filter,  setFilter]  = useState("all");    // "all" | "pending" | "done"
+
+    // Get date string for each day key in current week
+    const dayDate = dk => dateForDK(dk);
+    const today   = dStr();
+
+    // Build flat list: { task, dk, date, folder }
+    const allItems = [];
+    DAY_KEYS.forEach(dk=>{
+      tasksForDay(dk).forEach(task=>{
+        const done = isDone(task,dk);
+        if(filter==="pending"&&done) return;
+        if(filter==="done"&&!done) return;
+        const folder = folders.find(f=>f.id===task.folderId);
+        allItems.push({ task, dk, date:dayDate(dk), done, folder });
+      });
+    });
+
+    // Remove duplicates (recurring tasks appear once per day — that's intentional)
+    // Sort
+    if(sortBy==="date"){
+      // Today first, then future days, then past days
+      allItems.sort((a,b)=>{
+        const aT=a.date===today?0:a.date>today?1:2;
+        const bT=b.date===today?0:b.date>today?1:2;
+        if(aT!==bT) return aT-bT;
+        return a.date.localeCompare(b.date);
+      });
+    } else {
+      allItems.sort((a,b)=>{
+        const fa=a.folder?.name??"";
+        const fb=b.folder?.name??"";
+        return fa.localeCompare(fb)||a.date.localeCompare(b.date);
+      });
+    }
+
+    // Group by day (for date sort) or folder (for folder sort)
+    const groups = [];
+    if(sortBy==="date"){
+      DAY_KEYS.forEach(dk=>{
+        const items=allItems.filter(i=>i.dk===dk);
+        if(!items.length) return;
+        const date=dayDate(dk);
+        const isToday=date===today;
+        const isPast=date<today;
+        groups.push({ key:dk, label:DAYS[DAY_KEYS.indexOf(dk)], date, isToday, isPast, items });
+      });
+      // Sort groups: today first, future, past
+      groups.sort((a,b)=>{
+        const aT=a.isToday?0:!a.isPast?1:2;
+        const bT=b.isToday?0:!b.isPast?1:2;
+        if(aT!==bT) return aT-bT;
+        return a.date.localeCompare(b.date);
+      });
+    } else {
+      const folderMap={};
+      allItems.forEach(i=>{
+        const key=i.folder?.id??"none";
+        if(!folderMap[key]) folderMap[key]={ key, label:i.folder?.name??"No folder", color:i.folder?.color??"#555", icon:i.folder?.icon??"📋", items:[] };
+        folderMap[key].items.push(i);
+      });
+      Object.values(folderMap).forEach(g=>groups.push(g));
+    }
+
+    const totalPending = DAY_KEYS.flatMap(dk=>tasksForDay(dk).filter(t=>!isDone(t,dk))).length;
+    const totalDone    = DAY_KEYS.flatMap(dk=>tasksForDay(dk).filter(t=>isDone(t,dk))).length;
+
+    return(
+      <div className="page">
+        <div className="all-tasks-header">
+          <div>
+            <div className="page-title">All Tasks</div>
+            <div className="page-sub">{totalPending} pending · {totalDone} done</div>
+          </div>
+          <div className="sort-tabs">
+            <button className={`sort-tab${sortBy==="date"?" active":""}`} onClick={()=>setSortBy("date")}>📅 Date</button>
+            <button className={`sort-tab${sortBy==="folder"?" active":""}`} onClick={()=>setSortBy("folder")}>📁 Folder</button>
+          </div>
+        </div>
+
+        <div className="filter-tabs">
+          {[["all","All"],["pending","Pending"],["done","Done"]].map(([val,lbl])=>(
+            <button key={val} className={`filter-tab${filter===val?" active":""}`} onClick={()=>setFilter(val)}>{lbl}</button>
+          ))}
+        </div>
+
+        {groups.length===0&&<div className="empty">No tasks found</div>}
+
+        {sortBy==="date"?groups.map(g=>(
+          <div className="day-section" key={g.key}>
+            <div className="day-section-hdr">
+              <span className={`day-badge${g.isToday?" is-today":g.isPast?" is-past":" is-future"}`}>
+                {g.isToday?"Today":g.label}
+              </span>
+              <span className="day-section-date">{g.date}</span>
+              <span style={{marginLeft:"auto",fontSize:".7rem",color:"var(--mu)"}}>{g.items.filter(i=>i.done).length}/{g.items.length}</span>
+            </div>
+            {g.items.map((item,idx)=>{
+              const tl=TIME_LBL[TIME_OPTS.indexOf(item.task.estimatedMinutes)]??`${item.task.estimatedMinutes}m`;
+              return(
+                <div key={`${item.task.id}-${item.dk}-${idx}`}
+                  className={`day-task-row${item.done?" done":""}`}
+                  onClick={()=>toggle(item.task.id,item.dk)}>
+                  <div className="chk" style={item.done?{background:item.folder?.color??"var(--ac)",borderColor:item.folder?.color??"var(--ac)"}:{}}>
+                    <span className="chk-v" style={{display:item.done?"block":"none"}}>✓</span>
+                  </div>
+                  <span className="day-task-txt">{item.task.text}</span>
+                  {item.folder&&(
+                    <span className="folder-badge" style={{background:item.folder.color+"20",color:item.folder.color}}>
+                      {item.folder.icon} {item.folder.name}
+                    </span>
+                  )}
+                  <span className="time-pill">{tl}</span>
+                </div>
+              );
+            })}
+          </div>
+        )):groups.map(g=>(
+          <div className="day-section" key={g.key}>
+            <div className="day-section-hdr">
+              <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".85rem",color:g.color}}>{g.icon} {g.label}</span>
+              <span style={{marginLeft:"auto",fontSize:".7rem",color:"var(--mu)"}}>{g.items.filter(i=>i.done).length}/{g.items.length}</span>
+            </div>
+            {g.items.map((item,idx)=>{
+              const tl=TIME_LBL[TIME_OPTS.indexOf(item.task.estimatedMinutes)]??`${item.task.estimatedMinutes}m`;
+              const isT=item.date===today, isPast=item.date<today;
+              return(
+                <div key={`${item.task.id}-${item.dk}-${idx}`}
+                  className={`day-task-row${item.done?" done":""}`}
+                  onClick={()=>toggle(item.task.id,item.dk)}>
+                  <div className="chk" style={item.done?{background:g.color,borderColor:g.color}:{}}>
+                    <span className="chk-v" style={{display:item.done?"block":"none"}}>✓</span>
+                  </div>
+                  <span className="day-task-txt">{item.task.text}</span>
+                  <span className={`day-badge${isT?" is-today":isPast?" is-past":" is-future"}`} style={{fontSize:".6rem",padding:"2px 7px"}}>
+                    {isT?"Today":DAYS[DAY_KEYS.indexOf(item.dk)]}
+                  </span>
+                  <span className="time-pill">{tl}</span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const RingsCard=({dk})=>(
     <div className="rings-card">
@@ -599,7 +781,7 @@ export default function App() {
         <div className="nav">
           <div className="logo">focus<em>.</em></div>
           <div className="nav-right">
-            {view!=="home"&&<button className="back-btn" onClick={goHome}>← Home</button>}
+            {(view==="day"||view==="folder")&&<button className="back-btn" onClick={goHome}>← Home</button>}
             {user.photoURL&&<img src={user.photoURL} className="avatar" alt=""/>}
             <button className="signout-btn" onClick={()=>signOut(auth)}>Sign out</button>
           </div>
@@ -607,6 +789,23 @@ export default function App() {
         {view==="home"&&<HomeView/>}
         {view==="day"&&<DayView/>}
         {view==="folder"&&<FolderView/>}
+        {view==="all"&&<AllTasksView/>}
+
+        {/* Bottom tab bar */}
+        <div className="tab-bar">
+          <button className={`tab-btn${(view==="home"||view==="day"||view==="folder")?" active":""}`}
+            onClick={goHome}>
+            <span className="tab-icon">🏠</span>
+            <span className="tab-lbl">Home</span>
+            <div className="tab-dot"/>
+          </button>
+          <button className={`tab-btn${view==="all"?" active":""}`}
+            onClick={()=>setView("all")}>
+            <span className="tab-icon">📋</span>
+            <span className="tab-lbl">All Tasks</span>
+            <div className="tab-dot"/>
+          </button>
+        </div>
       </div>
 
       {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
