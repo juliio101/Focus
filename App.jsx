@@ -387,6 +387,37 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif}
 .day-badge.today{background:#c8ff5720;color:#c8ff57}
 .day-badge.past{background:#ef444415;color:#ef4444}
 .day-badge.future{background:var(--s);color:var(--mu);border:1px solid var(--b)}
+
+/* ── Onboarding ── */
+.ob-overlay{position:fixed;inset:0;background:#050505;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;text-align:center}
+.ob-steps{display:flex;gap:7px;justify-content:center;margin-bottom:36px}
+.ob-step-dot{width:8px;height:8px;border-radius:50%;background:var(--b2);transition:all .3s}
+.ob-step-dot.active{background:var(--ac);width:24px;border-radius:99px}
+.ob-step-dot.done{background:#c8ff5760}
+.ob-emoji{font-size:3.5rem;margin-bottom:20px;animation:obpop .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes obpop{from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
+.ob-title{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(1.6rem,5vw,2.4rem);color:var(--tx);letter-spacing:-.8px;line-height:1.15;margin-bottom:12px}
+.ob-sub{font-size:.95rem;color:var(--mu);line-height:1.8;max-width:420px;margin:0 auto 32px;font-weight:400}
+.ob-card{background:var(--s);border:1px solid var(--b2);border-radius:20px;padding:24px;width:100%;max-width:440px;margin-bottom:28px;text-align:left}
+.ob-card-label{font-size:.65rem;color:var(--mu);text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:14px}
+.ob-input{width:100%;background:var(--bg);border:1px solid var(--b2);border-radius:11px;padding:13px 16px;color:var(--tx);font-size:.95rem;outline:none;transition:all .2s;margin-bottom:10px}
+.ob-input:focus{border-color:var(--ac);box-shadow:0 0 0 3px #c8ff5715}
+.ob-color-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.ob-color{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s;flex-shrink:0}
+.ob-color.sel{border-color:#fff;transform:scale(1.2)}
+.ob-icon-row{display:flex;gap:7px;flex-wrap:wrap}
+.ob-icon{background:var(--bg);border:2px solid transparent;border-radius:9px;padding:7px;cursor:pointer;font-size:1.1rem;transition:all .15s;line-height:1}
+.ob-icon:hover{border-color:var(--b2)}
+.ob-icon.sel{border-color:var(--ac);background:#c8ff5715}
+.ob-primary{background:var(--ac);color:#000;border:none;border-radius:14px;padding:16px 36px;font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;cursor:pointer;transition:all .2s;letter-spacing:.02em;width:100%;max-width:300px}
+.ob-primary:hover{background:#d9ff70;transform:scale(1.03)}
+.ob-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.ob-skip{background:none;border:none;color:var(--mu);cursor:pointer;font-size:.8rem;margin-top:14px;transition:color .15s;padding:6px}
+.ob-skip:hover{color:var(--tx2)}
+.ob-task-row{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--b2);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.ob-chk{width:18px;height:18px;border-radius:50%;border:2px solid var(--b2);flex-shrink:0}
+.ob-task-txt{font-size:.88rem;color:var(--tx);font-weight:500}
+.ob-badge{font-size:.65rem;padding:2px 8px;border-radius:5px;background:#c8ff5720;color:var(--ac);border:1px solid #c8ff5730;font-weight:700;margin-left:auto}
 `;
 
 // ─── App ──────────────────────────────────────────────────────────────────────
@@ -443,8 +474,13 @@ export default function App() {
   const [pinConfirm,setPinConfirm]=useState("");
   const [pinStep,setPinStep]=useState(1);
   const [pinError,setPinError]=useState("");
-  // Tick for live timers
-  const [tick,setTick]=useState(0);
+  // Onboarding
+  const [obStep,setObStep]=useState(0); // 0=hidden, 1-5=steps
+  const [obFolderName,setObFolderName]=useState("");
+  const [obFolderColor,setObFolderColor]=useState(COLORS[1]);
+  const [obFolderIcon,setObFolderIcon]=useState("💼");
+  const [obTaskText,setObTaskText]=useState("");
+  const [obFolderId,setObFolderId]=useState(null);
 
   // ── Tick ──────────────────────────────────────────────────────────────────
   useEffect(()=>{
@@ -515,6 +551,7 @@ export default function App() {
           setDayHours({});
           setUserPin(null);
           setIsLocked(false);
+          setObStep(1); // 🎯 Start onboarding for new users
         }
       }catch(e){ console.error("Load error:",e); }
       setLoaded(true);
@@ -788,3 +825,470 @@ export default function App() {
       <div className="home-layout">
         <div>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep
+          {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
+          <RingsCard dk={dk}/>
+          <div className="page-title">My Week</div>
+          <div className="page-sub">Tap a day to manage tasks</div>
+          <div className="day-grid">
+            {DAY_KEYS.map((d,i)=>{ const dt=tasksForDay(d),pct=donePct(dt,d),isT=i===todayIdx(); return(
+              <div key={d} className={`day-card${isT?" today":""}`} onClick={()=>goDay(d)}>
+                <div className="day-lbl">{DAYS[i]}</div>
+                <div className="day-bar"><div className="day-bar-f" style={{width:`${pct}%`,background:isT?"#c8ff57":pct===100?"#34d399":"#2a2a2a"}}/></div>
+                <div className="day-cnt">{dt.filter(t=>isDone(t,d)).length}/{dt.length}</div>
+              </div>
+            );})}
+          </div>
+          <div className="sec-hdr"><span className="sec-title">Folders</span><button className="ghost-btn" onClick={()=>setShowFolderModal(true)}>+ New Folder</button></div>
+          {folders.length===0?<div className="empty">No folders yet — create one above ↑</div>:(
+            <div className="folders-list">
+              {active.map(e=><FRow key={e.f.id} e={e} dim={false}/>)}
+              {inactive.length>0&&<>{active.length>0&&<div className="no-tasks-divider"><span className="no-tasks-lbl">No tasks today</span></div>}{inactive.map(e=><FRow key={e.f.id} e={e} dim={true}/>)}</>}
+            </div>
+          )}
+        </div>
+        <div className="stats-col">
+          <div className="stat-card">
+            <div className="stat-title">✅ Tasks Completed</div>
+            <div className="stat-big" style={{color:"#c8ff57"}}>{tMonth()}</div>
+            <div className="stat-desc">this month · {monthName}</div>
+            <div className="stat-div"/>
+            <div className="stat-row"><span className="stat-row-l">This week</span><span className="stat-row-v" style={{color:"#c8ff57"}}>{weekDone}</span></div>
+            <div className="stat-row"><span className="stat-row-l">Total tasks</span><span className="stat-row-v" style={{color:"var(--tx2)"}}>{weekTotal}</span></div>
+            <div className="stat-row"><span className="stat-row-l">Week progress</span><span className="stat-row-v" style={{color:"#a78bfa"}}>{weekTotal?Math.round(weekDone/weekTotal*100):0}%</span></div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-title">⏱ Time Tracked Today</div>
+            <div className="stat-big" style={{color:"#fb923c",fontFamily:"'DM Mono',monospace",fontSize:"2.2rem",letterSpacing:"-1px"}}>{fmtTimer(secsTracked(dk))}</div>
+            <div style={{marginTop:8,marginBottom:6}}>
+              <div style={{width:"100%",height:5,background:"var(--b2)",borderRadius:99,overflow:"hidden"}}>
+                <div style={{height:"100%",borderRadius:99,background:"linear-gradient(90deg,#fb923c,#fbbf24)",width:`${Math.min(100,(secsTracked(dk)/3600/hoursFor(dk))*100)}%`,transition:"width .6s ease",minWidth:secsTracked(dk)>0?"4px":"0"}}/>
+              </div>
+            </div>
+            <div className="stat-desc">of {hoursFor(dk)} hr daily goal</div>
+            <div className="stat-div"/>
+            <div className="stat-row"><span className="stat-row-l">This week</span><span className="stat-row-v" style={{color:"#fb923c"}}>{fmtHrs(hWeek())}</span></div>
+            <div className="stat-row"><span className="stat-row-l">Daily goal</span><span className="stat-row-v" style={{color:"var(--tx2)"}}>{hoursFor(dk)} hrs</span></div>
+          </div>
+          {streak>0&&<div className="stat-card">
+            <div className="stat-title">🔥 Streak</div>
+            <div className="stat-big" style={{color:"#f97316"}}>{streak}</div>
+            <div className="stat-desc">days in a row</div>
+            <div className="stat-div"/>
+            <div className="stat-row"><span className="stat-row-l">Best ever</span><span className="stat-row-v" style={{color:"#f97316"}}>{bestStreak} days</span></div>
+          </div>}
+        </div>
+      </div>
+    );
+  };
+
+  const DayView=()=>{
+    const dk=activeDay,idx=DAY_KEYS.indexOf(dk),label=DAYS[idx],isT=idx===todayIdx();
+    const dt=tasksForDay(dk),done=dt.filter(t=>isDone(t,dk)).length,pct=donePct(dt,dk);
+    const grouped=folders.map(f=>({f,ts:dt.filter(t=>t.folderId===f.id)})).filter(g=>g.ts.length);
+    const other=dt.filter(t=>!folders.find(f=>f.id===t.folderId));
+    return(
+      <div className="page">
+        <div className="view-hdr"><div className="view-title">{label}{isT?" · Today":""}</div><div className="view-sub">{dt.length} tasks · {done} completed</div></div>
+        <RingsCard dk={dk}/>
+        {isT&&<DayMomentum dk={dk}/>}
+        <TimeProgress dk={dk}/>
+        <div className="big-prog">
+          <div className="big-top"><span className="big-frac">{done}<span className="d">/{dt.length}</span></span><span className="big-pct" style={{color:"#c8ff57"}}>{pct}%</span></div>
+          <div className="big-bar"><div className="big-fill" style={{width:`${pct}%`,background:"#c8ff57"}}/></div>
+          {dt.length>0&&done===dt.length&&<div className="all-done">✦ All done!</div>}
+        </div>
+        {grouped.map(({f,ts})=>(
+          <div className="task-grp" key={f.id}>
+            <div className="grp-hdr"><span className="grp-lbl" style={{color:f.color}}>{f.icon} {f.name}</span><span style={{marginLeft:"auto",fontSize:".72rem",color:f.color,fontWeight:700}}>{donePct(ts,dk)}%</span></div>
+            {ts.map(t=><TaskRow key={t.id} task={t} dk={dk} color={f.color} from="day"/>)}
+          </div>
+        ))}
+        {other.length>0&&<div className="task-grp"><div className="grp-hdr"><span className="grp-lbl" style={{color:"var(--mu)"}}>Other</span></div>{other.map(t=><TaskRow key={t.id} task={t} dk={dk} color="var(--ac)" from="day"/>)}</div>}
+        {dt.length===0&&<div className="empty">Nothing for {label} — add a task below ↓</div>}
+        <AddRow dk={dk} fid={folders[0]?.id} placeholder={`Add task for ${label}...`}/>
+      </div>
+    );
+  };
+
+  const FolderView=()=>{
+    const folder=folders.find(f=>f.id===activeFolder); if(!folder) return null;
+    const ft=folderTasks(activeFolder),dk=todayKey();
+    const done=ft.filter(t=>isDone(t,dk)).length,pct=ft.length?Math.round(done/ft.length*100):0;
+    const byDay=DAY_KEYS.map((d,i)=>({d,lbl:DAYS[i],ts:ft.filter(t=>(!t.recurring&&(t.day===d||t.startDate===dateForDK(d)))||(t.recurring&&t.recurringDays?.includes(d)))})).filter(g=>g.ts.length);
+    return(
+      <div className="page">
+        <div className="view-hdr"><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:10,height:10,borderRadius:"50%",background:folder.color,flexShrink:0}}/><div className="view-title">{folder.name}</div></div><div className="view-sub">{ft.length} tasks total</div></div>
+        <div className="big-prog">
+          <div className="big-top"><span className="big-frac">{done}<span className="d">/{ft.length}</span></span><span className="big-pct" style={{color:folder.color}}>{pct}% today</span></div>
+          <div className="big-bar"><div className="big-fill" style={{width:`${pct}%`,background:folder.color}}/></div>
+        </div>
+        {byDay.map(({d,lbl,ts})=>(
+          <div className="task-grp" key={d}>
+            <div className="grp-hdr"><span className="grp-lbl" style={{color:DAY_KEYS.indexOf(d)===todayIdx()?folder.color:"var(--mu)"}}>{lbl}{DAY_KEYS.indexOf(d)===todayIdx()?" · Today":""}</span></div>
+            {ts.map(t=><TaskRow key={t.id} task={t} dk={d} color={folder.color} from="folder"/>)}
+          </div>
+        ))}
+        {ft.length===0&&<div className="empty">No tasks yet — add one below ↓</div>}
+        <AddRow dk={dk} fid={activeFolder} placeholder={`Add task to ${folder.name}...`}/>
+        <button className="del-folder-btn" onClick={()=>deleteFolder(activeFolder)}>Delete folder</button>
+      </div>
+    );
+  };
+
+  const TaskDetailView=()=>{
+    if(!activeTask) return null;
+    const task=tasks.find(t=>t.id===activeTask.id)??activeTask;
+    const dk=activeTaskDk,done=isDone(task,dk),secs=getLiveSecs(task),isRunning=task.timerRunning;
+    const folder=folders.find(f=>f.id===task.folderId);
+    const totalSecsToday=secsTracked(dk);
+    return(
+      <div className="task-detail">
+        {folder&&<div className="detail-folder" style={{color:folder.color}}>{folder.icon} {folder.name}</div>}
+        <div className={`detail-name${done?" done":""}`}>{task.text}</div>
+        <div className="detail-date-pills">
+          {task.startDate&&<span className="date-pill">📅 {task.startDate===dStr()?"Starts today":task.startDate}</span>}
+          {task.dueDate&&(()=>{ const diff=Math.round((new Date(task.dueDate)-new Date(dStr()))/86400000); const col=diff<0?"#ef4444":diff===0?"#fb923c":diff===1?"#fbbf24":"var(--mu)"; const lbl=diff<0?`Overdue ${Math.abs(diff)}d`:diff===0?"Due today":diff===1?"Due tomorrow":`Due in ${diff}d`; return<span className="date-pill" style={{color:col,borderColor:col+"40"}}>⏰ {lbl}</span>; })()}
+        </div>
+        <div className="detail-actions-row">
+          <button className="detail-action-btn" onClick={()=>{ setEditTaskText(task.text);setShowEditTask(true); }}>✏️ Edit</button>
+          {done&&<button className="detail-action-btn warn" onClick={uncompleteTask}>↩ Uncomplete</button>}
+          <button className="detail-action-btn danger" onClick={deleteActiveTask}>🗑 Delete</button>
+        </div>
+        {done&&<div className="done-badge">✓ Completed</div>}
+        <div className={`timer-card${isRunning?" running":""}`}>
+          <div className="timer-digits">{fmtTimer(secs)}</div>
+          <div className="timer-status-lbl">{isRunning?"Working on this task…":"Timer paused"}</div>
+          {!done&&(
+            <div className="timer-btn-wrap">
+              {isRunning
+                ?<button className="timer-btn pause" onClick={()=>pauseTimer(task.id)}>⏸ Pause</button>
+                :<button className="timer-btn start" onClick={()=>startTimer(task.id)}>▶ Start Working</button>
+              }
+              <button className="lock-btn" onClick={openLockFlow}>🔒 Lock In</button>
+            </div>
+          )}
+          <div className="timer-stats">
+            <div className="t-stat"><div className="t-stat-val">{fmtTimer(task.timerSeconds??0)}</div><div className="t-stat-lbl">This task</div></div>
+            <div className="t-stat"><div className="t-stat-val">{fmtTimer(totalSecsToday)}</div><div className="t-stat-lbl">Today total</div></div>
+            <div className="t-stat"><div className="t-stat-val">{fmtHrs(hoursLeft(dk))}</div><div className="t-stat-lbl">Budget left</div></div>
+          </div>
+        </div>
+        {!done&&!showRemind&&(
+          <div className="complete-actions">
+            <button className="action-btn complete" onClick={()=>completeTask(null)}>✓ Mark Complete</button>
+            <button className="action-btn remind" onClick={()=>setShowRemind(true)}>⏰ Complete & Remind</button>
+          </div>
+        )}
+        {!done&&showRemind&&(
+          <div className="remind-section">
+            <div className="remind-title">Remind me in</div>
+            <div className="remind-grid">
+              {REMIND_OPTS.map(d=><button key={d} className="remind-opt" onClick={()=>completeTask(d)}>{d===1?"Tomorrow":`${d}d`}</button>)}
+            </div>
+            <div style={{textAlign:"center"}}><button style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".8rem"}} onClick={()=>setShowRemind(false)}>← Back</button></div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const AllTasksView=()=>{
+    const [sortBy,setSortBy]=useState("date");
+    const [filter,setFilter]=useState("all");
+    const today=dStr();
+    const allItems=[];
+    DAY_KEYS.forEach(dk=>{ tasksForDay(dk).forEach(task=>{ const done=isDone(task,dk); if(filter==="pending"&&done) return; if(filter==="done"&&!done) return; allItems.push({task,dk,date:dateForDK(dk),done,folder:folders.find(f=>f.id===task.folderId)}); }); });
+    if(sortBy==="date") allItems.sort((a,b)=>{ const aT=a.date===today?0:a.date>today?1:2,bT=b.date===today?0:b.date>today?1:2; return aT!==bT?aT-bT:a.date.localeCompare(b.date); });
+    else allItems.sort((a,b)=>(a.folder?.name??"").localeCompare(b.folder?.name??"")||a.date.localeCompare(b.date));
+    const groups=[];
+    if(sortBy==="date"){ DAY_KEYS.forEach(dk=>{ const items=allItems.filter(i=>i.dk===dk); if(!items.length) return; const date=dateForDK(dk),isToday=date===today,isPast=date<today; groups.push({key:dk,label:DAYS[DAY_KEYS.indexOf(dk)],date,isToday,isPast,items}); }); groups.sort((a,b)=>{ const aT=a.isToday?0:!a.isPast?1:2,bT=b.isToday?0:!b.isPast?1:2; return aT!==bT?aT-bT:a.date.localeCompare(b.date); }); }
+    else{ const fm={}; allItems.forEach(i=>{ const k=i.folder?.id??"none"; if(!fm[k]) fm[k]={key:k,label:i.folder?.name??"No folder",color:i.folder?.color??"#555",icon:i.folder?.icon??"📋",items:[]}; fm[k].items.push(i); }); Object.values(fm).forEach(g=>groups.push(g)); }
+    const totalPending=DAY_KEYS.flatMap(dk=>tasksForDay(dk).filter(t=>!isDone(t,dk))).length;
+    const totalDone=DAY_KEYS.flatMap(dk=>tasksForDay(dk).filter(t=>isDone(t,dk))).length;
+    return(
+      <div className="page">
+        <div className="all-hdr">
+          <div><div className="page-title">All Tasks</div><div className="page-sub">{totalPending} pending · {totalDone} done</div></div>
+          <div className="sort-tabs">
+            <button className={`sort-tab${sortBy==="date"?" active":""}`} onClick={()=>setSortBy("date")}>📅 Date</button>
+            <button className={`sort-tab${sortBy==="folder"?" active":""}`} onClick={()=>setSortBy("folder")}>📁 Folder</button>
+          </div>
+        </div>
+        <div className="filter-tabs">
+          {[["all","All"],["pending","Pending"],["done","Done"]].map(([v,l])=><button key={v} className={`filter-tab${filter===v?" active":""}`} onClick={()=>setFilter(v)}>{l}</button>)}
+        </div>
+        {groups.length===0&&<div className="empty">No tasks found</div>}
+        {sortBy==="date"?groups.map(g=>(
+          <div className="day-section" key={g.key}>
+            <div className="day-section-hdr">
+              <span className={`day-badge${g.isToday?" today":g.isPast?" past":" future"}`}>{g.isToday?"Today":g.label}</span>
+              <span style={{fontSize:".7rem",color:"var(--mu)"}}>{g.date}</span>
+              <span style={{marginLeft:"auto",fontSize:".72rem",color:"var(--mu)",fontWeight:600}}>{g.items.filter(i=>i.done).length}/{g.items.length}</span>
+            </div>
+            {g.items.map((item,idx)=><TaskRow key={`${item.task.id}-${item.dk}-${idx}`} task={item.task} dk={item.dk} color={item.folder?.color??"var(--ac)"} from="all"/>)}
+          </div>
+        )):groups.map(g=>(
+          <div className="day-section" key={g.key}>
+            <div className="day-section-hdr">
+              <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".88rem",color:g.color}}>{g.icon} {g.label}</span>
+              <span style={{marginLeft:"auto",fontSize:".72rem",color:"var(--mu)",fontWeight:600}}>{g.items.filter(i=>i.done).length}/{g.items.length}</span>
+            </div>
+            {g.items.map((item,idx)=><TaskRow key={`${item.task.id}-${item.dk}-${idx}`} task={item.task} dk={item.dk} color={g.color} from="all"/>)}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  if(authLoading) return(<><style>{css}</style><div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#333",fontSize:".9rem"}}>Loading…</div></div></>);
+  if(!user) return(
+    <><style>{css}</style>
+    <div className="login"><div className="login-card">
+      <div className="login-logo">effingFocus<span>.</span></div>
+      <div className="login-tag">The task manager built for ADHD brains</div>
+      <button className="google-btn" onClick={()=>signInWithPopup(auth,googleProvider)}>
+        <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+      <div className="login-note">Your data syncs across all your devices.</div>
+    </div></div></>
+  );
+
+  return(
+    <><style>{css}</style>
+    <div className="app">
+      <div className="nav">
+        <div className="logo">effingFocus<em>.</em></div>
+        <div className="nav-right">
+          {view==="task"&&<button className="back-btn" onClick={goBack}>← Back</button>}
+          {(view==="day"||view==="folder")&&<button className="back-btn" onClick={goHome}>← Home</button>}
+          {user.photoURL&&<img src={user.photoURL} className="avatar" alt=""/>}
+          <button className="signout-btn" onClick={()=>signOut(auth)}>Sign out</button>
+        </div>
+      </div>
+      {view==="home"&&<HomeView/>}
+      {view==="day"&&<DayView/>}
+      {view==="folder"&&<FolderView/>}
+      {view==="task"&&<TaskDetailView/>}
+      {view==="all"&&<AllTasksView/>}
+      {view!=="task"&&(
+        <div className="tab-bar">
+          <button className={`tab-btn${(view==="home"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}>
+            <span className="tab-icon">🏠</span><span className="tab-lbl">Home</span><div className="tab-dot"/>
+          </button>
+          <button className={`tab-btn${view==="all"?" active":""}`} onClick={()=>setView("all")}>
+            <span className="tab-icon">📋</span><span className="tab-lbl">All Tasks</span><div className="tab-dot"/>
+          </button>
+        </div>
+      )}
+    </div>
+
+    {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
+
+    {/* Onboarding */}
+    {obStep>0&&(()=>{
+      const skipOnboarding=()=>setObStep(0);
+      const completeObFolder=()=>{ const name=obFolderName.trim(); if(!name) return; const id=Date.now(); setFolders(p=>[...p,{id,name,color:obFolderColor,icon:obFolderIcon}]); setObFolderId(id); setObStep(3); };
+      const completeObTask=()=>{ const text=obTaskText.trim(); if(!text) return; setTasks(p=>[...p,{id:Date.now(),text,folderId:obFolderId,recurring:false,day:todayKey(),startDate:dStr(),done:false,timerSeconds:0,timerRunning:false,timerStartedAt:null}]); setObStep(4); };
+      const finishOnboarding=()=>{ setObStep(0); setView("home"); };
+      const Dots=()=>(<div className="ob-steps">{[1,2,3,4,5].map(s=><div key={s} className={`ob-step-dot${obStep===s?" active":obStep>s?" done":""}`}/>)}</div>);
+
+      if(obStep===1) return(
+        <div className="ob-overlay">
+          <Dots/>
+          <div className="ob-emoji">👋</div>
+          <div className="ob-title">Welcome to effingFocus<span style={{color:"var(--ac)"}}>.</span></div>
+          <div className="ob-sub">Built for brains that struggle with time blindness. Let's set you up in 2 minutes.</div>
+          <button className="ob-primary" onClick={()=>setObStep(2)}>Let's go →</button>
+          <button className="ob-skip" onClick={skipOnboarding}>Skip setup</button>
+        </div>
+      );
+      if(obStep===2) return(
+        <div className="ob-overlay">
+          <Dots/>
+          <div className="ob-emoji">📁</div>
+          <div className="ob-title">Create your first folder</div>
+          <div className="ob-sub">Folders are your clients or life areas — Work, a client name, House Chores. Start with one.</div>
+          <div className="ob-card">
+            <div className="ob-card-label">Folder name</div>
+            <input className="ob-input" value={obFolderName} autoFocus onChange={e=>setObFolderName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&completeObFolder()} placeholder="e.g. Work, Ajay Sharma..."/>
+            <div className="ob-card-label">Colour</div>
+            <div className="ob-color-row" style={{marginBottom:14}}>{COLORS.map(c=><div key={c} className={`ob-color${obFolderColor===c?" sel":""}`} style={{background:c}} onClick={()=>setObFolderColor(c)}/>)}</div>
+            <div className="ob-card-label">Icon</div>
+            <div className="ob-icon-row">{["💼","🏠","👤","🎯","📊","🤝","⭐","💡","🌿","❤️"].map(ic=><div key={ic} className={`ob-icon${obFolderIcon===ic?" sel":""}`} onClick={()=>setObFolderIcon(ic)}>{ic}</div>)}</div>
+          </div>
+          <button className="ob-primary" onClick={completeObFolder} disabled={!obFolderName.trim()}>Create folder →</button>
+          <button className="ob-skip" onClick={skipOnboarding}>Skip setup</button>
+        </div>
+      );
+      if(obStep===3) return(
+        <div className="ob-overlay">
+          <Dots/>
+          <div className="ob-emoji">✏️</div>
+          <div className="ob-title">Add your first task</div>
+          <div className="ob-sub">What's one thing you need to get done today? Just one to start.</div>
+          <div className="ob-card">
+            <div className="ob-card-label">Task name</div>
+            <input className="ob-input" value={obTaskText} autoFocus onChange={e=>setObTaskText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&completeObTask()} placeholder="e.g. Reply to client emails..."/>
+          </div>
+          <button className="ob-primary" onClick={completeObTask} disabled={!obTaskText.trim()}>Add task →</button>
+          <button className="ob-skip" onClick={skipOnboarding}>Skip setup</button>
+        </div>
+      );
+      if(obStep===4) return(
+        <div className="ob-overlay">
+          <Dots/>
+          <div className="ob-emoji">⏱</div>
+          <div className="ob-title">Start the timer when you work</div>
+          <div className="ob-sub">Tap a task, hit <strong style={{color:"var(--ac)"}}>Start Working</strong>. This is how effingFocus makes time visible.</div>
+          <div className="ob-card">
+            <div className="ob-card-label">How it works</div>
+            <div className="ob-task-row">
+              <div className="ob-chk"/>
+              <span className="ob-task-txt">{obTaskText||"Your task"}</span>
+              <span className="ob-badge">▶ Start</span>
+            </div>
+            <div style={{marginTop:12,fontSize:".82rem",color:"var(--mu)",lineHeight:1.7}}>You can also <strong style={{color:"var(--tx)"}}>🔒 Lock In</strong> to commit to a task for 10–30 min without getting pulled away.</div>
+          </div>
+          <button className="ob-primary" onClick={()=>setObStep(5)}>Got it →</button>
+          <button className="ob-skip" onClick={skipOnboarding}>Skip</button>
+        </div>
+      );
+      if(obStep===5) return(
+        <div className="ob-overlay">
+          <Dots/>
+          <div className="ob-emoji">🚀</div>
+          <div className="ob-title">You're all set.</div>
+          <div className="ob-sub">Your ADHD brain now has a tool that works <em>with</em> it — not against it.</div>
+          <div className="ob-card">
+            <div className="ob-card-label">Quick reference</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {[["📁","Folders = your clients or life areas"],["✓","Tap a task → Start Working → track time"],["⚡","Day Momentum shows if you're on pace"],["🔒","Lock In when you need to go deep"]].map(([ic,txt])=>(
+                <div key={txt} style={{display:"flex",alignItems:"flex-start",gap:10,fontSize:".85rem",color:"var(--tx)",lineHeight:1.5}}><span style={{flexShrink:0}}>{ic}</span><span>{txt}</span></div>
+              ))}
+            </div>
+          </div>
+          <button className="ob-primary" onClick={finishOnboarding}>Start focusing →</button>
+        </div>
+      );
+      return null;
+    })()}
+
+    {/* Lock screen */}
+    {isLocked&&(()=>{
+      const lockedTask=tasks.find(t=>t.id===lockedTaskId);
+      const secsLeft=lockEndTime?Math.max(0,(lockEndTime-Date.now())/1000):0;
+      const totalSecs=lockDuration*60,pctLeft=totalSecs?(secsLeft/totalSecs)*100:0;
+      const isUrgent=secsLeft<60,workedSecs=lockedTask?getLiveSecs(lockedTask):0;
+      if(lockDone) return(
+        <div className="lock-screen">
+          <div style={{fontSize:"3rem",marginBottom:16}}>🎉</div>
+          <div className="lock-done-card">
+            <div className="lock-done-title">Time's up!</div>
+            <div className="lock-done-sub">You stayed locked in on<br/><strong style={{color:"var(--tx)"}}>{lockedTask?.text}</strong></div>
+            <div className="lock-done-btns">
+              <button className="lock-more-btn" onClick={()=>{setLockDone(false);setShowLockModal(true);}}>🔒 Lock in for more</button>
+              <button className="lock-back-btn" onClick={dismissLockDone}>← Go back</button>
+            </div>
+          </div>
+        </div>
+      );
+      return(
+        <div className="lock-screen">
+          <div className="lock-icon-big">🔒</div>
+          <div className="lock-eyebrow">Locked in · stay focused</div>
+          <div className="lock-task-name">{lockedTask?.text??"Working..."}</div>
+          <div className={`lock-countdown${isUrgent?" urgent":""}`}>{fmtTimer(secsLeft)}</div>
+          <div className="lock-cdown-lbl">remaining</div>
+          <div className="lock-prog-wrap"><div className="lock-prog-bg"><div className={`lock-prog-fill${isUrgent?" urgent":""}`} style={{width:`${pctLeft}%`}}/></div></div>
+          <div className="lock-working-lbl">Working for <strong>{fmtTimer(workedSecs)}</strong></div>
+          <button className="lock-unlock-btn" onClick={()=>{setPinInput("");setPinError("");setShowPinUnlock(true);}}>🔓 Unlock early</button>
+          {showPinUnlock&&(
+            <div style={{position:"fixed",inset:0,background:"#000d",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+              <div className="modal" style={{maxWidth:300}}>
+                <div className="modal-title" style={{textAlign:"center"}}>Enter PIN to unlock</div>
+                <PinNumpad currentPin={pinInput}/>
+                <button className="btn-c" style={{width:"100%",marginTop:8,textAlign:"center"}} onClick={()=>{setShowPinUnlock(false);setPinInput("");}}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    })()}
+
+    {showLockModal&&!isLocked&&(
+      <div className="overlay" onClick={()=>setShowLockModal(false)}>
+        <div className="modal" onClick={e=>e.stopPropagation()}>
+          <div className="modal-title">🔒 Lock In</div>
+          <div style={{fontSize:".82rem",color:"var(--mu)",marginBottom:18,lineHeight:1.6}}>Lock yourself in on <strong style={{color:"var(--tx)"}}>{activeTask?.text}</strong>. You'll need your PIN to exit early.</div>
+          <div className="modal-lbl">How long?</div>
+          <div className="lock-dur-grid">{LOCK_DURS.map(d=><div key={d} className={`lock-dur-opt${lockDuration===d?" sel":""}`} onClick={()=>setLockDuration(d)}>{d}<span style={{fontSize:".6rem",display:"block",fontWeight:500,marginTop:2}}>min</span></div>)}</div>
+          <div className="modal-btns">
+            <button className="btn-c" onClick={()=>setShowLockModal(false)}>Cancel</button>
+            <button className="btn-ok" onClick={activateLock}>Lock In 🔒</button>
+          </div>
+        </div>
+      </div>
+    )}
+    {showPinSetModal&&(
+      <div className="overlay">
+        <div className="modal" style={{maxWidth:320}}>
+          <div className="modal-title" style={{textAlign:"center"}}>{pinStep===1?"Set your PIN":"Confirm your PIN"}</div>
+          <div style={{fontSize:".8rem",color:"var(--mu)",textAlign:"center",marginBottom:20}}>{pinStep===1?"Choose a 4-digit PIN to unlock early.":"Enter the same PIN again."}</div>
+          <PinNumpad currentPin={pinStep===1?pinInput:pinConfirm} label=""/>
+          <button className="btn-c" style={{width:"100%",marginTop:12,textAlign:"center"}} onClick={()=>{setShowPinSetModal(false);setPinInput("");setPinStep(1);}}>Cancel</button>
+        </div>
+      </div>
+    )}
+    {showEditTask&&(
+      <div className="overlay" onClick={()=>setShowEditTask(false)}>
+        <div className="modal" onClick={e=>e.stopPropagation()}>
+          <div className="modal-title">Edit Task</div>
+          <div className="modal-lbl">Task name</div>
+          <input className="modal-in" value={editTaskText} autoFocus onChange={e=>setEditTaskText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveEditTask()} placeholder="Task name"/>
+          <div className="modal-btns"><button className="btn-c" onClick={()=>setShowEditTask(false)}>Cancel</button><button className="btn-ok" onClick={saveEditTask}>Save</button></div>
+        </div>
+      </div>
+    )}
+    {showRenameModal&&(
+      <div className="overlay" onClick={()=>setShowRenameModal(false)}>
+        <div className="modal" onClick={e=>e.stopPropagation()}>
+          <div className="modal-title">Rename Folder</div>
+          <div className="modal-lbl">New name</div>
+          <input className="modal-in" value={renameText} autoFocus onChange={e=>setRenameText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveRename()} placeholder="Folder name"/>
+          <div className="modal-btns"><button className="btn-c" onClick={()=>setShowRenameModal(false)}>Cancel</button><button className="btn-ok" onClick={saveRename}>Save</button></div>
+        </div>
+      </div>
+    )}
+    {showFolderModal&&(
+      <div className="overlay" onClick={()=>setShowFolderModal(false)}>
+        <div className="modal" onClick={e=>e.stopPropagation()}>
+          <div className="modal-title">New Folder</div>
+          <div className="modal-lbl">Name</div>
+          <input className="modal-in" value={nfName} autoFocus onChange={e=>setNfName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createFolder()} placeholder="e.g. Ajay Sharma"/>
+          <div className="modal-lbl">Icon</div>
+          <div className="icon-grid">{ICON_OPTIONS.map(icon=><div key={icon} className={`icon-opt${nfIcon===icon?" sel":""}`} onClick={()=>setNfIcon(icon)}>{icon}</div>)}</div>
+          <div className="modal-lbl">Color</div>
+          <div className="swatches">{COLORS.map(c=><div key={c} className={`sw${nfColor===c?" sel":""}`} style={{background:c}} onClick={()=>setNfColor(c)}/>)}</div>
+          <div className="folder-preview" style={{background:`linear-gradient(135deg,${nfColor}dd,${nfColor}99)`}}>
+            <span style={{fontSize:"1.3rem"}}>{nfIcon}</span>
+            <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".9rem",color:"#fff"}}>{nfName||"Folder name"}</span>
+          </div>
+          <div className="modal-btns"><button className="btn-c" onClick={()=>setShowFolderModal(false)}>Cancel</button><button className="btn-ok" onClick={createFolder}>Create</button></div>
+        </div>
+      </div>
+    )}
+    {showHoursModal&&(
+      <div className="overlay" onClick={()=>setShowHoursModal(false)}>
+        <div className="modal" onClick={e=>e.stopPropagation()}>
+          <div className="modal-title">Set Work Hours</div>
+          <div className="modal-lbl">Daily goal for {hoursDay?DAYS[DAY_KEYS.indexOf(hoursDay)]:""}</div>
+          <div className="hr-presets">{HR_PRESET.map(h=><button key={h} className={`hp${pendingHrs===h?" sel":""}`} onClick={()=>setPendingHrs(h)}>{h} hrs</button>)}</div>
+          <div style={{fontSize:".8rem",color:"var(--mu)",marginBottom:18}}>Tracks against actual time worked on tasks.</div>
+          <div className="modal-btns"><button className="btn-c" onClick={()=>setShowHoursModal(false)}>Cancel</button><button className="btn-ok" onClick={saveHours}>Save</button></div>
+        </div>
+      </div>
+    )}
+    </>
+  );
+}
