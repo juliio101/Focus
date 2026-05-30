@@ -813,7 +813,7 @@ export default function App() {
           <Dots/>
           <div className="ob-emoji">🚀</div>
           <div className="ob-title">You're all set.</div>
-          <div className="ob-sub">Your ADHD brain now has a tool that works <em>with</em> it — not against it.</div>
+          <div className="ob-sub">Your brain now has a tool that works <em>with</em> it - not against it.</div>
           <div className="ob-card">
             <div className="ob-card-label">Quick reference</div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
