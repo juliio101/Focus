@@ -700,6 +700,18 @@ export default function App() {
     );
   };
 
+  const AlertBtn=({task})=>{
+    const nextAlert=task.alert==="red"?null:task.alert==="yellow"?"red":"yellow";
+    const label=task.alert==="red"?"🔴 Red alert":task.alert==="yellow"?"🟡 Yellow alert":"⚪ Set alert";
+    const btnColor=task.alert==="red"?"#ef4444":task.alert==="yellow"?"#fbbf24":"var(--b2)";
+    return(
+      <button className="detail-action-btn" style={{borderColor:btnColor,color:task.alert?btnColor:"var(--tx2)"}}
+        onClick={()=>setTasks(p=>p.map(t=>t.id===task.id?{...t,alert:nextAlert}:t))}>
+        {label}
+      </button>
+    );
+  };
+
   const TaskDetailView=()=>{
     if(!activeTask) return null;
     const task=tasks.find(t=>t.id===activeTask.id)??activeTask;
@@ -717,17 +729,7 @@ export default function App() {
         <div className="detail-actions-row">
           <button className="detail-action-btn" onClick={()=>{ setEditTaskText(task.text);setShowEditTask(true); }}>✏️ Edit</button>
           {done&&<button className="detail-action-btn warn" onClick={uncompleteTask}>↩ Uncomplete</button>}
-          {!done&&(()=>{
-            const nextAlert=task.alert==="red"?null:task.alert==="yellow"?"red":"yellow";
-            const label=task.alert==="red"?"🔴 Red alert":task.alert==="yellow"?"🟡 Yellow alert":"⚪ Set alert";
-            const btnColor=task.alert==="red"?"#ef4444":task.alert==="yellow"?"#fbbf24":"var(--b2)";
-            return(
-              <button className="detail-action-btn" style={{borderColor:btnColor,color:task.alert?btnColor:"var(--tx2)"}}
-                onClick={()=>setTasks(p=>p.map(t=>t.id===task.id?{...t,alert:nextAlert}:t))}>
-                {label}
-              </button>
-            );
-          })()}
+          {!done&&<AlertBtn task={task}/>}
           <button className="detail-action-btn danger" onClick={deleteActiveTask}>🗑 Delete</button>
         </div>
         {done&&<div className="done-badge">✓ Completed</div>}
