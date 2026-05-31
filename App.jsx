@@ -235,6 +235,7 @@ export default function App() {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const isDone=(task,dk)=>task.recurring?(task.doneOn??[]).includes(dateForDK(dk)):task.done;
+  const sortByAlert=arr=>[...arr].sort((a,b)=>{ const al={red:2,yellow:1}; return (al[b.alert]??0)-(al[a.alert]??0); });
   const tasksForDay=dk=>{ const td=dateForDK(dk); const seen=new Set(); return tasks.filter(t=>{ if(seen.has(t.id)) return false; if(t.recurring){ if(t.recurringDays?.includes(dk)){seen.add(t.id);return true;} return false; } if(t.startDate){ if(t.startDate===td){seen.add(t.id);return true;} return false; } if(t.scheduledDate){ if(t.scheduledDate===td){seen.add(t.id);return true;} return false; } if(t.day===dk){seen.add(t.id);return true;} return false; }); };
   const folderTasks=fid=>tasks.filter(t=>t.folderId===fid);
   const donePct=(arr,dk)=>arr.length?Math.round(arr.filter(t=>isDone(t,dk)).length/arr.length*100):0;
@@ -342,15 +343,19 @@ export default function App() {
   const TaskRow=({task,dk,color,from})=>{
     const done=isDone(task,dk),secs=getLiveSecs(task),isRunning=task.timerRunning;
     const today=dStr();
+    const alertColor=task.alert==="red"?"#ef4444":task.alert==="yellow"?"#fbbf24":null;
     let dueBadge=null;
     if(task.dueDate&&!done){ const diff=Math.round((new Date(task.dueDate)-new Date(today))/86400000); let lbl,bg,col; if(diff<0){lbl=`Overdue ${Math.abs(diff)}d`;bg="#ef444420";col="#ef4444";}else if(diff===0){lbl="Due today";bg="#fb923c20";col="#fb923c";}else if(diff===1){lbl="Due tmrw";bg="#fbbf2420";col="#fbbf24";}else if(diff<=7){lbl=`Due in ${diff}d`;bg="#ffffff10";col="var(--tx2)";}else{lbl=`Due ${task.dueDate.slice(5)}`;bg="#ffffff08";col="var(--mu)";} dueBadge=<span className="due-badge" style={{background:bg,color:col}}>{lbl}</span>; }
     return(
-      <div className={`task-row${done?" done":""}${task.dueDate&&!done&&today>task.dueDate?" overdue":""}`} style={{"--rc":color}} onClick={()=>goTask(task,dk,from??view)}>
+      <div className={`task-row${done?" done":""}${task.dueDate&&!done&&today>task.dueDate?" overdue":""}`}
+        style={{"--rc":color,borderLeftColor:alertColor?alertColor:"transparent",borderLeftWidth:alertColor?3:1,background:alertColor?`${alertColor}08`:"var(--s)"}}
+        onClick={()=>goTask(task,dk,from??view)}>
         <div className="task-chk"><span className="task-chk-v">✓</span></div>
+        {alertColor&&!done&&<span style={{fontSize:".8rem",flexShrink:0}}>{task.alert==="red"?"🔴":"🟡"}</span>}
         {isRunning&&<div className="task-running-dot"/>}
-        {task.recurring&&!isRunning&&<div className="rec-dot" style={{background:color}}/>}
+        {task.recurring&&!isRunning&&!alertColor&&<div className="rec-dot" style={{background:color}}/>}
         {task.isReminder&&<span style={{fontSize:".7rem",flexShrink:0}}>⏰</span>}
-        <span className="task-txt">{task.text}</span>
+        <span className="task-txt" style={{color:alertColor&&!done?alertColor:"var(--tx)"}}>{task.text}</span>
         {dueBadge}
         {secs>0&&<span className="task-timer-badge">{fmtTimer(secs)}</span>}
         {!done&&<span className="task-arr">›</span>}
@@ -483,6 +488,8 @@ export default function App() {
     const weekTotal=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0);
     const enriched=[...folders].map(f=>{ const td=todayKey(),ft=folderTasks(f.id),tdTasks=tasksForDay(td).filter(t=>t.folderId===f.id),doneToday=tdTasks.filter(t=>isDone(t,td)).length,todayCount=tdTasks.length; let wDue=0,wDone=0; DAY_KEYS.forEach(d=>{ const df=tasksForDay(d).filter(t=>t.folderId===f.id); wDue+=df.length; wDone+=df.filter(t=>isDone(t,d)).length; }); const totalSecs=ft.reduce((s,t)=>s+(t.timerSeconds??0),0); return{f,todayCount,doneToday,wDue,wDone,wPct:wDue>0?Math.round(wDone/wDue*100):0,totalSecs,hasToday:todayCount>0}; });
     const active=enriched.filter(e=>e.hasToday).sort((a,b)=>b.todayCount-a.todayCount);
+    // Sort each folder's tasks by alert when rendering on home
+    const getAlertLevel=fid=>{ const ft=tasksForDay(todayKey()).filter(t=>t.folderId===fid); if(ft.some(t=>t.alert==="red")) return 2; if(ft.some(t=>t.alert==="yellow")) return 1; return 0; };
     const inactive=enriched.filter(e=>!e.hasToday);
     const FRow=({e,dim})=>{ const{f,todayCount,doneToday,wDue,wDone,wPct,totalSecs}=e; return(
       <div className={`folder-row${dim?" dimmed":""}`} style={{"--fc":dim?"#555":f.color}} onClick={()=>goFolder(f.id)}>
@@ -658,10 +665,10 @@ export default function App() {
         {grouped.map(({f,ts})=>(
           <div className="task-grp" key={f.id}>
             <div className="grp-hdr"><span className="grp-lbl" style={{color:f.color}}>{f.icon} {f.name}</span><span style={{marginLeft:"auto",fontSize:".72rem",color:f.color,fontWeight:700}}>{donePct(ts,dk)}%</span></div>
-            {ts.map(t=><TaskRow key={t.id} task={t} dk={dk} color={f.color} from="day"/>)}
+            {sortByAlert(ts).map(t=><TaskRow key={t.id} task={t} dk={dk} color={f.color} from="day"/>)}
           </div>
         ))}
-        {other.length>0&&<div className="task-grp"><div className="grp-hdr"><span className="grp-lbl" style={{color:"var(--mu)"}}>Other</span></div>{other.map(t=><TaskRow key={t.id} task={t} dk={dk} color="var(--ac)" from="day"/>)}</div>}
+        {other.length>0&&<div className="task-grp"><div className="grp-hdr"><span className="grp-lbl" style={{color:"var(--mu)"}}>Other</span></div>{sortByAlert(other).map(t=><TaskRow key={t.id} task={t} dk={dk} color="var(--ac)" from="day"/>)}</div>}
         {dt.length===0&&<div className="empty">Nothing for {label} — add a task below ↓</div>}
         <AddRow dk={dk} fid={folders[0]?.id} placeholder={`Add task for ${label}...`}/>
       </div>
@@ -683,7 +690,7 @@ export default function App() {
         {byDay.map(({d,lbl,ts})=>(
           <div className="task-grp" key={d}>
             <div className="grp-hdr"><span className="grp-lbl" style={{color:DAY_KEYS.indexOf(d)===todayIdx()?folder.color:"var(--mu)"}}>{lbl}{DAY_KEYS.indexOf(d)===todayIdx()?" · Today":""}</span></div>
-            {ts.map(t=><TaskRow key={t.id} task={t} dk={d} color={folder.color} from="folder"/>)}
+            {sortByAlert(ts).map(t=><TaskRow key={t.id} task={t} dk={d} color={folder.color} from="folder"/>)}
           </div>
         ))}
         {ft.length===0&&<div className="empty">No tasks yet — add one below ↓</div>}
@@ -710,6 +717,17 @@ export default function App() {
         <div className="detail-actions-row">
           <button className="detail-action-btn" onClick={()=>{ setEditTaskText(task.text);setShowEditTask(true); }}>✏️ Edit</button>
           {done&&<button className="detail-action-btn warn" onClick={uncompleteTask}>↩ Uncomplete</button>}
+          {!done&&(()=>{
+            const nextAlert=task.alert==="red"?null:task.alert==="yellow"?"red":"yellow";
+            const label=task.alert==="red"?"🔴 Red alert":task.alert==="yellow"?"🟡 Yellow alert":"⚪ Set alert";
+            const btnColor=task.alert==="red"?"#ef4444":task.alert==="yellow"?"#fbbf24":"var(--b2)";
+            return(
+              <button className="detail-action-btn" style={{borderColor:btnColor,color:task.alert?btnColor:"var(--tx2)"}}
+                onClick={()=>setTasks(p=>p.map(t=>t.id===task.id?{...t,alert:nextAlert}:t))}>
+                {label}
+              </button>
+            );
+          })()}
           <button className="detail-action-btn danger" onClick={deleteActiveTask}>🗑 Delete</button>
         </div>
         {done&&<div className="done-badge">✓ Completed</div>}
