@@ -250,6 +250,8 @@ export default function App() {
   // Last week helpers — sum timeLog entries from last 7 days
   const lastWeekSecs=()=>{ const secs={};let total=0; tasks.forEach(t=>{ Object.entries(t.timeLog??{}).forEach(([date,s])=>{ const d=new Date(date+'T00:00:00'); const diff=Math.round((new Date()-d)/86400000); if(diff>=7&&diff<14) total+=s; }); }); return total; };
   const thisWeekSecs=()=>{ let total=0; tasks.forEach(t=>{ Object.entries(t.timeLog??{}).forEach(([date,s])=>{ const d=new Date(date+'T00:00:00'); const diff=Math.round((new Date()-d)/86400000); if(diff>=0&&diff<7) total+=s; }); }); return total; };
+  const hWeek=()=>thisWeekSecs()/3600;
+  const hLastWeek=()=>lastWeekSecs()/3600;
 
   // ── Timer ─────────────────────────────────────────────────────────────────
   const startTimer=taskId=>{ const now=Date.now(); playStart(); setTasks(prev=>prev.map(t=>{ if(t.id===taskId) return{...t,timerRunning:true,timerStartedAt:now}; if(t.timerRunning&&t.timerStartedAt){ // pause any other running timer and save to correct day const el=Math.floor((now-t.timerStartedAt)/1000); const date=dStr(new Date(t.timerStartedAt)); const log={...(t.timeLog??{})}; log[date]=(log[date]??0)+el; return{...t,timerRunning:false,timerStartedAt:null,timerSeconds:(t.timerSeconds??0)+el,timeLog:log}; } return t; })); };
@@ -482,8 +484,6 @@ export default function App() {
     const dk=todayKey();
     const nowDate=new Date(),monthStr=`${nowDate.getFullYear()}-${String(nowDate.getMonth()+1).padStart(2,"0")}`,monthName=nowDate.toLocaleString("default",{month:"long"});
     const tMonth=()=>{ let c=0; tasks.forEach(t=>{ if(!t.recurring&&t.done)c++; else if(t.recurring)c+=(t.doneOn??[]).filter(d=>d.startsWith(monthStr)).length; }); return c; };
-    const hWeek=()=>thisWeekSecs()/3600;
-    const hLastWeek=()=>lastWeekSecs()/3600;
     const weekDone=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0);
     const weekTotal=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0);
     const enriched=[...folders].map(f=>{ const td=todayKey(),ft=folderTasks(f.id),tdTasks=tasksForDay(td).filter(t=>t.folderId===f.id),doneToday=tdTasks.filter(t=>isDone(t,td)).length,todayCount=tdTasks.length; let wDue=0,wDone=0; DAY_KEYS.forEach(d=>{ const df=tasksForDay(d).filter(t=>t.folderId===f.id); wDue+=df.length; wDone+=df.filter(t=>isDone(t,d)).length; }); const totalSecs=ft.reduce((s,t)=>s+(t.timerSeconds??0),0); return{f,todayCount,doneToday,wDue,wDone,wPct:wDue>0?Math.round(wDone/wDue*100):0,totalSecs,hasToday:todayCount>0}; });
@@ -701,7 +701,7 @@ export default function App() {
         </div>
         <div style={{height:1,background:"var(--b)",marginBottom:10}}/>
         <div style={{fontSize:".78rem",fontWeight:700,color:isAhead?"#34d399":"#ef4444"}}>
-          {lw===0?"No data from last week yet":isAhead?`▲ ${fmtHrs(Math.abs(diff))} ahead of last week`:`▼ ${fmtHrs(Math.abs(diff))} behind last week`}
+          {lw===0?"No data from last week yet":isAhead?"+ "+fmtHrs(Math.abs(diff))+" ahead of last week":"- "+fmtHrs(Math.abs(diff))+" behind last week"}
         </div>
       </div>
     );
