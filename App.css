@@ -345,3 +345,21 @@ input,button,select,textarea{font-family:'DM Sans',sans-serif}
 .ob-chk{width:18px;height:18px;border-radius:50%;border:2px solid var(--b2);flex-shrink:0}
 .ob-task-txt{font-size:.88rem;color:var(--tx);font-weight:500}
 .ob-badge{font-size:.65rem;padding:2px 8px;border-radius:5px;background:#c8ff5720;color:var(--ac);border:1px solid #c8ff5730;font-weight:700;margin-left:auto}
+
+/* ── Money View ── */
+.money-hero{background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:28px 24px;margin-bottom:20px;text-align:center}
+.money-mrr-label{font-size:.68rem;color:var(--mu);text-transform:uppercase;letter-spacing:.14em;font-weight:700;margin-bottom:8px}
+.money-mrr{font-family:'DM Mono',monospace;font-weight:700;font-size:3.2rem;color:#34d399;line-height:1;letter-spacing:-2px;margin-bottom:4px}
+.money-mrr-sub{font-size:.78rem;color:var(--mu);font-weight:500}
+.money-clients{display:flex;flex-direction:column;gap:8px}
+.money-client-row{background:var(--s);border:1px solid var(--b);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;transition:all .18s;cursor:pointer}
+.money-client-row:hover{border-color:var(--b2)}
+.money-client-icon{font-size:1.2rem;flex-shrink:0}
+.money-client-name{flex:1;font-weight:600;font-size:.9rem;color:var(--tx)}
+.money-client-val{font-family:'DM Mono',monospace;font-weight:700;font-size:1rem;color:#34d399}
+.money-client-val.zero{color:var(--mu)}
+.money-client-lbl{font-size:.62rem;color:var(--mu);text-align:right;margin-top:2px;font-weight:500}
+.money-edit-btn{background:none;border:1px solid var(--b2);color:var(--mu);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.75rem;font-weight:600;transition:all .15s;flex-shrink:0}
+.money-edit-btn:hover{border-color:var(--mu);color:var(--tx)}
+.money-no-value{display:flex;align-items:center;gap:6px}
+.money-no-value-lbl{font-size:.78rem;color:var(--mu)}
