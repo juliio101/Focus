@@ -239,10 +239,16 @@ export default function App() {
   const folderTasks=fid=>tasks.filter(t=>t.folderId===fid);
   const donePct=(arr,dk)=>arr.length?Math.round(arr.filter(t=>isDone(t,dk)).length/arr.length*100):0;
   const hoursFor=dk=>dayHours[dk]??8;
-  const secsTracked=dk=>{ const date=dateForDK(dk); return tasksForDay(dk).reduce((s,t)=>{ const log=t.timeLog??{}; const dayVal=log[date]??0; // if timer is running right now and it started today, add live seconds if(t.timerRunning&&t.timerStartedAt){ const startDate=dStr(new Date(t.timerStartedAt)); if(startDate===date) return s+dayVal+(Date.now()-t.timerStartedAt)/1000; } return s+dayVal; },0); };
+  const secsTracked=dk=>{ const date=dateForDK(dk); return tasksForDay(dk).reduce((s,t)=>{ const log=t.timeLog??{}; const dayVal=log[date]??0; if(t.timerRunning&&t.timerStartedAt){ const startDate=dStr(new Date(t.timerStartedAt)); if(startDate===date) return s+dayVal+(Date.now()-t.timerStartedAt)/1000; } return s+dayVal; },0); };
   const hoursLeft=dk=>Math.max(0,hoursFor(dk)-secsTracked(dk)/3600);
   const hoursPct=dk=>Math.min(100,Math.round(secsTracked(dk)/3600/hoursFor(dk)*100));
-  const weekPct=()=>{ let t=0,d=0; DAY_KEYS.forEach(dk=>{ const dt=tasksForDay(dk); t+=dt.length; d+=dt.filter(x=>isDone(x,dk)).length; }); return t?Math.round(d/t*100):0; };
+  // Time-based week progress — falls back to task % if no time tracked
+  const weekSecsTotal=()=>DAY_KEYS.reduce((s,dk)=>s+secsTracked(dk),0);
+  const weekGoalSecs=()=>DAY_KEYS.reduce((s,dk)=>s+hoursFor(dk)*3600,0);
+  const weekPct=()=>{ const ws=weekSecsTotal(),wg=weekGoalSecs(); if(ws>0) return Math.min(100,Math.round(ws/wg*100)); let t=0,d=0; DAY_KEYS.forEach(dk=>{ const dt=tasksForDay(dk); t+=dt.length; d+=dt.filter(x=>isDone(x,dk)).length; }); return t?Math.round(d/t*100):0; };
+  // Last week helpers — sum timeLog entries from last 7 days
+  const lastWeekSecs=()=>{ const secs={};let total=0; tasks.forEach(t=>{ Object.entries(t.timeLog??{}).forEach(([date,s])=>{ const d=new Date(date+'T00:00:00'); const diff=Math.round((new Date()-d)/86400000); if(diff>=7&&diff<14) total+=s; }); }); return total; };
+  const thisWeekSecs=()=>{ let total=0; tasks.forEach(t=>{ Object.entries(t.timeLog??{}).forEach(([date,s])=>{ const d=new Date(date+'T00:00:00'); const diff=Math.round((new Date()-d)/86400000); if(diff>=0&&diff<7) total+=s; }); }); return total; };
 
   // ── Timer ─────────────────────────────────────────────────────────────────
   const startTimer=taskId=>{ const now=Date.now(); playStart(); setTasks(prev=>prev.map(t=>{ if(t.id===taskId) return{...t,timerRunning:true,timerStartedAt:now}; if(t.timerRunning&&t.timerStartedAt){ // pause any other running timer and save to correct day const el=Math.floor((now-t.timerStartedAt)/1000); const date=dStr(new Date(t.timerStartedAt)); const log={...(t.timeLog??{})}; log[date]=(log[date]??0)+el; return{...t,timerRunning:false,timerStartedAt:null,timerSeconds:(t.timerSeconds??0)+el,timeLog:log}; } return t; })); };
@@ -385,13 +391,14 @@ export default function App() {
 
   // ── Rings Card ────────────────────────────────────────────────────────────
   const RingsCard=({dk})=>{
-    const dp=donePct(tasksForDay(dk),dk),wp=weekPct(),hp=hoursPct(dk),st=secsTracked(dk);
+    const dp=hoursPct(dk),wp=weekPct(),hp=hoursPct(dk),st=secsTracked(dk);
+    const hasTimeData=weekSecsTotal()>0;
     return(
       <div className="rings-card">
         <div className="ring-stat">
           <div className="ring-stat-val" style={{color:"#a78bfa"}}>{wp}%</div>
           <div className="ring-stat-lbl">This Week</div>
-          <div className="ring-stat-sub">{DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0)}/{DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0)}</div>
+          <div className="ring-stat-sub">{hasTimeData?fmtHrs(weekSecsTotal()/3600)+" worked":`${DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0)}/${DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0)} tasks`}</div>
         </div>
         <div className="ring-div"/>
         <Ring pct={dp} color="#c8ff57" size={100} stroke={9} label="Today" val={`${dp}%`}/>
@@ -470,7 +477,8 @@ export default function App() {
     const dk=todayKey();
     const nowDate=new Date(),monthStr=`${nowDate.getFullYear()}-${String(nowDate.getMonth()+1).padStart(2,"0")}`,monthName=nowDate.toLocaleString("default",{month:"long"});
     const tMonth=()=>{ let c=0; tasks.forEach(t=>{ if(!t.recurring&&t.done)c++; else if(t.recurring)c+=(t.doneOn??[]).filter(d=>d.startsWith(monthStr)).length; }); return c; };
-    const hWeek=()=>{ let s=0; DAY_KEYS.forEach(d=>tasksForDay(d).filter(t=>isDone(t,d)).forEach(t=>{s+=t.timerSeconds??0;})); return s/3600; };
+    const hWeek=()=>thisWeekSecs()/3600;
+    const hLastWeek=()=>lastWeekSecs()/3600;
     const weekDone=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0);
     const weekTotal=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0);
     const enriched=[...folders].map(f=>{ const td=todayKey(),ft=folderTasks(f.id),tdTasks=tasksForDay(td).filter(t=>t.folderId===f.id),doneToday=tdTasks.filter(t=>isDone(t,td)).length,todayCount=tdTasks.length; let wDue=0,wDone=0; DAY_KEYS.forEach(d=>{ const df=tasksForDay(d).filter(t=>t.folderId===f.id); wDue+=df.length; wDone+=df.filter(t=>isDone(t,d)).length; }); const totalSecs=ft.reduce((s,t)=>s+(t.timerSeconds??0),0); return{f,todayCount,doneToday,wDue,wDone,wPct:wDue>0?Math.round(wDone/wDue*100):0,totalSecs,hasToday:todayCount>0}; });
@@ -580,6 +588,37 @@ export default function App() {
             <div className="stat-div"/>
             <div className="stat-row"><span className="stat-row-l">Best ever</span><span className="stat-row-v" style={{color:"#f97316"}}>{bestStreak} days</span></div>
           </div>}
+          {(hWeek()>0||hLastWeek()>0)&&(()=>{
+            const tw=hWeek(),lw=hLastWeek(),diff=tw-lw,maxH=Math.max(tw,lw,1);
+            const isAhead=diff>=0;
+            return(
+              <div className="stat-card">
+                <div className="stat-title">📊 This Week vs Last Week</div>
+                <div style={{display:"flex",gap:12,marginBottom:16,marginTop:4}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>This week</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.3rem",color:"#c8ff57",letterSpacing:"-1px",lineHeight:1}}>{fmtHrs(tw)}</div>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>Last week</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.3rem",color:"var(--tx2)",letterSpacing:"-1px",lineHeight:1}}>{fmtHrs(lw)}</div>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:6,marginBottom:10,alignItems:"flex-end"}}>
+                  <div style={{flex:1}}>
+                    <div style={{height:Math.max(4,Math.round(tw/maxH*48)),background:"#c8ff57",borderRadius:"4px 4px 0 0",transition:"height .6s ease",minWidth:"100%"}}/>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{height:Math.max(4,Math.round(lw/maxH*48)),background:"#333",borderRadius:"4px 4px 0 0",transition:"height .6s ease",minWidth:"100%"}}/>
+                  </div>
+                </div>
+                <div style={{height:1,background:"var(--b)",marginBottom:10}}/>
+                <div style={{fontSize:".78rem",fontWeight:700,color:isAhead?"#34d399":"#ef4444"}}>
+                  {lw===0?"No data from last week yet":isAhead?`▲ ${fmtHrs(Math.abs(diff))} ahead of last week`:`▼ ${fmtHrs(Math.abs(diff))} behind last week`}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     );
@@ -596,11 +635,26 @@ export default function App() {
         <RingsCard dk={dk}/>
         {isT&&<DayMomentum dk={dk}/>}
         <TimeProgress dk={dk}/>
-        <div className="big-prog">
-          <div className="big-top"><span className="big-frac">{done}<span className="d">/{dt.length}</span></span><span className="big-pct" style={{color:"#c8ff57"}}>{pct}%</span></div>
-          <div className="big-bar"><div className="big-fill" style={{width:`${pct}%`,background:"#c8ff57"}}/></div>
-          {dt.length>0&&done===dt.length&&<div className="all-done">✦ All done!</div>}
-        </div>
+        {(() => {
+          const st=secsTracked(dk),goal=hoursFor(dk)*3600,timePct=Math.min(100,Math.round(st/goal*100));
+          const hasTime=st>0;
+          return(
+            <div className="big-prog">
+              <div className="big-top">
+                <span className="big-frac">
+                  {hasTime?fmtHrs(st/3600):<span style={{fontSize:"1.1rem",color:"var(--mu)"}}>No time yet</span>}
+                  {hasTime&&<span className="d"> of {hoursFor(dk)} hrs</span>}
+                </span>
+                <span className="big-pct" style={{color:"#c8ff57"}}>{hasTime?timePct:donePct(dt,dk)}%</span>
+              </div>
+              <div className="big-bar"><div className="big-fill" style={{width:`${hasTime?timePct:donePct(dt,dk)}%`,background:"#c8ff57"}}/></div>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+                <span style={{fontSize:".72rem",color:"var(--mu)"}}>Tasks: {done}/{dt.length} completed</span>
+                {dt.length>0&&done===dt.length&&<span style={{fontSize:".72rem",color:"var(--ac)",fontWeight:700}}>✦ All done!</span>}
+              </div>
+            </div>
+          );
+        })()}
         {grouped.map(({f,ts})=>(
           <div className="task-grp" key={f.id}>
             <div className="grp-hdr"><span className="grp-lbl" style={{color:f.color}}>{f.icon} {f.name}</span><span style={{marginLeft:"auto",fontSize:".72rem",color:f.color,fontWeight:700}}>{donePct(ts,dk)}%</span></div>
