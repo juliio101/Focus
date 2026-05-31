@@ -501,6 +501,39 @@ export default function App() {
               {inactive.length>0&&<>{active.length>0&&<div className="no-tasks-divider"><span className="no-tasks-lbl">No tasks today</span></div>}{inactive.map(e=><FRow key={e.f.id} e={e} dim={true}/>)}</>}
             </div>
           )}
+
+          {/* Revenue section — only shows if any folder has a value */}
+          {folders.some(f=>(f.monthlyValue||0)>0)&&(()=>{
+            const totalMRR=folders.reduce((s,f)=>s+(f.monthlyValue||0),0);
+            const activeRevFolders=[...folders].filter(f=>(f.monthlyValue||0)>0).sort((a,b)=>(b.monthlyValue||0)-(a.monthlyValue||0));
+            return(
+              <div style={{marginTop:24}}>
+                <div className="sec-hdr"><span className="sec-title">Monthly Revenue</span></div>
+                <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"18px 20px",marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:14}}>
+                    <div>
+                      <div style={{fontSize:".65rem",color:"var(--mu)",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}}>Total MRR</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"2rem",color:"#34d399",letterSpacing:"-1px",lineHeight:1}}>${totalMRR.toLocaleString()}<span style={{fontSize:"1rem",fontWeight:500,color:"var(--mu)"}}>/mo</span></div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:".7rem",color:"var(--mu)",fontWeight:500}}>{activeRevFolders.length} client{activeRevFolders.length!==1?"s":""}</div>
+                      <div style={{fontSize:".7rem",color:"#34d399",fontWeight:600,marginTop:2}}>${(totalMRR*12).toLocaleString()}/yr</div>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {activeRevFolders.map(f=>(
+                      <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:"1px solid var(--b)"}}>
+                        <span style={{fontSize:"1rem",flexShrink:0}}>{f.icon}</span>
+                        <span style={{flex:1,fontSize:".85rem",color:"var(--tx)",fontWeight:500}}>{f.name}</span>
+                        <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".9rem",color:"#34d399"}}>${(f.monthlyValue||0).toLocaleString()}</span>
+                        <span style={{fontSize:".68rem",color:"var(--mu)",fontWeight:500}}>/mo</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
         <div className="stats-col">
           <div className="stat-card">
@@ -686,7 +719,7 @@ export default function App() {
                     <div className="money-client-val">${(f.monthlyValue||0).toLocaleString()}</div>
                     <div className="money-client-lbl">/month</div>
                   </div>
-                  <button className="money-edit-btn" onClick={()=>{setEditingFolder(f);setEditValue(String(f.monthlyValue||""));}}>Edit</button>
+                  <button className="money-edit-btn" onClick={(e)=>{e.stopPropagation();setEditingFolder(f);setEditValue(String(f.monthlyValue||""));}}>Edit</button>
                 </div>
               ))}
             </div>
@@ -704,7 +737,7 @@ export default function App() {
                   <div style={{flex:1}}>
                     <div className="money-client-name" style={{color:"var(--mu)"}}>{f.name}</div>
                   </div>
-                  <button className="money-edit-btn" onClick={()=>{setEditingFolder(f);setEditValue("");}}>+ Add value</button>
+                  <button className="money-edit-btn" onClick={(e)=>{e.stopPropagation();setEditingFolder(f);setEditValue("");}}>+ Add value</button>
                 </div>
               ))}
             </div>
@@ -814,7 +847,6 @@ export default function App() {
       {view==="folder"&&<FolderView/>}
       {view==="task"&&<TaskDetailView/>}
       {view==="all"&&<AllTasksView/>}
-      {view==="money"&&<MoneyView/>}
       {view!=="task"&&(
         <div className="tab-bar">
           <button className={`tab-btn${(view==="home"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}>
@@ -822,9 +854,6 @@ export default function App() {
           </button>
           <button className={`tab-btn${view==="all"?" active":""}`} onClick={()=>setView("all")}>
             <span className="tab-icon">📋</span><span className="tab-lbl">All Tasks</span><div className="tab-dot"/>
-          </button>
-          <button className={`tab-btn${view==="money"?" active":""}`} onClick={()=>setView("money")}>
-            <span className="tab-icon">💰</span><span className="tab-lbl">Money</span><div className="tab-dot"/>
           </button>
         </div>
       )}
