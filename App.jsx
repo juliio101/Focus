@@ -100,6 +100,7 @@ export default function App() {
   const [showRenameModal,setShowRenameModal]=useState(false);
   const [renamingFolder,setRenamingFolder]=useState(null);
   const [renameText,setRenameText]=useState("");
+  const [renameValue,setRenameValue]=useState("");
   const [showEditTask,setShowEditTask]=useState(false);
   const [editTaskText,setEditTaskText]=useState("");
   const [showLockModal,setShowLockModal]=useState(false);
@@ -286,8 +287,8 @@ export default function App() {
 
   // ── Folder ────────────────────────────────────────────────────────────────
   const createFolder=()=>{ const n=nfName.trim(); if(!n) return; setFolders(p=>[...p,{id:Date.now(),name:n,color:nfColor,icon:nfIcon,monthlyValue:parseFloat(nfValue)||0}]); setNfName("");setNfColor(COLORS[0]);setNfIcon(ICON_OPTIONS[0]);setNfValue("");setShowFolderModal(false); };
-  const openRename=(e,f)=>{ e.stopPropagation(); setRenamingFolder(f);setRenameText(f.name);setShowRenameModal(true); };
-  const saveRename=()=>{ const n=renameText.trim(); if(!n) return; setFolders(p=>p.map(f=>f.id===renamingFolder.id?{...f,name:n}:f)); setShowRenameModal(false); };
+  const openRename=(e,f)=>{ e.stopPropagation(); setRenamingFolder(f);setRenameText(f.name);setRenameValue(String(f.monthlyValue||""));setShowRenameModal(true); };
+  const saveRename=()=>{ const n=renameText.trim(); if(!n) return; setFolders(p=>p.map(f=>f.id===renamingFolder.id?{...f,name:n,monthlyValue:parseFloat(renameValue)||0}:f)); setShowRenameModal(false); };
   const deleteFolder=fid=>{ setFolders(p=>p.filter(f=>f.id!==fid)); setTasks(p=>p.filter(t=>t.folderId!==fid)); goHome(); };
   const openHours=dk=>{ setPendingHrs(hoursFor(dk));setHoursDay(dk);setShowHoursModal(true); };
   const saveHours=()=>{ setDayHours(p=>({...p,[hoursDay]:pendingHrs}));setShowHoursModal(false); };
@@ -1029,9 +1030,14 @@ export default function App() {
     {showRenameModal&&(
       <div className="overlay" onClick={()=>setShowRenameModal(false)}>
         <div className="modal" onClick={e=>e.stopPropagation()}>
-          <div className="modal-title">Rename Folder</div>
-          <div className="modal-lbl">New name</div>
+          <div className="modal-title">Edit Folder</div>
+          <div className="modal-lbl">Name</div>
           <input className="modal-in" value={renameText} autoFocus onChange={e=>setRenameText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveRename()} placeholder="Folder name"/>
+          <div className="modal-lbl">Monthly value (optional)</div>
+          <div style={{position:"relative",marginBottom:16}}>
+            <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--mu)",fontSize:".9rem",fontWeight:600}}>$</span>
+            <input className="modal-in" style={{paddingLeft:28,marginBottom:0}} value={renameValue} onChange={e=>setRenameValue(e.target.value.replace(/[^0-9.]/g,""))} placeholder="0" type="text" inputMode="decimal"/>
+          </div>
           <div className="modal-btns"><button className="btn-c" onClick={()=>setShowRenameModal(false)}>Cancel</button><button className="btn-ok" onClick={saveRename}>Save</button></div>
         </div>
       </div>
