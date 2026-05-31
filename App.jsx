@@ -235,7 +235,7 @@ export default function App() {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const isDone=(task,dk)=>task.recurring?(task.doneOn??[]).includes(dateForDK(dk)):task.done;
-  const tasksForDay=dk=>{ const td=dateForDK(dk); return tasks.filter(t=>{ if(t.recurring) return t.recurringDays?.includes(dk); if(t.startDate) return t.startDate===td; if(t.scheduledDate) return t.scheduledDate===td; return t.day===dk; }); };
+  const tasksForDay=dk=>{ const td=dateForDK(dk); const seen=new Set(); return tasks.filter(t=>{ if(seen.has(t.id)) return false; if(t.recurring){ if(t.recurringDays?.includes(dk)){seen.add(t.id);return true;} return false; } if(t.startDate){ if(t.startDate===td){seen.add(t.id);return true;} return false; } if(t.scheduledDate){ if(t.scheduledDate===td){seen.add(t.id);return true;} return false; } if(t.day===dk){seen.add(t.id);return true;} return false; }); };
   const folderTasks=fid=>tasks.filter(t=>t.folderId===fid);
   const donePct=(arr,dk)=>arr.length?Math.round(arr.filter(t=>isDone(t,dk)).length/arr.length*100):0;
   const hoursFor=dk=>dayHours[dk]??8;
@@ -360,7 +360,7 @@ export default function App() {
     const inputRef=useRef(null);
     const startOpts=Array.from({length:8},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+i); d.setHours(0,0,0,0); return{value:dStr(d),label:i===0?"Today":i===1?"Tomorrow":DAYS[(d.getDay()+6)%7]}; });
     const dueOpts=[{value:null,label:"No deadline"},{value:taskStartDate,label:"Same day"},...[1,3,7,14,30].map(days=>{ const d=new Date(taskStartDate); d.setDate(d.getDate()+days); return{value:dStr(d),label:days===1?"+1 day":days===7?"+1 week":days===14?"+2 weeks":days===30?"+1 month":`+${days}d`}; })];
-    const submit=()=>{ const t=text.trim(); if(!t) return; const sd=new Date(taskStartDate); const dk2=DAY_KEYS[(sd.getDay()+6)%7]; const base={id:Date.now(),text:t,folderId:fid??folders[0]?.id??null,timerSeconds:0,timerRunning:false,timerStartedAt:null,startDate:taskStartDate,dueDate:taskDueDate||null,day:dk2}; setTasks(p=>[...p,taskRecur?{...base,recurring:true,recurringDays:taskRecDays.length?taskRecDays:[dk??todayKey()],doneOn:[],startDate:undefined,dueDate:undefined}:{...base,recurring:false,done:false}]); setText("");setShowDates(false);inputRef.current?.focus(); };
+    const submit=()=>{ const t=text.trim(); if(!t) return; const base={id:Date.now(),text:t,folderId:fid??folders[0]?.id??null,timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{},startDate:taskStartDate,dueDate:taskDueDate||null}; setTasks(p=>[...p,taskRecur?{...base,recurring:true,recurringDays:taskRecDays.length?taskRecDays:[dk??todayKey()],doneOn:[],startDate:undefined,dueDate:undefined}:{...base,recurring:false,done:false}]); setText("");setShowDates(false);setTaskRecur(false);setTaskRecDays([]);inputRef.current?.focus(); };
     return(
       <div className="add-area">
         <div className="add-row">
