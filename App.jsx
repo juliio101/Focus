@@ -533,37 +533,7 @@ export default function App() {
           )}
 
           {/* Revenue section — only shows if any folder has a value */}
-          {folders.some(f=>(f.monthlyValue||0)>0)&&(()=>{
-            const totalMRR=folders.reduce((s,f)=>s+(f.monthlyValue||0),0);
-            const activeRevFolders=[...folders].filter(f=>(f.monthlyValue||0)>0).sort((a,b)=>(b.monthlyValue||0)-(a.monthlyValue||0));
-            return(
-              <div style={{marginTop:24}}>
-                <div className="sec-hdr"><span className="sec-title">Monthly Revenue</span></div>
-                <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"18px 20px",marginBottom:8}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:14}}>
-                    <div>
-                      <div style={{fontSize:".65rem",color:"var(--mu)",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}}>Total MRR</div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"2rem",color:"#34d399",letterSpacing:"-1px",lineHeight:1}}>${totalMRR.toLocaleString()}<span style={{fontSize:"1rem",fontWeight:500,color:"var(--mu)"}}>/mo</span></div>
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:".7rem",color:"var(--mu)",fontWeight:500}}>{activeRevFolders.length} client{activeRevFolders.length!==1?"s":""}</div>
-                      <div style={{fontSize:".7rem",color:"#34d399",fontWeight:600,marginTop:2}}>${(totalMRR*12).toLocaleString()}/yr</div>
-                    </div>
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    {activeRevFolders.map(f=>(
-                      <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:"1px solid var(--b)"}}>
-                        <span style={{fontSize:"1rem",flexShrink:0}}>{f.icon}</span>
-                        <span style={{flex:1,fontSize:".85rem",color:"var(--tx)",fontWeight:500}}>{f.name}</span>
-                        <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".9rem",color:"#34d399"}}>${(f.monthlyValue||0).toLocaleString()}</span>
-                        <span style={{fontSize:".68rem",color:"var(--mu)",fontWeight:500}}>/mo</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          <RevenueSection/>
         </div>
         <div className="stats-col">
           <div className="stat-card">
@@ -595,37 +565,7 @@ export default function App() {
             <div className="stat-div"/>
             <div className="stat-row"><span className="stat-row-l">Best ever</span><span className="stat-row-v" style={{color:"#f97316"}}>{bestStreak} days</span></div>
           </div>}
-          {(hWeek()>0||hLastWeek()>0)&&(()=>{
-            const tw=hWeek(),lw=hLastWeek(),diff=tw-lw,maxH=Math.max(tw,lw,1);
-            const isAhead=diff>=0;
-            return(
-              <div className="stat-card">
-                <div className="stat-title">📊 This Week vs Last Week</div>
-                <div style={{display:"flex",gap:12,marginBottom:16,marginTop:4}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>This week</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.3rem",color:"#c8ff57",letterSpacing:"-1px",lineHeight:1}}>{fmtHrs(tw)}</div>
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>Last week</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.3rem",color:"var(--tx2)",letterSpacing:"-1px",lineHeight:1}}>{fmtHrs(lw)}</div>
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:6,marginBottom:10,alignItems:"flex-end"}}>
-                  <div style={{flex:1}}>
-                    <div style={{height:Math.max(4,Math.round(tw/maxH*48)),background:"#c8ff57",borderRadius:"4px 4px 0 0",transition:"height .6s ease",minWidth:"100%"}}/>
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{height:Math.max(4,Math.round(lw/maxH*48)),background:"#333",borderRadius:"4px 4px 0 0",transition:"height .6s ease",minWidth:"100%"}}/>
-                  </div>
-                </div>
-                <div style={{height:1,background:"var(--b)",marginBottom:10}}/>
-                <div style={{fontSize:".78rem",fontWeight:700,color:isAhead?"#34d399":"#ef4444"}}>
-                  {lw===0?"No data from last week yet":isAhead?`▲ ${fmtHrs(Math.abs(diff))} ahead of last week`:`▼ ${fmtHrs(Math.abs(diff))} behind last week`}
-                </div>
-              </div>
-            );
-          })()}
+          <WeekCompare/>
         </div>
       </div>
     );
@@ -642,9 +582,10 @@ export default function App() {
         <RingsCard dk={dk}/>
         {isT&&<DayMomentum dk={dk}/>}
         <TimeProgress dk={dk}/>
-        {(() => {
+        {(()=>{
           const st=secsTracked(dk),goal=hoursFor(dk)*3600,timePct=Math.min(100,Math.round(st/goal*100));
           const hasTime=st>0;
+          const displayPct=hasTime?timePct:donePct(dt,dk);
           return(
             <div className="big-prog">
               <div className="big-top">
@@ -652,9 +593,9 @@ export default function App() {
                   {hasTime?fmtHrs(st/3600):<span style={{fontSize:"1.1rem",color:"var(--mu)"}}>No time yet</span>}
                   {hasTime&&<span className="d"> of {hoursFor(dk)} hrs</span>}
                 </span>
-                <span className="big-pct" style={{color:"#c8ff57"}}>{hasTime?timePct:donePct(dt,dk)}%</span>
+                <span className="big-pct" style={{color:"#c8ff57"}}>{displayPct}%</span>
               </div>
-              <div className="big-bar"><div className="big-fill" style={{width:`${hasTime?timePct:donePct(dt,dk)}%`,background:"#c8ff57"}}/></div>
+              <div className="big-bar"><div className="big-fill" style={{width:`${displayPct}%`,background:"#c8ff57"}}/></div>
               <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
                 <span style={{fontSize:".72rem",color:"var(--mu)"}}>Tasks: {done}/{dt.length} completed</span>
                 {dt.length>0&&done===dt.length&&<span style={{fontSize:".72rem",color:"var(--ac)",fontWeight:700}}>✦ All done!</span>}
@@ -696,6 +637,72 @@ export default function App() {
         {ft.length===0&&<div className="empty">No tasks yet — add one below ↓</div>}
         <AddRow dk={dk} fid={activeFolder} placeholder={`Add task to ${folder.name}...`}/>
         <button className="del-folder-btn" onClick={()=>deleteFolder(activeFolder)}>Delete folder</button>
+      </div>
+    );
+  };
+
+  const RevenueSection=()=>{
+    if(!folders.some(f=>(f.monthlyValue||0)>0)) return null;
+    const totalMRR=folders.reduce((s,f)=>s+(f.monthlyValue||0),0);
+    const activeRevFolders=[...folders].filter(f=>(f.monthlyValue||0)>0).sort((a,b)=>(b.monthlyValue||0)-(a.monthlyValue||0));
+    return(
+      <div style={{marginTop:24}}>
+        <div className="sec-hdr"><span className="sec-title">Monthly Revenue</span></div>
+        <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"18px 20px",marginBottom:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:".65rem",color:"var(--mu)",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}}>Total MRR</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"2rem",color:"#34d399",letterSpacing:"-1px",lineHeight:1}}>${totalMRR.toLocaleString()}<span style={{fontSize:"1rem",fontWeight:500,color:"var(--mu)"}}>/mo</span></div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:".7rem",color:"var(--mu)",fontWeight:500}}>{activeRevFolders.length} client{activeRevFolders.length!==1?"s":""}</div>
+              <div style={{fontSize:".7rem",color:"#34d399",fontWeight:600,marginTop:2}}>${(totalMRR*12).toLocaleString()}/yr</div>
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {activeRevFolders.map(f=>(
+              <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:"1px solid var(--b)"}}>
+                <span style={{fontSize:"1rem",flexShrink:0}}>{f.icon}</span>
+                <span style={{flex:1,fontSize:".85rem",color:"var(--tx)",fontWeight:500}}>{f.name}</span>
+                <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".9rem",color:"#34d399"}}>${(f.monthlyValue||0).toLocaleString()}</span>
+                <span style={{fontSize:".68rem",color:"var(--mu)",fontWeight:500}}>/mo</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const WeekCompare=()=>{
+    const tw=hWeek(),lw=hLastWeek();
+    if(tw<=0&&lw<=0) return null;
+    const diff=tw-lw,maxH=Math.max(tw,lw,1),isAhead=diff>=0;
+    return(
+      <div className="stat-card">
+        <div className="stat-title">📊 This Week vs Last Week</div>
+        <div style={{display:"flex",gap:12,marginBottom:16,marginTop:4}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>This week</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.3rem",color:"#c8ff57",letterSpacing:"-1px",lineHeight:1}}>{fmtHrs(tw)}</div>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>Last week</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.3rem",color:"var(--tx2)",letterSpacing:"-1px",lineHeight:1}}>{fmtHrs(lw)}</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,marginBottom:10,alignItems:"flex-end",height:52}}>
+          <div style={{flex:1,display:"flex",alignItems:"flex-end"}}>
+            <div style={{height:Math.max(4,Math.round(tw/maxH*48))+"px",background:"#c8ff57",borderRadius:"4px 4px 0 0",width:"100%",transition:"height .6s ease"}}/>
+          </div>
+          <div style={{flex:1,display:"flex",alignItems:"flex-end"}}>
+            <div style={{height:Math.max(4,Math.round(lw/maxH*48))+"px",background:"#333",borderRadius:"4px 4px 0 0",width:"100%",transition:"height .6s ease"}}/>
+          </div>
+        </div>
+        <div style={{height:1,background:"var(--b)",marginBottom:10}}/>
+        <div style={{fontSize:".78rem",fontWeight:700,color:isAhead?"#34d399":"#ef4444"}}>
+          {lw===0?"No data from last week yet":isAhead?`▲ ${fmtHrs(Math.abs(diff))} ahead of last week`:`▼ ${fmtHrs(Math.abs(diff))} behind last week`}
+        </div>
       </div>
     );
   };
