@@ -110,6 +110,7 @@ export default function App() {
   const [nfName,setNfName]=useState("");
   const [nfColor,setNfColor]=useState(COLORS[0]);
   const [nfIcon,setNfIcon]=useState(ICON_OPTIONS[0]);
+  const [nfValue,setNfValue]=useState("");
   const [pendingHrs,setPendingHrs]=useState(8);
   const [taskRecur,setTaskRecur]=useState(false);
   const [taskRecDays,setTaskRecDays]=useState([]);
@@ -284,7 +285,7 @@ export default function App() {
   const dismissLockDone=()=>{ setIsLocked(false);setLockDone(false);setLockEndTime(null);setLockedTaskId(null);setLockedTaskDk(null); };
 
   // ── Folder ────────────────────────────────────────────────────────────────
-  const createFolder=()=>{ const n=nfName.trim(); if(!n) return; setFolders(p=>[...p,{id:Date.now(),name:n,color:nfColor,icon:nfIcon}]); setNfName("");setNfColor(COLORS[0]);setNfIcon(ICON_OPTIONS[0]);setShowFolderModal(false); };
+  const createFolder=()=>{ const n=nfName.trim(); if(!n) return; setFolders(p=>[...p,{id:Date.now(),name:n,color:nfColor,icon:nfIcon,monthlyValue:parseFloat(nfValue)||0}]); setNfName("");setNfColor(COLORS[0]);setNfIcon(ICON_OPTIONS[0]);setNfValue("");setShowFolderModal(false); };
   const openRename=(e,f)=>{ e.stopPropagation(); setRenamingFolder(f);setRenameText(f.name);setShowRenameModal(true); };
   const saveRename=()=>{ const n=renameText.trim(); if(!n) return; setFolders(p=>p.map(f=>f.id===renamingFolder.id?{...f,name:n}:f)); setShowRenameModal(false); };
   const deleteFolder=fid=>{ setFolders(p=>p.filter(f=>f.id!==fid)); setTasks(p=>p.filter(t=>t.folderId!==fid)); goHome(); };
@@ -470,7 +471,8 @@ export default function App() {
         <div className="folder-row-stats">
           <div className="f-stat"><span className="f-stat-val" style={{color:dim?"var(--mu)":todayCount>0?f.color:"var(--tx2)"}}>{dim?"—":`${doneToday}/${todayCount}`}</span><span className="f-stat-lbl">Today</span></div>
           <div className="f-stat"><span className="f-stat-val" style={{color:dim?"var(--mu)":"var(--tx2)"}}>{wDone}/{wDue}</span><span className="f-stat-lbl">Week</span></div>
-          <div className="f-stat"><span className="f-stat-val" style={{color:dim?"var(--mu)":"#fb923c"}}>{totalSecs>0?fmtTimer(totalSecs):"—"}</span><span className="f-stat-lbl">Time</span></div>
+          <div className="f-stat"><span className="f-stat-val" style={{color:dim?"var(--mu)":"var(--tx2)"}}>{totalSecs>0?fmtTimer(totalSecs):"—"}</span><span className="f-stat-lbl">Time</span></div>
+          {(f.monthlyValue||0)>0&&<div className="f-stat"><span className="f-stat-val" style={{color:dim?"var(--mu)":"#34d399"}}>${(f.monthlyValue).toLocaleString()}</span><span className="f-stat-lbl">/mo</span></div>}
         </div>
         <button onClick={ev=>openRename(ev,f)} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".85rem",padding:"3px 6px",borderRadius:6,flexShrink:0}}>✏️</button>
         <span className="folder-arr">›</span>
@@ -646,6 +648,93 @@ export default function App() {
     );
   };
 
+  const MoneyView=()=>{
+    const [editingFolder,setEditingFolder]=useState(null);
+    const [editValue,setEditValue]=useState("");
+    const totalMRR=folders.reduce((s,f)=>s+(f.monthlyValue||0),0);
+    const activeClients=folders.filter(f=>(f.monthlyValue||0)>0);
+    const noValue=folders.filter(f=>!(f.monthlyValue||0));
+    const saveValue=()=>{
+      const v=parseFloat(editValue)||0;
+      setFolders(p=>p.map(f=>f.id===editingFolder.id?{...f,monthlyValue:v}:f));
+      setEditingFolder(null);setEditValue("");
+    };
+    return(
+      <div className="page">
+        <div className="view-hdr"><div className="view-title">Money</div><div className="view-sub">Monthly recurring revenue</div></div>
+
+        {/* MRR Hero */}
+        <div className="money-hero">
+          <div className="money-mrr-label">Total Monthly Recurring Revenue</div>
+          <div className="money-mrr">${totalMRR.toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+          <div className="money-mrr-sub">/month across {activeClients.length} active client{activeClients.length!==1?"s":""}</div>
+        </div>
+
+        {/* Active clients */}
+        {activeClients.length>0&&(
+          <>
+            <div className="sec-hdr" style={{marginBottom:10}}><span className="sec-title">Active clients</span></div>
+            <div className="money-clients" style={{marginBottom:20}}>
+              {[...activeClients].sort((a,b)=>(b.monthlyValue||0)-(a.monthlyValue||0)).map(f=>(
+                <div key={f.id} className="money-client-row" style={{"--fc":f.color}}>
+                  <div className="money-client-icon">{f.icon}</div>
+                  <div style={{flex:1}}>
+                    <div className="money-client-name">{f.name}</div>
+                    <div className="money-client-lbl">monthly retainer</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div className="money-client-val">${(f.monthlyValue||0).toLocaleString()}</div>
+                    <div className="money-client-lbl">/month</div>
+                  </div>
+                  <button className="money-edit-btn" onClick={()=>{setEditingFolder(f);setEditValue(String(f.monthlyValue||""));}}>Edit</button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* No value clients */}
+        {noValue.length>0&&(
+          <>
+            <div className="sec-hdr" style={{marginBottom:10}}><span className="sec-title">No value set</span></div>
+            <div className="money-clients">
+              {noValue.map(f=>(
+                <div key={f.id} className="money-client-row">
+                  <div className="money-client-icon" style={{filter:"grayscale(.7)",opacity:.5}}>{f.icon}</div>
+                  <div style={{flex:1}}>
+                    <div className="money-client-name" style={{color:"var(--mu)"}}>{f.name}</div>
+                  </div>
+                  <button className="money-edit-btn" onClick={()=>{setEditingFolder(f);setEditValue("");}}>+ Add value</button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {folders.length===0&&<div className="empty">No folders yet — create one from the Home tab</div>}
+
+        {/* Edit modal */}
+        {editingFolder&&(
+          <div className="overlay" onClick={()=>setEditingFolder(null)}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
+              <div className="modal-title">Monthly value · {editingFolder.name}</div>
+              <div className="modal-lbl">Monthly retainer ($)</div>
+              <div style={{position:"relative",marginBottom:16}}>
+                <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--mu)",fontSize:".9rem",fontWeight:600}}>$</span>
+                <input className="modal-in" style={{paddingLeft:28,marginBottom:0}} value={editValue} autoFocus onChange={e=>setEditValue(e.target.value.replace(/[^0-9.]/g,""))} onKeyDown={e=>e.key==="Enter"&&saveValue()} placeholder="0" type="text" inputMode="decimal"/>
+              </div>
+              <div style={{fontSize:".78rem",color:"var(--mu)",marginBottom:18,lineHeight:1.6}}>Set to 0 to remove from MRR total.</div>
+              <div className="modal-btns">
+                <button className="btn-c" onClick={()=>setEditingFolder(null)}>Cancel</button>
+                <button className="btn-ok" onClick={saveValue}>Save</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const AllTasksView=()=>{
     const [sortBy,setSortBy]=useState("date");
     const [filter,setFilter]=useState("all");
@@ -725,6 +814,7 @@ export default function App() {
       {view==="folder"&&<FolderView/>}
       {view==="task"&&<TaskDetailView/>}
       {view==="all"&&<AllTasksView/>}
+      {view==="money"&&<MoneyView/>}
       {view!=="task"&&(
         <div className="tab-bar">
           <button className={`tab-btn${(view==="home"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}>
@@ -732,6 +822,9 @@ export default function App() {
           </button>
           <button className={`tab-btn${view==="all"?" active":""}`} onClick={()=>setView("all")}>
             <span className="tab-icon">📋</span><span className="tab-lbl">All Tasks</span><div className="tab-dot"/>
+          </button>
+          <button className={`tab-btn${view==="money"?" active":""}`} onClick={()=>setView("money")}>
+            <span className="tab-icon">💰</span><span className="tab-lbl">Money</span><div className="tab-dot"/>
           </button>
         </div>
       )}
@@ -920,6 +1013,11 @@ export default function App() {
           <div className="modal-title">New Folder</div>
           <div className="modal-lbl">Name</div>
           <input className="modal-in" value={nfName} autoFocus onChange={e=>setNfName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createFolder()} placeholder="e.g. Ajay Sharma"/>
+          <div className="modal-lbl">Monthly value (optional)</div>
+          <div style={{position:"relative",marginBottom:16}}>
+            <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--mu)",fontSize:".9rem",fontWeight:600}}>$</span>
+            <input className="modal-in" style={{paddingLeft:28,marginBottom:0}} value={nfValue} onChange={e=>setNfValue(e.target.value.replace(/[^0-9.]/g,""))} placeholder="0" type="text" inputMode="decimal"/>
+          </div>
           <div className="modal-lbl">Icon</div>
           <div className="icon-grid">{ICON_OPTIONS.map(icon=><div key={icon} className={`icon-opt${nfIcon===icon?" sel":""}`} onClick={()=>setNfIcon(icon)}>{icon}</div>)}</div>
           <div className="modal-lbl">Color</div>
