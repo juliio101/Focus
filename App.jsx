@@ -21,7 +21,14 @@ const dateForDK = dk => { const n=new Date(); n.setHours(0,0,0,0); const d=new D
 const calcStreak = (dates=[]) => { const s=new Set(dates),t=dStr(),y=dStr(new Date(Date.now()-864e5)); if(!s.has(t)&&!s.has(y)) return 0; let c=0,cur=new Date(s.has(t)?t:y); while(s.has(dStr(cur))){ c++; cur.setDate(cur.getDate()-1); } return c; };
 const fmtTimer = secs => { const s=Math.floor(Math.max(0,secs)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; return h>0?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`; };
 const fmtHrs = h => { if(h<=0||h<1/60) return "—"; if(h<1) return `${Math.round(h*60)} min`; return h===Math.floor(h)?`${h} hrs`:`${h.toFixed(1)} hrs`; };
-const getLiveSecs = t => { const b=t.timerSeconds??0; if(!t.timerRunning||!t.timerStartedAt) return b; return b+(Date.now()-t.timerStartedAt)/1000; };
+const getLiveSecs = t => {
+  // Total across all days from timeLog, plus legacy timerSeconds, plus live if running
+  const logTotal = Object.values(t.timeLog??{}).reduce((s,v)=>s+v,0);
+  const legacy = t.timeLog ? 0 : (t.timerSeconds??0); // only use legacy if no timeLog yet
+  const base = logTotal + legacy;
+  if(!t.timerRunning||!t.timerStartedAt) return base;
+  return base+(Date.now()-t.timerStartedAt)/1000;
+};
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
 let _ac=null;
@@ -232,14 +239,14 @@ export default function App() {
   const folderTasks=fid=>tasks.filter(t=>t.folderId===fid);
   const donePct=(arr,dk)=>arr.length?Math.round(arr.filter(t=>isDone(t,dk)).length/arr.length*100):0;
   const hoursFor=dk=>dayHours[dk]??8;
-  const secsTracked=dk=>tasksForDay(dk).reduce((s,t)=>s+(t.timerSeconds??0),0);
+  const secsTracked=dk=>{ const date=dateForDK(dk); return tasksForDay(dk).reduce((s,t)=>{ const log=t.timeLog??{}; const dayVal=log[date]??0; // if timer is running right now and it started today, add live seconds if(t.timerRunning&&t.timerStartedAt){ const startDate=dStr(new Date(t.timerStartedAt)); if(startDate===date) return s+dayVal+(Date.now()-t.timerStartedAt)/1000; } return s+dayVal; },0); };
   const hoursLeft=dk=>Math.max(0,hoursFor(dk)-secsTracked(dk)/3600);
   const hoursPct=dk=>Math.min(100,Math.round(secsTracked(dk)/3600/hoursFor(dk)*100));
   const weekPct=()=>{ let t=0,d=0; DAY_KEYS.forEach(dk=>{ const dt=tasksForDay(dk); t+=dt.length; d+=dt.filter(x=>isDone(x,dk)).length; }); return t?Math.round(d/t*100):0; };
 
   // ── Timer ─────────────────────────────────────────────────────────────────
-  const startTimer=taskId=>{ const now=Date.now(); playStart(); setTasks(prev=>prev.map(t=>{ if(t.id===taskId) return{...t,timerRunning:true,timerStartedAt:now}; if(t.timerRunning){ const el=Math.floor((now-t.timerStartedAt)/1000); return{...t,timerRunning:false,timerStartedAt:null,timerSeconds:(t.timerSeconds??0)+el}; } return t; })); };
-  const pauseTimer=taskId=>{ const now=Date.now(); setTasks(prev=>prev.map(t=>{ if(t.id!==taskId) return t; const el=Math.floor((now-t.timerStartedAt)/1000); return{...t,timerRunning:false,timerStartedAt:null,timerSeconds:(t.timerSeconds??0)+el}; })); };
+  const startTimer=taskId=>{ const now=Date.now(); playStart(); setTasks(prev=>prev.map(t=>{ if(t.id===taskId) return{...t,timerRunning:true,timerStartedAt:now}; if(t.timerRunning&&t.timerStartedAt){ // pause any other running timer and save to correct day const el=Math.floor((now-t.timerStartedAt)/1000); const date=dStr(new Date(t.timerStartedAt)); const log={...(t.timeLog??{})}; log[date]=(log[date]??0)+el; return{...t,timerRunning:false,timerStartedAt:null,timerSeconds:(t.timerSeconds??0)+el,timeLog:log}; } return t; })); };
+  const pauseTimer=taskId=>{ const now=Date.now(); setTasks(prev=>prev.map(t=>{ if(t.id!==taskId) return t; if(!t.timerStartedAt) return{...t,timerRunning:false}; const el=Math.floor((now-t.timerStartedAt)/1000); const date=dStr(new Date(t.timerStartedAt)); const log={...(t.timeLog??{})}; log[date]=(log[date]??0)+el; return{...t,timerRunning:false,timerStartedAt:null,timerSeconds:(t.timerSeconds??0)+el,timeLog:log}; })); };
   const deleteTask=(e,id)=>{ e.stopPropagation(); setTasks(p=>p.filter(t=>t.id!==id)); };
   const uncompleteTask=()=>{ if(!activeTask) return; const dk=activeTaskDk; setTasks(prev=>prev.map(t=>{ if(t.id!==activeTask.id) return t; if(!t.recurring) return{...t,done:false}; return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==dateForDK(dk))}; })); goBack(); };
   const deleteActiveTask=()=>{ if(!activeTask) return; setTasks(p=>p.filter(t=>t.id!==activeTask.id)); goBack(); };
@@ -252,9 +259,16 @@ export default function App() {
     setTasks(prev=>{
       let next=prev.map(t=>{
         if(t.id!==activeTask.id) return t;
-        let ts=t.timerSeconds??0; if(t.timerRunning&&t.timerStartedAt) ts+=Math.floor((now-t.timerStartedAt)/1000);
-        if(!t.recurring) return{...t,done:true,timerRunning:false,timerStartedAt:null,timerSeconds:ts};
-        return{...t,doneOn:[...(t.doneOn??[]),dateForDK(dk)],timerRunning:false,timerStartedAt:null,timerSeconds:ts};
+        let ts=t.timerSeconds??0;
+        let log={...(t.timeLog??{})};
+        if(t.timerRunning&&t.timerStartedAt){
+          const el=Math.floor((now-t.timerStartedAt)/1000);
+          const date=dStr(new Date(t.timerStartedAt));
+          log[date]=(log[date]??0)+el;
+          ts+=el;
+        }
+        if(!t.recurring) return{...t,done:true,timerRunning:false,timerStartedAt:null,timerSeconds:ts,timeLog:log};
+        return{...t,doneOn:[...(t.doneOn??[]),dateForDK(dk)],timerRunning:false,timerStartedAt:null,timerSeconds:ts,timeLog:log};
       });
       if(remindDays){ const f=new Date(); f.setDate(f.getDate()+remindDays); f.setHours(0,0,0,0); next=[...next,{id:Date.now(),text:activeTask.text,folderId:activeTask.folderId,recurring:false,day:DAY_KEYS[(f.getDay()+6)%7],startDate:dStr(f),done:false,timerSeconds:0,timerRunning:false,timerStartedAt:null,isReminder:true}]; }
       const dayT=next.filter(t=>(!t.recurring&&(t.day===dk||t.startDate===dateForDK(dk)))||(t.recurring&&t.recurringDays?.includes(dk)));
