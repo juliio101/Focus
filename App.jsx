@@ -81,6 +81,10 @@ export default function App(){
   const [prevView,setPrevView]=useState("home");
   const [showFolderModal,setShowFolderModal]=useState(false);
   const [showHoursModal,setShowHoursModal]=useState(false);
+  const [showPaymentModal,setShowPaymentModal]=useState(false);
+  const [paymentFolder,setPaymentFolder]=useState(null);
+  const [paymentAmount,setPaymentAmount]=useState("");
+  const [paymentNote,setPaymentNote]=useState("");
   const [hoursDay,setHoursDay]=useState(null);
   const [showRemind,setShowRemind]=useState(false);
   const [showRenameModal,setShowRenameModal]=useState(false);
@@ -308,7 +312,12 @@ export default function App(){
   const handlePinDel=()=>{if(showPinSetModal){if(pinStep===2)setPinConfirm(p=>p.slice(0,-1));else setPinInput(p=>p.slice(0,-1));}else if(showPinUnlock)setPinInput(p=>p.slice(0,-1));};
   const dismissLockDone=()=>{setIsLocked(false);setLockDone(false);setLockEndTime(null);setLockedTaskId(null);setLockedTaskDk(null);};
 
-  const createFolder=()=>{const n=nfName.trim();if(!n)return;setFolders(p=>[...p,{id:Date.now(),name:n,color:nfColor,icon:nfIcon,monthlyValue:parseFloat(nfValue)||0}]);setNfName("");setNfColor(COLORS[0]);setNfIcon(ICON_OPTIONS[0]);setNfValue("");setShowFolderModal(false);};
+  const monthKey=()=>{const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}`;};
+  const createFolder=()=>{const n=nfName.trim();if(!n)return;setFolders(p=>[...p,{id:Date.now(),name:n,color:nfColor,icon:nfIcon,monthlyValue:parseFloat(nfValue)||0,payments:[],subCollected:{}}]);setNfName("");setNfColor(COLORS[0]);setNfIcon(ICON_OPTIONS[0]);setNfValue("");setShowFolderModal(false);};
+  const toggleSubCollected=fid=>{const mk=monthKey();setFolders(p=>p.map(f=>{if(f.id!==fid)return f;const sc={...(f.subCollected??{})};sc[mk]=!sc[mk];return{...f,subCollected:sc};}));};
+  const addPayment=()=>{const amt=parseFloat(paymentAmount);if(!amt||!paymentFolder)return;setFolders(p=>p.map(f=>{if(f.id!==paymentFolder)return f;const pay={id:Date.now(),amount:amt,note:paymentNote.trim()||"One-time payment",status:"sent",month:monthKey()};return{...f,payments:[...(f.payments??[]),pay]};}));setPaymentAmount("");setPaymentNote("");setShowPaymentModal(false);};
+  const togglePayment=pid=>{setFolders(p=>p.map(f=>({...f,payments:(f.payments??[]).map(p=>p.id===pid?{...p,status:p.status==="sent"?"collected":"sent"}:p)})));};
+  const deletePayment=(fid,pid)=>{setFolders(p=>p.map(f=>f.id!==fid?f:{...f,payments:(f.payments??[]).filter(p=>p.id!==pid)}));};
   const openRename=(e,f)=>{e.stopPropagation();setRenamingFolder(f);setRenameText(f.name);setRenameValue(String(f.monthlyValue||""));setShowRenameModal(true);};
   const saveRename=()=>{const n=renameText.trim();if(!n)return;setFolders(p=>p.map(f=>f.id===renamingFolder.id?{...f,name:n,monthlyValue:parseFloat(renameValue)||0}:f));setShowRenameModal(false);};
   const deleteFolder=fid=>{setFolders(p=>p.filter(f=>f.id!==fid));setTasks(p=>p.filter(t=>t.folderId!==fid));goHome();};
@@ -557,30 +566,50 @@ export default function App(){
 
   const RevenueSection=()=>{
     if(!folders.some(f=>(f.monthlyValue||0)>0))return null;
-    const totalMRR=folders.reduce((s,f)=>s+(f.monthlyValue||0),0);
+    const mk=monthKey();
     const active=[...folders].filter(f=>(f.monthlyValue||0)>0).sort((a,b)=>(b.monthlyValue||0)-(a.monthlyValue||0));
+    const totalMRR=active.reduce((s,f)=>s+(f.monthlyValue||0),0);
+    const collectedMRR=active.filter(f=>(f.subCollected??{})[mk]).reduce((s,f)=>s+(f.monthlyValue||0),0);
+    const allPayments=folders.flatMap(f=>(f.payments??[]).filter(p=>p.month===mk));
+    const totalOneTime=allPayments.reduce((s,p)=>s+p.amount,0);
+    const collectedOneTime=allPayments.filter(p=>p.status==="collected").reduce((s,p)=>s+p.amount,0);
+    const grandTotal=collectedMRR+collectedOneTime;
     return(
       <div style={{marginTop:24}}>
-        <div className="sec-hdr"><span className="sec-title">Monthly Revenue</span></div>
+        <div className="sec-hdr"><span className="sec-title">This Month</span></div>
         <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"18px 20px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:14,paddingBottom:14,borderBottom:"1px solid var(--b)"}}>
             <div>
-              <div style={{fontSize:".65rem",color:"var(--mu)",textTransform:"uppercase",letterSpacing:".12em",fontWeight:700,marginBottom:4}}>Total MRR</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"2rem",color:"#34d399",letterSpacing:"-1px",lineHeight:1}}>${totalMRR.toLocaleString()}<span style={{fontSize:"1rem",fontWeight:500,color:"var(--mu)"}}>/mo</span></div>
+              <div style={{fontSize:".63rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>Total Collected</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"2rem",color:"#34d399",letterSpacing:"-1px",lineHeight:1}}>${grandTotal.toLocaleString()}</div>
             </div>
             <div style={{textAlign:"right"}}>
-              <div style={{fontSize:".7rem",color:"var(--mu)"}}>{active.length} client{active.length!==1?"s":""}</div>
-              <div style={{fontSize:".7rem",color:"#34d399",fontWeight:600,marginTop:2}}>${(totalMRR*12).toLocaleString()}/yr</div>
+              <div style={{fontSize:".7rem",color:"var(--mu)"}}>Expected</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1rem",color:"var(--tx2)"}}>${(totalMRR+totalOneTime).toLocaleString()}</div>
             </div>
           </div>
-          {active.map(f=>(
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+            <span style={{fontSize:".82rem",color:"var(--mu)"}}>Subscriptions</span>
+            <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".82rem"}}><span style={{color:"#34d399"}}>${collectedMRR.toLocaleString()}</span><span style={{color:"var(--mu)"}}> / ${totalMRR.toLocaleString()}</span></span>
+          </div>
+          <div style={{width:"100%",height:5,background:"var(--b2)",borderRadius:99,overflow:"hidden",marginBottom:14}}>
+            <div style={{height:"100%",borderRadius:99,background:"#34d399",width:totalMRR>0?`${Math.round(collectedMRR/totalMRR*100)}%`:"0%",transition:"width .6s"}}/>
+          </div>
+          {totalOneTime>0&&<><div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+            <span style={{fontSize:".82rem",color:"var(--mu)"}}>One-time payments</span>
+            <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".82rem"}}><span style={{color:"#60a5fa"}}>${collectedOneTime.toLocaleString()}</span><span style={{color:"var(--mu)"}}> / ${totalOneTime.toLocaleString()}</span></span>
+          </div>
+          <div style={{width:"100%",height:5,background:"var(--b2)",borderRadius:99,overflow:"hidden",marginBottom:14}}>
+            <div style={{height:"100%",borderRadius:99,background:"#60a5fa",width:totalOneTime>0?`${Math.round(collectedOneTime/totalOneTime*100)}%`:"0%",transition:"width .6s"}}/>
+          </div></>}
+          {active.map(f=>{const collected=(f.subCollected??{})[mk];return(
             <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:"1px solid var(--b)"}}>
               <span style={{fontSize:"1rem",flexShrink:0}}>{f.icon}</span>
               <span style={{flex:1,fontSize:".85rem",color:"var(--tx)",fontWeight:500}}>{f.name}</span>
-              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".9rem",color:"#34d399"}}>${(f.monthlyValue||0).toLocaleString()}</span>
-              <span style={{fontSize:".68rem",color:"var(--mu)"}}>/mo</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".85rem",color:collected?"#34d399":"#fbbf24"}}>${(f.monthlyValue||0).toLocaleString()}</span>
+              <span style={{fontSize:".65rem",padding:"2px 8px",borderRadius:99,background:collected?"#34d39918":"#fbbf2415",color:collected?"#34d399":"#fbbf24",border:`1px solid ${collected?"#34d39940":"#fbbf2440"}`,fontWeight:700}}>{collected?"Collected":"Pending"}</span>
             </div>
-          ))}
+          );})}
         </div>
       </div>
     );
@@ -799,6 +828,10 @@ export default function App(){
     const ft=folderTasks(activeFolder),dk=todayKey();
     const done=ft.filter(t=>isDone(t,dk)).length,pct=ft.length?Math.round(done/ft.length*100):0;
     const byDay=DAY_KEYS.map((d,i)=>({d,lbl:DAYS[i],ts:ft.filter(t=>(!t.recurring&&(t.day===d||t.startDate===dateForDK(d)))||(t.recurring&&t.recurringDays?.includes(d)))})).filter(g=>g.ts.length);
+    const mk=monthKey();
+    const subCollected=(folder.subCollected??{})[mk]||false;
+    const monthPayments=(folder.payments??[]).filter(p=>p.month===mk);
+    const hasBilling=(folder.monthlyValue||0)>0||monthPayments.length>0;
     return(
       <div className="page">
         <div className="view-hdr"><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:10,height:10,borderRadius:"50%",background:folder.color,flexShrink:0}}/><div className="view-title">{folder.name}</div></div><div className="view-sub">{ft.length} tasks total</div></div>
@@ -806,6 +839,43 @@ export default function App(){
           <div className="big-top"><span className="big-frac">{done}<span className="d">/{ft.length}</span></span><span className="big-pct" style={{color:folder.color}}>{pct}% today</span></div>
           <div className="big-bar"><div className="big-fill" style={{width:`${pct}%`,background:folder.color}}/></div>
         </div>
+
+        {/* Billing section */}
+        {(folder.monthlyValue||0)>0&&(
+          <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"16px 18px",marginBottom:16}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:subCollected?0:4}}>
+              <div>
+                <div style={{fontSize:".63rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:3}}>Monthly Retainer</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.3rem",color:"#34d399",letterSpacing:"-1px"}}>${(folder.monthlyValue).toLocaleString()}<span style={{fontSize:".75rem",color:"var(--mu)",fontWeight:500}}>/mo</span></div>
+              </div>
+              <button onClick={()=>toggleSubCollected(folder.id)} style={{background:subCollected?"#34d39918":"var(--bg)",border:`1px solid ${subCollected?"#34d39940":"var(--b2)"}`,color:subCollected?"#34d399":"var(--mu)",borderRadius:99,padding:"8px 18px",cursor:"pointer",fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".8rem",transition:"all .2s"}}>
+                {subCollected?"Collected ✓":"Mark Collected"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* One-time payments */}
+        <div style={{marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+            <span className="sec-title">One-time Payments</span>
+            <button className="ghost-btn" onClick={()=>{setPaymentFolder(folder.id);setPaymentAmount("");setPaymentNote("");setShowPaymentModal(true);}}>+ Add</button>
+          </div>
+          {monthPayments.length===0&&<div style={{fontSize:".82rem",color:"var(--mu)",padding:"10px 0"}}>No payments this month</div>}
+          {monthPayments.map(p=>(
+            <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"var(--s)",border:"1px solid var(--b)",borderRadius:10,marginBottom:7}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:".85rem",fontWeight:600,color:"var(--tx)"}}>{p.note}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".9rem",color:p.status==="collected"?"#34d399":"#fbbf24",marginTop:2}}>${p.amount.toLocaleString()}</div>
+              </div>
+              <button onClick={()=>togglePayment(p.id)} style={{background:p.status==="collected"?"#34d39918":"#fbbf2415",border:`1px solid ${p.status==="collected"?"#34d39940":"#fbbf2440"}`,color:p.status==="collected"?"#34d399":"#fbbf24",borderRadius:99,padding:"5px 14px",cursor:"pointer",fontSize:".75rem",fontWeight:700,transition:"all .2s",whiteSpace:"nowrap"}}>
+                {p.status==="collected"?"Collected":"Pending"}
+              </button>
+              <button onClick={()=>deletePayment(folder.id,p.id)} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:"1rem",padding:"2px 4px"}}>×</button>
+            </div>
+          ))}
+        </div>
+
         {byDay.map(({d,lbl,ts})=>(
           <div className="task-grp" key={d}>
             <div className="grp-hdr"><span className="grp-lbl" style={{color:DAY_KEYS.indexOf(d)===todayIdx()?folder.color:"var(--mu)"}}>{lbl}{DAY_KEYS.indexOf(d)===todayIdx()?" · Today":""}</span></div>
@@ -1199,6 +1269,24 @@ export default function App(){
             <div className="hr-presets">{HR_PRESET.map(h=><button key={h} className={`hp${pendingHrs===h?" sel":""}`} onClick={()=>setPendingHrs(h)}>{h} hrs</button>)}</div>
             <div style={{fontSize:".8rem",color:"var(--mu)",marginBottom:18}}>Tracks against actual time worked on tasks.</div>
             <div className="modal-btns"><button className="btn-c" onClick={()=>setShowHoursModal(false)}>Cancel</button><button className="btn-ok" onClick={saveHours}>Save</button></div>
+          </div>
+        </div>
+      )}
+      {showPaymentModal&&(
+        <div className="overlay" onClick={()=>setShowPaymentModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">Add One-time Payment</div>
+            <div className="modal-lbl">Amount</div>
+            <div style={{position:"relative",marginBottom:16}}>
+              <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--mu)",fontSize:".9rem",fontWeight:600}}>$</span>
+              <input className="modal-in" style={{paddingLeft:28,marginBottom:0}} value={paymentAmount} autoFocus onChange={e=>setPaymentAmount(e.target.value.replace(/[^0-9.]/g,""))} placeholder="0" type="text" inputMode="decimal"/>
+            </div>
+            <div className="modal-lbl">Note (optional)</div>
+            <input className="modal-in" value={paymentNote} onChange={e=>setPaymentNote(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addPayment()} placeholder="e.g. Website redesign"/>
+            <div className="modal-btns">
+              <button className="btn-c" onClick={()=>setShowPaymentModal(false)}>Cancel</button>
+              <button className="btn-ok" onClick={addPayment} disabled={!paymentAmount}>Add</button>
+            </div>
           </div>
         </div>
       )}
