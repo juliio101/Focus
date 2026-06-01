@@ -586,6 +586,38 @@ export default function App(){
     );
   };
 
+  const RunningTimerBanner=()=>{
+    const running=tasks.find(t=>t.timerRunning);
+    if(!running) return null;
+    const folder=folders.find(f=>f.id===running.folderId);
+    const secs=getLiveSecs(running);
+    const dk=running.startDate
+      ? DAY_KEYS[(new Date(running.startDate+'T00:00:00').getDay()+6)%7]
+      : todayKey();
+    return(
+      <div onClick={()=>goTask(running,todayKey(),"home")} style={{
+        background:"#c8ff5710",border:"1px solid #c8ff5740",
+        borderRadius:14,padding:"14px 16px",marginBottom:16,
+        cursor:"pointer",display:"flex",alignItems:"center",gap:12,
+        animation:"pulse-border 2s infinite",position:"relative",overflow:"hidden"
+      }}>
+        <style>{`@keyframes pulse-border{0%,100%{border-color:#c8ff5740}50%{border-color:#c8ff5799}}`}</style>
+        <div style={{width:8,height:8,borderRadius:"50%",background:"var(--ac)",flexShrink:0,animation:"dotpulse 1.2s infinite"}}/>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:".65rem",color:"var(--ac)",fontWeight:700,textTransform:"uppercase",letterSpacing:".12em",marginBottom:3}}>Timer running</div>
+          <div style={{fontSize:".92rem",fontWeight:700,color:"var(--tx)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{running.text}</div>
+          {folder&&<div style={{fontSize:".68rem",color:"var(--mu)",marginTop:2}}>{folder.icon} {folder.name}</div>}
+        </div>
+        <div style={{textAlign:"right",flexShrink:0}}>
+          <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.3rem",color:"var(--ac)",letterSpacing:"-1px",lineHeight:1}}>{fmtTimer(secs)}</div>
+          <button onClick={e=>{e.stopPropagation();pauseTimer(running.id);}} style={{marginTop:6,background:"none",border:"1px solid #c8ff5740",color:"var(--ac)",borderRadius:99,padding:"3px 12px",cursor:"pointer",fontSize:".72rem",fontWeight:700,transition:"all .15s"}}>
+            Pause
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const UrgentSection=()=>{
     const dk=todayKey();
     const urgent=tasks.filter(t=>t.alert&&!isDone(t,dk));
@@ -658,6 +690,7 @@ export default function App(){
     return(
       <div className="home-layout">
         <div>
+          <RunningTimerBanner/>
           <UrgentSection/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
           <RingsCard dk={dk}/>
