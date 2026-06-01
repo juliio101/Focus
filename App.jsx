@@ -586,6 +586,37 @@ export default function App(){
     );
   };
 
+  const UrgentSection=()=>{
+    const dk=todayKey();
+    const urgent=tasks.filter(t=>t.alert&&!isDone(t,dk));
+    if(urgent.length===0) return null;
+    const red=sortByAlert(urgent.filter(t=>t.alert==="red"));
+    const yellow=sortByAlert(urgent.filter(t=>t.alert==="yellow"));
+    const UrgentRow=({task,color,bg})=>{
+      const folder=folders.find(f=>f.id===task.folderId);
+      return(
+        <div onClick={()=>goTask(task,dk,"home")} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",background:bg,border:`1px solid ${color}30`,borderLeft:`3px solid ${color}`,borderRadius:10,cursor:"pointer",marginBottom:7,transition:"all .15s"}}>
+          <span style={{fontSize:".9rem",flexShrink:0}}>{task.alert==="red"?"🔴":"🟡"}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:".88rem",fontWeight:600,color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{task.text}</div>
+            {folder&&<div style={{fontSize:".68rem",color:"var(--mu)",marginTop:2}}>{folder.icon} {folder.name}</div>}
+          </div>
+          <span style={{fontSize:".8rem",color,opacity:.7}}>›</span>
+        </div>
+      );
+    };
+    return(
+      <div style={{marginBottom:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+          <span style={{fontSize:".68rem",fontWeight:700,textTransform:"uppercase",letterSpacing:".14em",color:"#ef4444"}}>Urgent</span>
+          <span style={{fontSize:".65rem",background:"#ef444420",color:"#ef4444",border:"1px solid #ef444430",borderRadius:99,padding:"1px 8px",fontWeight:700}}>{urgent.length}</span>
+        </div>
+        {red.map(t=><UrgentRow key={t.id} task={t} color="#ef4444" bg="#ef44440a"/>)}
+        {yellow.map(t=><UrgentRow key={t.id} task={t} color="#fbbf24" bg="#fbbf2408"/>)}
+      </div>
+    );
+  };
+
   const HomeView=()=>{
     const dk=todayKey();
     const nowDate=new Date(),monthStr=`${nowDate.getFullYear()}-${String(nowDate.getMonth()+1).padStart(2,"0")}`,monthName=nowDate.toLocaleString("default",{month:"long"});
@@ -627,6 +658,7 @@ export default function App(){
     return(
       <div className="home-layout">
         <div>
+          <UrgentSection/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
           <RingsCard dk={dk}/>
           <div className="page-title">My Week</div>
