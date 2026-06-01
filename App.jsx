@@ -596,20 +596,61 @@ export default function App(){
         {/* Revenue section */}
         {totalMRR>0&&(
           <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"16px 18px",marginBottom:14}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <span style={{fontSize:".68rem",fontWeight:700,textTransform:"uppercase",letterSpacing:".14em",color:"var(--mu)"}}>Revenue</span>
-              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".85rem",color:"#34d399"}}>${totalRevenue.toLocaleString()} collected</span>
-            </div>
-            {activeRevFolders.map(f=>{const collected=(f.subCollected??{})[mk];return(
-              <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid var(--b)"}}>
-                <span>{f.icon}</span>
-                <span style={{flex:1,fontSize:".85rem",color:"var(--tx)",fontWeight:500}}>{f.name}</span>
-                <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".85rem",color:collected?"#34d399":"#fbbf24"}}>${(f.monthlyValue||0).toLocaleString()}</span>
-                <button onClick={()=>toggleSubCollected(f.id)} style={{background:collected?"#34d39918":"#fbbf2415",border:`1px solid ${collected?"#34d39940":"#fbbf2440"}`,color:collected?"#34d399":"#fbbf24",borderRadius:99,padding:"4px 12px",cursor:"pointer",fontSize:".72rem",fontWeight:700,whiteSpace:"nowrap"}}>
-                  {collected?"Collected":"Pending"}
-                </button>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <span style={{fontSize:".68rem",fontWeight:700,textTransform:"uppercase",letterSpacing:".14em",color:"var(--mu)"}}>Subscriptions</span>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".85rem",color:"#34d399"}}>${collectedMRR.toLocaleString()} collected</div>
+                {(totalMRR-collectedMRR)>0&&<div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".82rem",color:"#fbbf24",marginTop:2}}>${(totalMRR-collectedMRR).toLocaleString()} pending</div>}
               </div>
-            );})}
+            </div>
+            {/* Pending first — these need chasing */}
+            {activeRevFolders.filter(f=>!(f.subCollected??{})[mk]).length>0&&(
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:".6rem",color:"#fbbf24",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>Chase these</div>
+                {activeRevFolders.filter(f=>!(f.subCollected??{})[mk]).map(f=>(
+                  <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:"#fbbf2408",border:"1px solid #fbbf2425",borderLeft:"3px solid #fbbf24",borderRadius:10,marginBottom:6}}>
+                    <span style={{fontSize:"1rem",flexShrink:0}}>{f.icon}</span>
+                    <span style={{flex:1,fontSize:".88rem",color:"var(--tx)",fontWeight:600}}>{f.name}</span>
+                    <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".95rem",color:"#fbbf24"}}>${(f.monthlyValue||0).toLocaleString()}</span>
+                    <button onClick={()=>toggleSubCollected(f.id)} style={{background:"#fbbf2415",border:"1px solid #fbbf2440",color:"#fbbf24",borderRadius:99,padding:"5px 14px",cursor:"pointer",fontSize:".72rem",fontWeight:700,whiteSpace:"nowrap"}}>Pending</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Collected */}
+            {activeRevFolders.filter(f=>(f.subCollected??{})[mk]).length>0&&(
+              <div>
+                <div style={{fontSize:".6rem",color:"#34d399",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>Collected</div>
+                {activeRevFolders.filter(f=>(f.subCollected??{})[mk]).map(f=>(
+                  <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"#34d39908",border:"1px solid #34d39925",borderRadius:10,marginBottom:6}}>
+                    <span style={{fontSize:"1rem",flexShrink:0}}>{f.icon}</span>
+                    <span style={{flex:1,fontSize:".85rem",color:"var(--mu)",fontWeight:500}}>{f.name}</span>
+                    <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".88rem",color:"#34d399"}}>${(f.monthlyValue||0).toLocaleString()}</span>
+                    <button onClick={()=>toggleSubCollected(f.id)} style={{background:"#34d39918",border:"1px solid #34d39940",color:"#34d399",borderRadius:99,padding:"5px 14px",cursor:"pointer",fontSize:".72rem",fontWeight:700,whiteSpace:"nowrap"}}>Collected ✓</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* One-time payments pending */}
+            {allPayments.filter(p=>p.status==="sent").length>0&&(
+              <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--b)"}}>
+                <div style={{fontSize:".6rem",color:"#60a5fa",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>One-time — Pending</div>
+                {allPayments.filter(p=>p.status==="sent").map(p=>{
+                  const folder=folders.find(f=>(f.payments??[]).some(fp=>fp.id===p.id));
+                  return(
+                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"#60a5fa08",border:"1px solid #60a5fa25",borderLeft:"3px solid #60a5fa",borderRadius:10,marginBottom:6}}>
+                      {folder&&<span style={{fontSize:".9rem",flexShrink:0}}>{folder.icon}</span>}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:".85rem",fontWeight:600,color:"var(--tx)"}}>{p.note}</div>
+                        {folder&&<div style={{fontSize:".68rem",color:"var(--mu)",marginTop:1}}>{folder.name}</div>}
+                      </div>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".9rem",color:"#60a5fa"}}>${p.amount.toLocaleString()}</span>
+                      <button onClick={()=>togglePayment(p.id)} style={{background:"#60a5fa15",border:"1px solid #60a5fa40",color:"#60a5fa",borderRadius:99,padding:"5px 14px",cursor:"pointer",fontSize:".72rem",fontWeight:700,whiteSpace:"nowrap"}}>Pending</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
