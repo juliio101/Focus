@@ -166,7 +166,8 @@ export default function App(){
             setLockedTaskId(d.activeLock.taskId);setLockedTaskDk(d.activeLock.taskDk);
           }
         }else{
-          await setDoc(ref,{folders:INIT_FOLDERS,tasks:INIT_TASKS,completedDates:[],bestStreak:0,dayHours:{}});
+          // Only write if document truly doesn't exist — use merge as safety net
+          await setDoc(ref,{folders:INIT_FOLDERS,tasks:INIT_TASKS,completedDates:[],bestStreak:0,dayHours:{}},{merge:true});
           setFolders(INIT_FOLDERS);setTasks(INIT_TASKS);setComplDates([]);setBest(0);setDayHours({});
           setUserPin(null);setIsLocked(false);setObStep(1);
         }
