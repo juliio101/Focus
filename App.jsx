@@ -719,8 +719,8 @@ export default function App(){
           <UrgentSection/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
           <RingsCard dk={dk}/>
-          <div className="page-title">My Week</div>
-          <div className="page-sub">Tap a day to manage tasks</div>
+          <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:"clamp(1.3rem,4vw,2rem)",fontWeight:800,letterSpacing:"-.4px",color:"var(--tx)",marginBottom:4,lineHeight:1.1}}>My Week</div>
+          <div style={{fontSize:".85rem",color:"var(--mu)",marginBottom:20,fontWeight:400}}>Tap a day to manage tasks</div>
           <div className="day-grid">
             {DAY_KEYS.map((d,i)=>{const dt=tasksForDay(d),pct=donePct(dt,d),isT=i===todayIdx();return(
               <div key={d} className={`day-card${isT?" today":""}`} onClick={()=>goDay(d)}>
