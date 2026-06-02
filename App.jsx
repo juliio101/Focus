@@ -90,6 +90,13 @@ export default function App(){
   const [prevView,setPrevView]=useState("home");
   const [showFolderModal,setShowFolderModal]=useState(false);
   const [showHoursModal,setShowHoursModal]=useState(false);
+  const [showWeekGoalModal,setShowWeekGoalModal]=useState(false);
+  const [weeklyGoal,setWeeklyGoal]=useState(40);
+  const [pendingWeekGoal,setPendingWeekGoal]=useState(40);
+  const [folderSnooze,setFolderSnooze]=useState({});
+  const [chaseThreshold,setChaseThreshold]=useState(5);
+  const [showSnoozeModal,setShowSnoozeModal]=useState(false);
+  const [snoozingFolder,setSnoozingFolder]=useState(null);
   const [showPaymentModal,setShowPaymentModal]=useState(false);
   const [showExpenseModal,setShowExpenseModal]=useState(false);
   const [paymentFolder,setPaymentFolder]=useState(null);
@@ -170,6 +177,8 @@ export default function App(){
           setExpenses(d.expenses??[]);
           setCalls(d.calls??{client:[],outreach:[],clientGoal:5,outreachGoal:20});
           setComplDates(d.completedDates??[]);setBest(d.bestStreak??0);setDayHours(d.dayHours??{});
+          if(d.weeklyGoal)setWeeklyGoal(d.weeklyGoal);
+          if(d.folderSnooze)setFolderSnooze(d.folderSnooze);
           if(d.userPin)setUserPin(d.userPin);
           if(d.activeLock&&d.activeLock.endTime>Date.now()){
             setIsLocked(true);setLockEndTime(d.activeLock.endTime);
@@ -190,6 +199,8 @@ export default function App(){
   useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{calls},{merge:true}).catch(console.error);},[user,loaded,calls]);
   useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{expenses},{merge:true}).catch(console.error);},[user,loaded,expenses]);
   useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{dayHours},{merge:true}).catch(console.error);},[user,loaded,dayHours]);
+  useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{weeklyGoal},{merge:true}).catch(console.error);},[user,loaded,weeklyGoal]);
+  useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{folderSnooze},{merge:true}).catch(console.error);},[user,loaded,folderSnooze]);
   useEffect(()=>{
     if(!user||!loaded)return;
     const s=calcStreak(complDates),nb=s>bestStreak?s:bestStreak;
@@ -215,16 +226,19 @@ export default function App(){
   const hoursFor=dk=>dayHours[dk]??8;
   const secsTracked=dk=>{
     const date=dateForDK(dk);
-    return tasksForDay(dk).reduce((s,t)=>{
+    const taskSecs=tasksForDay(dk).reduce((s,t)=>{
       const log=t.timeLog??{};const dayVal=log[date]??0;
       if(t.timerRunning&&t.timerStartedAt){const startDate=dStr(new Date(t.timerStartedAt));if(startDate===date)return s+dayVal+(Date.now()-t.timerStartedAt)/1000;}
       return s+dayVal;
     },0);
+    const callSecs=(calls.client??[]).filter(c=>c.date===date).reduce((s,c)=>s+c.duration*60,0)
+      +(calls.outreach??[]).filter(c=>c.date===date).reduce((s,c)=>s+c.duration*60,0);
+    return taskSecs+callSecs;
   };
   const hoursLeft=dk=>Math.max(0,hoursFor(dk)-secsTracked(dk)/3600);
   const hoursPct=dk=>Math.min(100,Math.round(secsTracked(dk)/3600/hoursFor(dk)*100));
-  const weekSecsTotal=()=>DAY_KEYS.reduce((s,dk)=>s+secsTracked(dk),0);
-  const weekGoalSecs=()=>DAY_KEYS.reduce((s,dk)=>s+hoursFor(dk)*3600,0);
+  const weekSecsTotal=()=>{ let total=DAY_KEYS.reduce((s,dk)=>s+secsTracked(dk),0); total+=todayCallsOf("client").reduce((s,c)=>s+c.duration*60,0); total+=todayCallsOf("outreach").reduce((s,c)=>s+c.duration*60,0); return total; };
+  const weekGoalSecs=()=>weeklyGoal*3600;
   const weekPct=()=>{const ws=weekSecsTotal(),wg=weekGoalSecs();if(ws>0)return Math.min(100,Math.round(ws/wg*100));let t=0,d=0;DAY_KEYS.forEach(dk=>{const dt=tasksForDay(dk);t+=dt.length;d+=dt.filter(x=>isDone(x,dk)).length;});return t?Math.round(d/t*100):0;};
   const thisWeekSecs=()=>{let total=0;tasks.forEach(t=>{Object.entries(t.timeLog??{}).forEach(([date,s])=>{const d=new Date(date+"T00:00:00");const diff=Math.round((new Date()-d)/86400000);if(diff>=0&&diff<7)total+=s;});});return total;};
   const lastWeekSecs=()=>{let total=0;tasks.forEach(t=>{Object.entries(t.timeLog??{}).forEach(([date,s])=>{const d=new Date(date+"T00:00:00");const diff=Math.round((new Date()-d)/86400000);if(diff>=7&&diff<14)total+=s;});});return total;};
@@ -311,6 +325,19 @@ export default function App(){
   const deleteFolder=fid=>{setFolders(p=>p.filter(f=>f.id!==fid));setTasks(p=>p.filter(t=>t.folderId!==fid));goHome();};
   const openHours=dk=>{setPendingHrs(hoursFor(dk));setHoursDay(dk);setShowHoursModal(true);};
   const saveHours=()=>{setDayHours(p=>({...p,[hoursDay]:pendingHrs}));setShowHoursModal(false);};
+  const snoozeFolder=(fid,days)=>{const until=new Date();until.setDate(until.getDate()+days);setFolderSnooze(p=>({...p,[fid]:until.toISOString()}));setShowSnoozeModal(false);setSnoozingFolder(null);};
+  const clearSnooze=fid=>setFolderSnooze(p=>{const n={...p};delete n[fid];return n;});
+  const isSnoozed=fid=>{const until=folderSnooze[fid];if(!until)return false;return new Date(until)>new Date();};
+  const lastActivityDays=fid=>{
+    const ft=tasks.filter(t=>t.folderId===fid);
+    let latest=null;
+    ft.forEach(t=>{Object.keys(t.timeLog??{}).forEach(d=>{if(!latest||d>latest)latest=d;});if(t.done&&t.startDate&&(!latest||t.startDate>latest))latest=t.startDate;});
+    const folderCalls=[...(calls.client??[])].filter(c=>c.folderId===fid);
+    folderCalls.forEach(c=>{if(!latest||c.date>latest)latest=c.date;});
+    if(!latest)return null;
+    return Math.floor((new Date()-new Date(latest+'T00:00:00'))/86400000);
+  };
+  const resetSnoozeOnActivity=fid=>{if(folderSnooze[fid])clearSnooze(fid);};
 
   // Calls functions
   const todayCallsOf=type=>(calls[type]??[]).filter(c=>c.date===dStr());
@@ -318,6 +345,7 @@ export default function App(){
     const dur=parseInt(callDuration)||0;if(!dur)return;
     const entry={id:Date.now(),date:dStr(),duration:dur,folderId:callType==="client"?callFolder:null};
     setCalls(p=>({...p,[callType]:[...(p[callType]??[]),entry]}));
+    if(callFolder)resetSnoozeOnActivity(callFolder);
     setCallDuration("");setCallFolder(null);setShowCallModal(false);
   };
   const deleteCall=(type,id)=>setCalls(p=>({...p,[type]:(p[type]??[]).filter(c=>c.id!==id)}));
@@ -420,15 +448,52 @@ export default function App(){
     );
   };
 
+  const ChaseThese=()=>{
+    const chasing=folders.filter(f=>{
+      if(isSnoozed(f.id))return false;
+      const days=lastActivityDays(f.id);
+      if(days===null)return false;
+      return days>=chaseThreshold;
+    });
+    if(chasing.length===0)return null;
+    const getColor=days=>days>=10?"#ef4444":days>=6?"#fb923c":"#fbbf24";
+    const getBg=days=>days>=10?"#ef44440a":days>=6?"#fb923c0a":"#fbbf2408";
+    return(
+      <div style={{marginBottom:20}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:".68rem",fontWeight:700,textTransform:"uppercase",letterSpacing:".14em",color:"#fb923c"}}>Chase These</span>
+            <span style={{fontSize:".65rem",background:"#fb923c20",color:"#fb923c",border:"1px solid #fb923c30",borderRadius:99,padding:"1px 8px",fontWeight:700}}>{chasing.length}</span>
+          </div>
+          <button onClick={()=>{}} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".72rem",fontWeight:600}} onClick={()=>{const d=prompt(`Chase threshold (days, current: ${chaseThreshold})`);if(d&&!isNaN(d))setChaseThreshold(parseInt(d));}}>Edit threshold</button>
+        </div>
+        {chasing.map(f=>{
+          const days=lastActivityDays(f.id);
+          const color=getColor(days);
+          return(
+            <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",background:getBg(days),border:`1px solid ${color}25`,borderLeft:`3px solid ${color}`,borderRadius:10,cursor:"pointer",marginBottom:7}}>
+              <span style={{fontSize:"1rem",flexShrink:0}} onClick={()=>goFolder(f.id)}>{f.icon}</span>
+              <div style={{flex:1,minWidth:0}} onClick={()=>goFolder(f.id)}>
+                <div style={{fontSize:".88rem",fontWeight:600,color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{f.name}</div>
+                <div style={{fontSize:".68rem",color:"var(--mu)",marginTop:2}}>{days} days since last activity</div>
+              </div>
+              <button onClick={e=>{e.stopPropagation();setSnoozingFolder(f);setShowSnoozeModal(true);}} style={{background:"none",border:`1px solid ${color}30`,color,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontSize:".72rem",fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>Snooze</button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const RingsCard=({dk})=>{
     const hp=hoursPct(dk),wp=weekPct(),st=secsTracked(dk);
     const hasTimeData=weekSecsTotal()>0;
     return(
       <div className="rings-card">
-        <div className="ring-stat">
+        <div className="ring-stat" style={{cursor:"pointer"}} onClick={()=>{setPendingWeekGoal(weeklyGoal);setShowWeekGoalModal(true);}}>
           <div className="ring-stat-val" style={{color:"#a78bfa"}}>{wp}%</div>
           <div className="ring-stat-lbl">This Week</div>
-          <div className="ring-stat-sub">{hasTimeData?fmtHrs(weekSecsTotal()/3600)+" worked":`${DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0)}/${DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0)} tasks`}</div>
+          <div className="ring-stat-sub">{hasTimeData?fmtHrs(weekSecsTotal()/3600)+" / "+weeklyGoal+"hrs":`${DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0)}/${DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0)} tasks`}</div>
         </div>
         <div className="ring-div"/>
         <Ring pct={hp} color="#c8ff57" size={100} stroke={9} label="Today" val={`${hp}%`}/>
@@ -879,6 +944,7 @@ export default function App(){
         <div>
           <RunningTimerBanner/>
           <UrgentSection/>
+          <ChaseThese/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
           <RingsCard dk={dk}/>
           <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:"clamp(1.3rem,4vw,2rem)",fontWeight:800,letterSpacing:"-.4px",color:"var(--tx)",marginBottom:4,lineHeight:1.1}}>My Week</div>
@@ -1205,6 +1271,40 @@ export default function App(){
               <button className="btn-c" onClick={()=>setShowCallGoalModal(false)}>Cancel</button>
               <button className="btn-ok" onClick={saveCallGoals}>Save</button>
             </div>
+          </div>
+        </div>
+      )}
+      {showWeekGoalModal&&(
+        <div className="overlay" onClick={()=>setShowWeekGoalModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">Weekly Hour Goal</div>
+            <div className="modal-lbl">Hours per week</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:20}}>
+              {[20,25,30,35,40,45,50,55,60].map(h=>(
+                <button key={h} onClick={()=>setPendingWeekGoal(h)} style={{background:pendingWeekGoal===h?"var(--ac)":"var(--s)",border:`1px solid ${pendingWeekGoal===h?"var(--ac)":"var(--b2)"}`,color:pendingWeekGoal===h?"#000":"var(--tx2)",borderRadius:9,padding:"8px 14px",cursor:"pointer",fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".85rem",transition:"all .15s"}}>{h}</button>
+              ))}
+            </div>
+            <div style={{fontSize:".78rem",color:"var(--mu)",marginBottom:18,lineHeight:1.6}}>Your weekly progress and This Week vs Last Week both use this goal.</div>
+            <div className="modal-btns">
+              <button className="btn-c" onClick={()=>setShowWeekGoalModal(false)}>Cancel</button>
+              <button className="btn-ok" onClick={()=>{setWeeklyGoal(pendingWeekGoal);setShowWeekGoalModal(false);}}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showSnoozeModal&&snoozingFolder&&(
+        <div className="overlay" onClick={()=>setShowSnoozeModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">Snooze {snoozingFolder.name}</div>
+            <div style={{fontSize:".82rem",color:"var(--mu)",marginBottom:18,lineHeight:1.6}}>Hide from Chase These for how long? Resets automatically when you work on this client.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+              {[[3,"3 days"],[7,"1 week"],[14,"2 weeks"],[30,"1 month"],[90,"3 months"]].map(([days,label])=>(
+                <button key={days} onClick={()=>snoozeFolder(snoozingFolder.id,days)} style={{background:"var(--s)",border:"1px solid var(--b2)",color:"var(--tx)",borderRadius:10,padding:"12px 16px",cursor:"pointer",fontSize:".9rem",fontWeight:600,textAlign:"left",transition:"all .15s",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span>{label}</span><span style={{color:"var(--mu)",fontSize:".8rem"}}>›</span>
+                </button>
+              ))}
+            </div>
+            <button className="btn-c" style={{width:"100%",textAlign:"center"}} onClick={()=>setShowSnoozeModal(false)}>Cancel</button>
           </div>
         </div>
       )}
