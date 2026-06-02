@@ -132,6 +132,15 @@ export default function App(){
   const [obTaskText,setObTaskText]=useState("");
   const [obFolderId,setObFolderId]=useState(null);
   const [tick,setTick]=useState(0);
+  // Calls tracker
+  const [calls,setCalls]=useState({client:[],outreach:[],clientGoal:5,outreachGoal:20});
+  const [showCallModal,setShowCallModal]=useState(false);
+  const [callType,setCallType]=useState("client");
+  const [callDuration,setCallDuration]=useState("");
+  const [callFolder,setCallFolder]=useState(null);
+  const [showCallGoalModal,setShowCallGoalModal]=useState(false);
+  const [pendingClientGoal,setPendingClientGoal]=useState(5);
+  const [pendingOutreachGoal,setPendingOutreachGoal]=useState(20);
 
   useEffect(()=>{const hasRunning=tasks.some(t=>t.timerRunning);if(!hasRunning&&!isLocked)return;const iv=setInterval(()=>setTick(t=>t+1),1000);return()=>clearInterval(iv);},[tasks,isLocked]);
   useEffect(()=>{if(activeTask){const u=tasks.find(t=>t.id===activeTask.id);if(u)setActiveTask(u);}},[tasks]);
@@ -152,6 +161,7 @@ export default function App(){
           const d=snap.data();
           setFolders(d.folders??INIT_FOLDERS);setTasks(d.tasks??INIT_TASKS);
           setExpenses(d.expenses??[]);
+          setCalls(d.calls??{client:[],outreach:[],clientGoal:5,outreachGoal:20});
           setComplDates(d.completedDates??[]);setBest(d.bestStreak??0);setDayHours(d.dayHours??{});
           if(d.userPin)setUserPin(d.userPin);
           if(d.activeLock&&d.activeLock.endTime>Date.now()){
@@ -170,6 +180,7 @@ export default function App(){
 
   useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{folders},{merge:true}).catch(console.error);},[user,loaded,folders]);
   useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{tasks},{merge:true}).catch(console.error);},[user,loaded,tasks]);
+  useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{calls},{merge:true}).catch(console.error);},[user,loaded,calls]);
   useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{expenses},{merge:true}).catch(console.error);},[user,loaded,expenses]);
   useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{dayHours},{merge:true}).catch(console.error);},[user,loaded,dayHours]);
   useEffect(()=>{
@@ -280,7 +291,18 @@ export default function App(){
   const openHours=dk=>{setPendingHrs(hoursFor(dk));setHoursDay(dk);setShowHoursModal(true);};
   const saveHours=()=>{setDayHours(p=>({...p,[hoursDay]:pendingHrs}));setShowHoursModal(false);};
 
-  // Expense functions
+  // Calls functions
+  const todayCallsOf=type=>(calls[type]??[]).filter(c=>c.date===dStr());
+  const logCall=()=>{
+    const dur=parseInt(callDuration)||0;if(!dur)return;
+    const entry={id:Date.now(),date:dStr(),duration:dur,folderId:callType==="client"?callFolder:null};
+    setCalls(p=>({...p,[callType]:[...(p[callType]??[]),entry]}));
+    setCallDuration("");setCallFolder(null);setShowCallModal(false);
+  };
+  const deleteCall=(type,id)=>setCalls(p=>({...p,[type]:(p[type]??[]).filter(c=>c.id!==id)}));
+  const saveCallGoals=()=>{setCalls(p=>({...p,clientGoal:pendingClientGoal,outreachGoal:pendingOutreachGoal}));setShowCallGoalModal(false);};
+  const openCallModal=type=>{setCallType(type);setCallDuration("");setCallFolder(null);setShowCallModal(true);};
+  const openCallGoalModal=()=>{setPendingClientGoal(calls.clientGoal??5);setPendingOutreachGoal(calls.outreachGoal??20);setShowCallGoalModal(true);};
   const openAddExpense=(cat)=>{setExpName("");setExpAmount("");setExpType("fixed");setExpCategory(cat);setEditingExp(null);setShowExpenseModal(true);};
   const openEditExpense=(exp)=>{setExpName(exp.name);setExpAmount(String(exp.amount));setExpType(exp.type);setExpCategory(exp.category);setEditingExp(exp);setShowExpenseModal(true);};
   const saveExpense=()=>{
@@ -689,6 +711,120 @@ export default function App(){
     );
   };
 
+  const SessionStats=({task})=>{
+    if(!task)return null;
+    const log=task.timeLog??{};
+    const today=dStr();
+    const todaySecs=log[today]??0;
+    // Calculate sessions from timeLog across all days
+    const allSessions=[];
+    Object.entries(log).forEach(([date,secs])=>{if(secs>0)allSessions.push(secs);});
+    // Today's running session
+    const liveSecs=task.timerRunning&&task.timerStartedAt?(Date.now()-task.timerStartedAt)/1000:0;
+    const currentSecs=todaySecs+(task.timerRunning?liveSecs:0);
+    if(allSessions.length===0&&currentSecs===0)return null;
+    const avg=allSessions.length?Math.round(allSessions.reduce((s,v)=>s+v,0)/allSessions.length):0;
+    const longest=allSessions.length?Math.max(...allSessions):0;
+    const isBelow=task.timerRunning&&avg>0&&liveSecs<avg*.7;
+    return(
+      <div style={{background:"var(--bg)",border:"1px solid var(--b)",borderRadius:12,padding:"14px 16px",marginTop:16}}>
+        <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}}>Session Stats</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:isBelow?10:0}}>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"var(--tx)",lineHeight:1,marginBottom:3}}>{allSessions.length}</div>
+            <div style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Sessions</div>
+          </div>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"#60a5fa",lineHeight:1,marginBottom:3}}>{avg>0?fmtTimer(avg):"—"}</div>
+            <div style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Avg Session</div>
+          </div>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"#a78bfa",lineHeight:1,marginBottom:3}}>{longest>0?fmtTimer(longest):"—"}</div>
+            <div style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Longest</div>
+          </div>
+        </div>
+        {isBelow&&(
+          <div style={{fontSize:".78rem",color:"#fbbf24",fontWeight:600,textAlign:"center",padding:"8px 12px",background:"rgba(251,191,36,.08)",borderRadius:8,border:"1px solid rgba(251,191,36,.2)"}}>
+            Current session {fmtTimer(liveSecs)} · avg is {fmtTimer(avg)} — keep going!
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const CallsTracker=()=>{
+    const clientToday=todayCallsOf("client");
+    const outreachToday=todayCallsOf("outreach");
+    const clientGoal=calls.clientGoal??5;
+    const outreachGoal=calls.outreachGoal??20;
+    const clientMins=clientToday.reduce((s,c)=>s+c.duration,0);
+    const outreachMins=outreachToday.reduce((s,c)=>s+c.duration,0);
+    const clientPct=Math.min(100,Math.round(clientToday.length/clientGoal*100));
+    const outreachPct=Math.min(100,Math.round(outreachToday.length/outreachGoal*100));
+    return(
+      <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r2)",padding:"16px 18px",marginTop:20}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+          <span style={{fontSize:".7rem",fontWeight:600,textTransform:"uppercase",letterSpacing:".12em",color:"var(--mu)"}}>📞 Daily Calls</span>
+          <button onClick={openCallGoalModal} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".75rem",fontWeight:600,padding:"2px 6px"}}>Edit goals</button>
+        </div>
+        {/* Client calls */}
+        <div style={{marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+            <div>
+              <span style={{fontSize:".85rem",fontWeight:600,color:"var(--tx)"}}>Client Calls</span>
+              {clientMins>0&&<span style={{fontSize:".72rem",color:"var(--mu)",marginLeft:8}}>{clientMins} min total</span>}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".9rem",color:clientPct>=100?"#34d399":"var(--ac)"}}>{clientToday.length}<span style={{color:"var(--mu)",fontWeight:400}}>/{clientGoal}</span></span>
+              <button onClick={()=>openCallModal("client")} style={{background:"var(--ac)",border:"none",color:"#000",borderRadius:99,width:28,height:28,cursor:"pointer",fontSize:1.1+"rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button>
+            </div>
+          </div>
+          <div style={{width:"100%",height:6,background:"var(--b2)",borderRadius:99,overflow:"hidden"}}>
+            <div style={{height:"100%",borderRadius:99,background:clientPct>=100?"#34d399":"var(--ac)",width:`${clientPct}%`,transition:"width .5s ease"}}/>
+          </div>
+        </div>
+        {/* Outreach calls */}
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+            <div>
+              <span style={{fontSize:".85rem",fontWeight:600,color:"var(--tx)"}}>Outreach Calls</span>
+              {outreachMins>0&&<span style={{fontSize:".72rem",color:"var(--mu)",marginLeft:8}}>{outreachMins} min total</span>}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".9rem",color:outreachPct>=100?"#34d399":"#60a5fa"}}>{outreachToday.length}<span style={{color:"var(--mu)",fontWeight:400}}>/{outreachGoal}</span></span>
+              <button onClick={()=>openCallModal("outreach")} style={{background:"#60a5fa",border:"none",color:"#000",borderRadius:99,width:28,height:28,cursor:"pointer",fontSize:1.1+"rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button>
+            </div>
+          </div>
+          <div style={{width:"100%",height:6,background:"var(--b2)",borderRadius:99,overflow:"hidden"}}>
+            <div style={{height:"100%",borderRadius:99,background:outreachPct>=100?"#34d399":"#60a5fa",width:`${outreachPct}%`,transition:"width .5s ease"}}/>
+          </div>
+        </div>
+        {/* Today's call log */}
+        {(clientToday.length>0||outreachToday.length>0)&&(
+          <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--b)"}}>
+            <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}}>Today's log</div>
+            {clientToday.map(c=>{const f=folders.find(f=>f.id===c.folderId);return(
+              <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid var(--b)"}}>
+                <span style={{fontSize:".75rem"}}>📞</span>
+                <span style={{flex:1,fontSize:".82rem",color:"var(--tx2)",fontWeight:500}}>{f?f.name:"Client call"}</span>
+                <span style={{fontFamily:"'DM Mono',monospace",fontSize:".78rem",color:"var(--ac)",fontWeight:700}}>{c.duration} min</span>
+                <button onClick={()=>deleteCall("client",c.id)} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".9rem",padding:"0 2px"}}>×</button>
+              </div>
+            );})}
+            {outreachToday.map(c=>(
+              <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid var(--b)"}}>
+                <span style={{fontSize:".75rem"}}>📲</span>
+                <span style={{flex:1,fontSize:".82rem",color:"var(--tx2)",fontWeight:500}}>Outreach call</span>
+                <span style={{fontFamily:"'DM Mono',monospace",fontSize:".78rem",color:"#60a5fa",fontWeight:700}}>{c.duration} min</span>
+                <button onClick={()=>deleteCall("outreach",c.id)} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".9rem",padding:"0 2px"}}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const HomeView=()=>{
     const dk=todayKey();
     const nowDate=new Date(),monthStr=`${nowDate.getFullYear()}-${String(nowDate.getMonth()+1).padStart(2,"0")}`,monthName=nowDate.toLocaleString("default",{month:"long"});
@@ -737,6 +873,7 @@ export default function App(){
               {inactive.length>0&&<>{active.length>0&&<div className="no-tasks-divider"><span className="no-tasks-lbl">No tasks today</span></div>}{inactive.map(e=><FRow key={e.f.id} e={e} dim={true}/>)}</>}
             </div>
           )}
+          <CallsTracker/>
         </div>
         <div className="stats-col">
           <div className="stat-card">
@@ -880,6 +1017,7 @@ export default function App(){
             <div className="t-stat"><div className="t-stat-val">{fmtHrs(hoursLeft(dk))}</div><div className="t-stat-lbl">Budget left</div></div>
           </div>
         </div>
+        <SessionStats task={task}/>
         {!done&&!showRemind&&(<div className="complete-actions"><button className="action-btn complete" onClick={()=>completeTask(null)}>✓ Mark Complete</button><button className="action-btn remind" onClick={()=>setShowRemind(true)}>⏰ Complete & Remind</button></div>)}
         {!done&&showRemind&&(<div className="remind-section"><div className="remind-title">Remind me in</div><div className="remind-grid">{REMIND_OPTS.map(d=><button key={d} className="remind-opt" onClick={()=>completeTask(d)}>{d===1?"Tomorrow":`${d}d`}</button>)}</div><div style={{textAlign:"center"}}><button style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".8rem"}} onClick={()=>setShowRemind(false)}>Back</button></div></div>)}
       </div>
@@ -990,6 +1128,60 @@ export default function App(){
       {showHoursModal&&(<div className="overlay" onClick={()=>setShowHoursModal(false)}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modal-title">Set Work Hours</div><div className="modal-lbl">Daily goal for {hoursDay?DAYS[DAY_KEYS.indexOf(hoursDay)]:""}</div><div className="hr-presets">{HR_PRESET.map(h=><button key={h} className={`hp${pendingHrs===h?" sel":""}`} onClick={()=>setPendingHrs(h)}>{h} hrs</button>)}</div><div style={{fontSize:".8rem",color:"var(--mu)",marginBottom:18}}>Tracks against actual time worked on tasks.</div><div className="modal-btns"><button className="btn-c" onClick={()=>setShowHoursModal(false)}>Cancel</button><button className="btn-ok" onClick={saveHours}>Save</button></div></div></div>)}
       {showPaymentModal&&(<div className="overlay" onClick={()=>setShowPaymentModal(false)}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modal-title">Add One-time Payment</div><div className="modal-lbl">Amount</div><div style={{position:"relative",marginBottom:16}}><span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--mu)",fontSize:".9rem",fontWeight:600}}>$</span><input className="modal-in" style={{paddingLeft:28,marginBottom:0}} value={paymentAmount} autoFocus onChange={e=>setPaymentAmount(e.target.value.replace(/[^0-9.]/g,""))} placeholder="0" type="text" inputMode="decimal"/></div><div className="modal-lbl">Note (optional)</div><input className="modal-in" value={paymentNote} onChange={e=>setPaymentNote(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addPayment()} placeholder="e.g. Website redesign"/><div className="modal-btns"><button className="btn-c" onClick={()=>setShowPaymentModal(false)}>Cancel</button><button className="btn-ok" onClick={addPayment} disabled={!paymentAmount}>Add</button></div></div></div>)}
       {showExpenseModal&&(<div className="overlay" onClick={()=>setShowExpenseModal(false)}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modal-title">{editingExp?"Edit":"Add"} Expense</div><div className="modal-lbl">Name</div><input className="modal-in" value={expName} autoFocus onChange={e=>setExpName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveExpense()} placeholder="e.g. Mortgage, Slack, Ads..."/><div className="modal-lbl">Amount ($)</div><div style={{position:"relative",marginBottom:16}}><span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--mu)",fontSize:".9rem",fontWeight:600}}>$</span><input className="modal-in" style={{paddingLeft:28,marginBottom:0}} value={expAmount} onChange={e=>setExpAmount(e.target.value.replace(/[^0-9.]/g,""))} placeholder="0" type="text" inputMode="decimal"/></div><div className="modal-lbl">Type</div><div style={{display:"flex",gap:8,marginBottom:16}}><button onClick={()=>setExpType("fixed")} style={{flex:1,padding:"10px",borderRadius:10,border:`1px solid ${expType==="fixed"?"var(--ac)":"var(--b2)"}`,background:expType==="fixed"?"#c8ff5715":"var(--s)",color:expType==="fixed"?"var(--ac)":"var(--mu)",cursor:"pointer",fontWeight:600,fontSize:".85rem"}}>Fixed</button><button onClick={()=>setExpType("variable")} style={{flex:1,padding:"10px",borderRadius:10,border:`1px solid ${expType==="variable"?"var(--ac)":"var(--b2)"}`,background:expType==="variable"?"#c8ff5715":"var(--s)",color:expType==="variable"?"var(--ac)":"var(--mu)",cursor:"pointer",fontWeight:600,fontSize:".85rem"}}>Variable</button></div><div className="modal-lbl">Category</div><div style={{display:"flex",gap:8,marginBottom:20}}><button onClick={()=>setExpCategory("business")} style={{flex:1,padding:"10px",borderRadius:10,border:`1px solid ${expCategory==="business"?"#ef4444":"var(--b2)"}`,background:expCategory==="business"?"#ef444415":"var(--s)",color:expCategory==="business"?"#ef4444":"var(--mu)",cursor:"pointer",fontWeight:600,fontSize:".85rem"}}>Business</button><button onClick={()=>setExpCategory("personal")} style={{flex:1,padding:"10px",borderRadius:10,border:`1px solid ${expCategory==="personal"?"#fb923c":"var(--b2)"}`,background:expCategory==="personal"?"#fb923c15":"var(--s)",color:expCategory==="personal"?"#fb923c":"var(--mu)",cursor:"pointer",fontWeight:600,fontSize:".85rem"}}>Personal</button></div><div style={{fontSize:".78rem",color:"var(--mu)",marginBottom:16,lineHeight:1.6}}>{expType==="fixed"?"Fixed expenses repeat every month automatically.":"Variable expenses let you enter the actual amount each month."}</div><div className="modal-btns"><button className="btn-c" onClick={()=>setShowExpenseModal(false)}>Cancel</button><button className="btn-ok" onClick={saveExpense} disabled={!expName.trim()||!expAmount}>Save</button></div></div></div>)}
+      {showCallModal&&(
+        <div className="overlay" onClick={()=>setShowCallModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">Log {callType==="client"?"Client":"Outreach"} Call</div>
+            <div className="modal-lbl">Duration (minutes)</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+              {[5,10,15,20,30,45,60].map(m=>(
+                <button key={m} onClick={()=>setCallDuration(String(m))} style={{background:callDuration===String(m)?"var(--ac)":"var(--s)",border:`1px solid ${callDuration===String(m)?"var(--ac)":"var(--b2)"}`,color:callDuration===String(m)?"#000":"var(--tx2)",borderRadius:9,padding:"8px 14px",cursor:"pointer",fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".85rem",transition:"all .15s"}}>{m}</button>
+              ))}
+            </div>
+            <input className="modal-in" value={callDuration} onChange={e=>setCallDuration(e.target.value.replace(/[^0-9]/g,""))} placeholder="Or type custom minutes" type="text" inputMode="numeric"/>
+            {callType==="client"&&(
+              <>
+                <div className="modal-lbl">Client (optional)</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16,maxHeight:160,overflowY:"auto"}}>
+                  <button onClick={()=>setCallFolder(null)} style={{background:callFolder===null?"rgba(200,255,87,.12)":"var(--s)",border:`1px solid ${callFolder===null?"var(--ac)":"var(--b2)"}`,color:callFolder===null?"var(--ac)":"var(--tx2)",borderRadius:9,padding:"9px 14px",cursor:"pointer",fontWeight:600,fontSize:".82rem",textAlign:"left",transition:"all .15s"}}>No specific client</button>
+                  {folders.map(f=>(
+                    <button key={f.id} onClick={()=>setCallFolder(f.id)} style={{background:callFolder===f.id?"rgba(200,255,87,.12)":"var(--s)",border:`1px solid ${callFolder===f.id?"var(--ac)":"var(--b2)"}`,color:callFolder===f.id?"var(--ac)":"var(--tx2)",borderRadius:9,padding:"9px 14px",cursor:"pointer",fontWeight:600,fontSize:".82rem",textAlign:"left",display:"flex",alignItems:"center",gap:8,transition:"all .15s"}}>
+                      <span>{f.icon}</span><span>{f.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="modal-btns">
+              <button className="btn-c" onClick={()=>setShowCallModal(false)}>Cancel</button>
+              <button className="btn-ok" onClick={logCall} disabled={!callDuration}>Log Call</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showCallGoalModal&&(
+        <div className="overlay" onClick={()=>setShowCallGoalModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">Daily Call Goals</div>
+            <div className="modal-lbl">Client calls goal</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
+              {[3,5,8,10,15,20].map(n=>(
+                <button key={n} onClick={()=>setPendingClientGoal(n)} style={{background:pendingClientGoal===n?"var(--ac)":"var(--s)",border:`1px solid ${pendingClientGoal===n?"var(--ac)":"var(--b2)"}`,color:pendingClientGoal===n?"#000":"var(--tx2)",borderRadius:9,padding:"8px 14px",cursor:"pointer",fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".85rem",transition:"all .15s"}}>{n}</button>
+              ))}
+            </div>
+            <div className="modal-lbl">Outreach calls goal</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:20}}>
+              {[5,10,15,20,25,30].map(n=>(
+                <button key={n} onClick={()=>setPendingOutreachGoal(n)} style={{background:pendingOutreachGoal===n?"var(--ac)":"var(--s)",border:`1px solid ${pendingOutreachGoal===n?"var(--ac)":"var(--b2)"}`,color:pendingOutreachGoal===n?"#000":"var(--tx2)",borderRadius:9,padding:"8px 14px",cursor:"pointer",fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".85rem",transition:"all .15s"}}>{n}</button>
+              ))}
+            </div>
+            <div className="modal-btns">
+              <button className="btn-c" onClick={()=>setShowCallGoalModal(false)}>Cancel</button>
+              <button className="btn-ok" onClick={saveCallGoals}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
