@@ -240,9 +240,32 @@ export default function App(){
   const weekSecsTotal=()=>{ let total=DAY_KEYS.reduce((s,dk)=>s+secsTracked(dk),0); total+=todayCallsOf("client").reduce((s,c)=>s+c.duration*60,0); total+=todayCallsOf("outreach").reduce((s,c)=>s+c.duration*60,0); return total; };
   const weekGoalSecs=()=>weeklyGoal*3600;
   const weekPct=()=>{const ws=weekSecsTotal(),wg=weekGoalSecs();if(ws>0)return Math.min(100,Math.round(ws/wg*100));let t=0,d=0;DAY_KEYS.forEach(dk=>{const dt=tasksForDay(dk);t+=dt.length;d+=dt.filter(x=>isDone(x,dk)).length;});return t?Math.round(d/t*100):0;};
-  const thisWeekSecs=()=>{let total=0;tasks.forEach(t=>{Object.entries(t.timeLog??{}).forEach(([date,s])=>{const d=new Date(date+"T00:00:00");const diff=Math.round((new Date()-d)/86400000);if(diff>=0&&diff<7)total+=s;});});return total;};
-  const lastWeekSecs=()=>{let total=0;tasks.forEach(t=>{Object.entries(t.timeLog??{}).forEach(([date,s])=>{const d=new Date(date+"T00:00:00");const diff=Math.round((new Date()-d)/86400000);if(diff>=7&&diff<14)total+=s;});});return total;};
+  const thisWeekSecs=()=>{
+    let total=0;
+    tasks.forEach(t=>{Object.entries(t.timeLog??{}).forEach(([date,s])=>{const d=new Date(date+"T00:00:00");const diff=Math.round((new Date()-d)/86400000);if(diff>=0&&diff<7)total+=s;});});
+    total+=(calls.client??[]).filter(c=>{const diff=Math.round((new Date()-new Date(c.date+"T00:00:00"))/86400000);return diff>=0&&diff<7;}).reduce((s,c)=>s+c.duration*60,0);
+    total+=(calls.outreach??[]).filter(c=>{const diff=Math.round((new Date()-new Date(c.date+"T00:00:00"))/86400000);return diff>=0&&diff<7;}).reduce((s,c)=>s+c.duration*60,0);
+    return total;
+  };
+  const lastWeekSecs=()=>{
+    let total=0;
+    tasks.forEach(t=>{Object.entries(t.timeLog??{}).forEach(([date,s])=>{const d=new Date(date+"T00:00:00");const diff=Math.round((new Date()-d)/86400000);if(diff>=7&&diff<14)total+=s;});});
+    total+=(calls.client??[]).filter(c=>{const diff=Math.round((new Date()-new Date(c.date+"T00:00:00"))/86400000);return diff>=7&&diff<14;}).reduce((s,c)=>s+c.duration*60,0);
+    total+=(calls.outreach??[]).filter(c=>{const diff=Math.round((new Date()-new Date(c.date+"T00:00:00"))/86400000);return diff>=7&&diff<14;}).reduce((s,c)=>s+c.duration*60,0);
+    return total;
+  };
   const hWeek=()=>thisWeekSecs()/3600;
+  const callsInPeriod=(type,filterFn)=>(calls[type]??[]).filter(filterFn);
+  const callsThisWeek=type=>callsInPeriod(type,c=>{const diff=Math.round((new Date()-new Date(c.date+"T00:00:00"))/86400000);return diff>=0&&diff<7;});
+  const callsThisMonth=type=>callsInPeriod(type,c=>c.date.startsWith(monthKey()));
+  const callsThisYear=type=>callsInPeriod(type,c=>c.date.startsWith(String(new Date().getFullYear())));
+  const callMins=arr=>arr.reduce((s,c)=>s+c.duration,0);
+  const hoursThisMonth=()=>{const mk=monthKey();let t=0;tasks.forEach(task=>{Object.entries(task.timeLog??{}).forEach(([date,s])=>{if(date.startsWith(mk))t+=s;});});t+=callMins([...callsThisMonth("client"),...callsThisMonth("outreach")])*60;return t/3600;};
+  const hoursThisYear=()=>{const yr=String(new Date().getFullYear());let t=0;tasks.forEach(task=>{Object.entries(task.timeLog??{}).forEach(([date,s])=>{if(date.startsWith(yr))t+=s;});});t+=callMins([...callsThisYear("client"),...callsThisYear("outreach")])*60;return t/3600;};
+  const revenueThisMonth=()=>{const mk=monthKey();const active=folders.filter(f=>(f.monthlyValue||0)>0);const sub=active.filter(f=>(f.subCollected??{})[mk]).reduce((s,f)=>s+(f.monthlyValue||0),0);const ot=folders.flatMap(f=>(f.payments??[]).filter(p=>p.month===mk&&p.status==="collected")).reduce((s,p)=>s+p.amount,0);return sub+ot;};
+  const revenueThisYear=()=>{const yr=String(new Date().getFullYear());let t=0;folders.forEach(f=>{if((f.monthlyValue||0)>0)Object.entries(f.subCollected??{}).forEach(([m,v])=>{if(v&&m.startsWith(yr))t+=f.monthlyValue;});(f.payments??[]).forEach(p=>{if(p.status==="collected"&&(p.month??'').startsWith(yr))t+=p.amount;});});return t;};
+  const expensesThisMonth=()=>{const mk=monthKey();return expenses.filter(e=>e.category==="business").reduce((s,e)=>{if((e.paid??{})[mk])return s+getExpenseAmount(e);return s;},0);};
+  const expensesThisYear=()=>{const yr=String(new Date().getFullYear());let t=0;expenses.filter(e=>e.category==="business").forEach(e=>{Object.entries(e.paid??{}).forEach(([m,paid])=>{if(paid&&m.startsWith(yr))t+=e.type==="variable"?((e.variableAmounts??{})[m]??0):e.amount;});});return t;};
   const hLastWeek=()=>lastWeekSecs()/3600;
 
   const startTimer=taskId=>{
@@ -848,52 +871,77 @@ export default function App(){
     const outreachToday=todayCallsOf("outreach");
     const clientGoal=calls.clientGoal??5;
     const outreachGoal=calls.outreachGoal??20;
-    const clientMins=clientToday.reduce((s,c)=>s+c.duration,0);
-    const outreachMins=outreachToday.reduce((s,c)=>s+c.duration,0);
+    const weeklyClientGoal=clientGoal*5;
+    const weeklyOutreachGoal=outreachGoal*5;
+    const monthlyClientGoal=clientGoal*22;
+    const monthlyOutreachGoal=outreachGoal*22;
+    const clientWeek=callsThisWeek("client");
+    const outreachWeek=callsThisWeek("outreach");
+    const clientMonth=callsThisMonth("client");
+    const outreachMonth=callsThisMonth("outreach");
     const clientPct=Math.min(100,Math.round(clientToday.length/clientGoal*100));
     const outreachPct=Math.min(100,Math.round(outreachToday.length/outreachGoal*100));
+    const clientWeekPct=Math.min(100,Math.round(clientWeek.length/weeklyClientGoal*100));
+    const outreachWeekPct=Math.min(100,Math.round(outreachWeek.length/weeklyOutreachGoal*100));
+    const clientMonthPct=Math.min(100,Math.round(clientMonth.length/monthlyClientGoal*100));
+    const outreachMonthPct=Math.min(100,Math.round(outreachMonth.length/monthlyOutreachGoal*100));
+    const PBar=({done,goal,pct,color})=>(
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{flex:1,height:5,background:"var(--b2)",borderRadius:99,overflow:"hidden"}}>
+          <div style={{height:"100%",borderRadius:99,background:pct>=100?"#34d399":color,width:`${pct}%`,transition:"width .5s ease"}}/>
+        </div>
+        <span style={{fontFamily:"'DM Mono',monospace",fontSize:".72rem",fontWeight:700,color:pct>=100?"#34d399":color,minWidth:44,textAlign:"right"}}>{done}/{goal}</span>
+      </div>
+    );
     return(
       <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r2)",padding:"16px 18px",marginTop:20}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
           <span style={{fontSize:".7rem",fontWeight:600,textTransform:"uppercase",letterSpacing:".12em",color:"var(--mu)"}}>📞 Daily Calls</span>
           <button onClick={openCallGoalModal} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".75rem",fontWeight:600,padding:"2px 6px"}}>Edit goals</button>
         </div>
-        {/* Client calls */}
-        <div style={{marginBottom:14}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <div>
-              <span style={{fontSize:".85rem",fontWeight:600,color:"var(--tx)"}}>Client Calls</span>
-              {clientMins>0&&<span style={{fontSize:".72rem",color:"var(--mu)",marginLeft:8}}>{clientMins} min total</span>}
+        <div style={{marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+            <span style={{fontSize:".85rem",fontWeight:600,color:"var(--tx)"}}>Client Calls</span>
+            <button onClick={()=>openCallModal("client")} style={{background:"var(--ac)",border:"none",color:"#000",borderRadius:99,width:26,height:26,cursor:"pointer",fontSize:"1rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+          </div>
+          <PBar done={clientToday.length} goal={clientGoal} pct={clientPct} color="var(--ac)"/>
+        </div>
+        <div style={{marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+            <span style={{fontSize:".85rem",fontWeight:600,color:"var(--tx)"}}>Outreach Calls</span>
+            <button onClick={()=>openCallModal("outreach")} style={{background:"#60a5fa",border:"none",color:"#000",borderRadius:99,width:26,height:26,cursor:"pointer",fontSize:"1rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+          </div>
+          <PBar done={outreachToday.length} goal={outreachGoal} pct={outreachPct} color="#60a5fa"/>
+        </div>
+        <div style={{borderTop:"1px solid var(--b)",paddingTop:12,marginBottom:12}}>
+          <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}}>This Week</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:".78rem",color:"var(--tx2)",width:88,flexShrink:0}}>Client</span>
+              <PBar done={clientWeek.length} goal={weeklyClientGoal} pct={clientWeekPct} color="var(--ac)"/>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".9rem",color:clientPct>=100?"#34d399":"var(--ac)"}}>{clientToday.length}<span style={{color:"var(--mu)",fontWeight:400}}>/{clientGoal}</span></span>
-              <button onClick={()=>openCallModal("client")} style={{background:"var(--ac)",border:"none",color:"#000",borderRadius:99,width:28,height:28,cursor:"pointer",fontSize:1.1+"rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button>
+              <span style={{fontSize:".78rem",color:"var(--tx2)",width:88,flexShrink:0}}>Outreach</span>
+              <PBar done={outreachWeek.length} goal={weeklyOutreachGoal} pct={outreachWeekPct} color="#60a5fa"/>
             </div>
           </div>
-          <div style={{width:"100%",height:6,background:"var(--b2)",borderRadius:99,overflow:"hidden"}}>
-            <div style={{height:"100%",borderRadius:99,background:clientPct>=100?"#34d399":"var(--ac)",width:`${clientPct}%`,transition:"width .5s ease"}}/>
-          </div>
         </div>
-        {/* Outreach calls */}
-        <div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <div>
-              <span style={{fontSize:".85rem",fontWeight:600,color:"var(--tx)"}}>Outreach Calls</span>
-              {outreachMins>0&&<span style={{fontSize:".72rem",color:"var(--mu)",marginLeft:8}}>{outreachMins} min total</span>}
+        <div style={{borderTop:"1px solid var(--b)",paddingTop:12,marginBottom:clientToday.length+outreachToday.length>0?12:0}}>
+          <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}}>This Month</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:".78rem",color:"var(--tx2)",width:88,flexShrink:0}}>Client</span>
+              <PBar done={clientMonth.length} goal={monthlyClientGoal} pct={clientMonthPct} color="var(--ac)"/>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".9rem",color:outreachPct>=100?"#34d399":"#60a5fa"}}>{outreachToday.length}<span style={{color:"var(--mu)",fontWeight:400}}>/{outreachGoal}</span></span>
-              <button onClick={()=>openCallModal("outreach")} style={{background:"#60a5fa",border:"none",color:"#000",borderRadius:99,width:28,height:28,cursor:"pointer",fontSize:1.1+"rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button>
+              <span style={{fontSize:".78rem",color:"var(--tx2)",width:88,flexShrink:0}}>Outreach</span>
+              <PBar done={outreachMonth.length} goal={monthlyOutreachGoal} pct={outreachMonthPct} color="#60a5fa"/>
             </div>
           </div>
-          <div style={{width:"100%",height:6,background:"var(--b2)",borderRadius:99,overflow:"hidden"}}>
-            <div style={{height:"100%",borderRadius:99,background:outreachPct>=100?"#34d399":"#60a5fa",width:`${outreachPct}%`,transition:"width .5s ease"}}/>
-          </div>
         </div>
-        {/* Today's call log */}
         {(clientToday.length>0||outreachToday.length>0)&&(
-          <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--b)"}}>
-            <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}}>Today's log</div>
+          <div style={{borderTop:"1px solid var(--b)",paddingTop:12}}>
+            <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}}>Today's log</div>
             {clientToday.map(c=>{const f=folders.find(f=>f.id===c.folderId);return(
               <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid var(--b)"}}>
                 <span style={{fontSize:".75rem"}}>📞</span>
@@ -912,6 +960,69 @@ export default function App(){
             ))}
           </div>
         )}
+      </div>
+    );
+  };
+
+  const ReportsView=()=>{
+    const [period,setPeriod]=useState("month");
+    const yr=String(new Date().getFullYear());
+    const cW=callsThisWeek("client"),oW=callsThisWeek("outreach");
+    const cM=callsThisMonth("client"),oM=callsThisMonth("outreach");
+    const cY=callsThisYear("client"),oY=callsThisYear("outreach");
+    const hW=hWeek();
+    const hM=hoursThisMonth();
+    const hY=hoursThisYear();
+    const revM=revenueThisMonth(),revY=revenueThisYear();
+    const expM=expensesThisMonth(),expY=expensesThisYear();
+    const d=period==="week"?{hours:hW,rev:null,exp:null,cc:cW,oc:oW}
+      :period==="month"?{hours:hM,rev:revM,exp:expM,cc:cM,oc:oM}
+      :{hours:hY,rev:revY,exp:expY,cc:cY,oc:oY};
+    const rate=d.rev&&d.hours>0?d.rev/d.hours:null;
+    const net=d.rev!=null&&d.exp!=null?d.rev-d.exp:null;
+    const SCard=({label,val,color,sub})=>(
+      <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:12,padding:"16px"}}>
+        <div style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}}>{label}</div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.5rem",color:color||"var(--tx)",letterSpacing:"-1px",lineHeight:1}}>{val}</div>
+        {sub&&<div style={{fontSize:".7rem",color:"var(--mu)",marginTop:5}}>{sub}</div>}
+      </div>
+    );
+    return(
+      <div className="page">
+        <div className="view-hdr"><div className="view-title">Reports</div><div className="view-sub">Your business at a glance</div></div>
+        <div style={{display:"flex",gap:6,marginBottom:22,background:"var(--s)",borderRadius:12,padding:5}}>
+          {[["week","This Week"],["month","This Month"],["year","This Year"]].map(([p,l])=>(
+            <button key={p} onClick={()=>setPeriod(p)} style={{flex:1,padding:"9px 6px",borderRadius:9,border:"none",background:period===p?"var(--bg)":"transparent",color:period===p?"var(--tx)":"var(--mu)",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:".82rem",cursor:"pointer",transition:"all .15s"}}>{l}</button>
+          ))}
+        </div>
+        {rate&&(
+          <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r2)",padding:"22px 20px",marginBottom:14,textAlign:"center"}}>
+            <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".14em",marginBottom:8}}>Effective Hourly Rate</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"3.2rem",color:"#c8ff57",letterSpacing:"-2px",lineHeight:1}}>${Math.round(rate)}<span style={{fontSize:"1.1rem",color:"var(--mu)",fontWeight:500}}>/hr</span></div>
+            <div style={{fontSize:".75rem",color:"var(--mu)",marginTop:8}}>${d.rev.toLocaleString()} revenue / {fmtHrs(d.hours)} worked</div>
+          </div>
+        )}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+          <SCard label="Hours Worked" val={fmtHrs(d.hours)} color="#fb923c"/>
+          {d.rev!=null&&<SCard label="Revenue" val={"$"+d.rev.toLocaleString()} color="#34d399"/>}
+          {d.exp!=null&&<SCard label="Business Expenses" val={"$"+d.exp.toLocaleString()} color="#ef4444"/>}
+          {net!=null&&<SCard label="Net Profit" val={"$"+net.toLocaleString()} color={net>=0?"#c8ff57":"#ef4444"}/>}
+        </div>
+        <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r2)",padding:"16px 18px"}}>
+          <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".12em",marginBottom:14}}>Phone Calls</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div style={{textAlign:"center",padding:"14px",background:"var(--bg)",borderRadius:10,border:"1px solid var(--b)"}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"2rem",color:"var(--ac)",lineHeight:1,marginBottom:5}}>{d.cc.length}</div>
+              <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}}>Client Calls</div>
+              <div style={{fontSize:".7rem",color:"var(--mu)"}}>{callMins(d.cc)} min</div>
+            </div>
+            <div style={{textAlign:"center",padding:"14px",background:"var(--bg)",borderRadius:10,border:"1px solid var(--b)"}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"2rem",color:"#60a5fa",lineHeight:1,marginBottom:5}}>{d.oc.length}</div>
+              <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}}>Outreach Calls</div>
+              <div style={{fontSize:".7rem",color:"var(--mu)"}}>{callMins(d.oc)} min</div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -1202,11 +1313,13 @@ export default function App(){
       {view==="task"&&<TaskDetailView/>}
       {view==="all"&&<AllTasksView/>}
       {view==="money"&&<MoneyView/>}
+      {view==="reports"&&<ReportsView/>}
       {view!=="task"&&(
         <div className="tab-bar">
           <button className={`tab-btn${(view==="home"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}><span className="tab-icon">🏠</span><span className="tab-lbl">Home</span><div className="tab-dot"/></button>
           <button className={`tab-btn${view==="all"?" active":""}`} onClick={()=>setView("all")}><span className="tab-icon">📋</span><span className="tab-lbl">All Tasks</span><div className="tab-dot"/></button>
           <button className={`tab-btn${view==="money"?" active":""}`} onClick={()=>setView("money")}><span className="tab-icon">💰</span><span className="tab-lbl">Money</span><div className="tab-dot"/></button>
+          <button className={`tab-btn${view==="reports"?" active":""}`} onClick={()=>setView("reports")}><span className="tab-icon">📈</span><span className="tab-lbl">Reports</span><div className="tab-dot"/></button>
         </div>
       )}
       {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
