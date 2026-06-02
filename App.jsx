@@ -713,39 +713,44 @@ export default function App(){
 
   const SessionStats=({task})=>{
     if(!task)return null;
-    const log=task.timeLog??{};
-    const today=dStr();
-    const todaySecs=log[today]??0;
-    // Calculate sessions from timeLog across all days
+    // Account-wide session stats across ALL tasks
     const allSessions=[];
-    Object.entries(log).forEach(([date,secs])=>{if(secs>0)allSessions.push(secs);});
-    // Today's running session
+    tasks.forEach(t=>{
+      Object.values(t.timeLog??{}).forEach(secs=>{if(secs>30)allSessions.push(secs);}); // ignore sessions under 30s
+    });
+    const accountAvg=allSessions.length?Math.round(allSessions.reduce((s,v)=>s+v,0)/allSessions.length):0;
+    const accountLongest=allSessions.length?Math.max(...allSessions):0;
+    const totalSessions=allSessions.length;
+    // Current live session on THIS task
     const liveSecs=task.timerRunning&&task.timerStartedAt?(Date.now()-task.timerStartedAt)/1000:0;
-    const currentSecs=todaySecs+(task.timerRunning?liveSecs:0);
-    if(allSessions.length===0&&currentSecs===0)return null;
-    const avg=allSessions.length?Math.round(allSessions.reduce((s,v)=>s+v,0)/allSessions.length):0;
-    const longest=allSessions.length?Math.max(...allSessions):0;
-    const isBelow=task.timerRunning&&avg>0&&liveSecs<avg*.7;
+    const isBelow=task.timerRunning&&accountAvg>0&&liveSecs<accountAvg*.7;
+    const isBeat=task.timerRunning&&accountAvg>0&&liveSecs>accountLongest;
+    if(totalSessions===0&&!task.timerRunning)return null;
     return(
       <div style={{background:"var(--bg)",border:"1px solid var(--b)",borderRadius:12,padding:"14px 16px",marginTop:16}}>
-        <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}}>Session Stats</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:isBelow?10:0}}>
+        <div style={{fontSize:".65rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}}>Your Session Benchmarks</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:(isBelow||isBeat)?10:0}}>
           <div style={{textAlign:"center"}}>
-            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"var(--tx)",lineHeight:1,marginBottom:3}}>{allSessions.length}</div>
-            <div style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Sessions</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"var(--tx)",lineHeight:1,marginBottom:3}}>{totalSessions}</div>
+            <div style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Total Sessions</div>
           </div>
           <div style={{textAlign:"center"}}>
-            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"#60a5fa",lineHeight:1,marginBottom:3}}>{avg>0?fmtTimer(avg):"—"}</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"#60a5fa",lineHeight:1,marginBottom:3}}>{accountAvg>0?fmtTimer(accountAvg):"—"}</div>
             <div style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Avg Session</div>
           </div>
           <div style={{textAlign:"center"}}>
-            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"#a78bfa",lineHeight:1,marginBottom:3}}>{longest>0?fmtTimer(longest):"—"}</div>
-            <div style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Longest</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"#a78bfa",lineHeight:1,marginBottom:3}}>{accountLongest>0?fmtTimer(accountLongest):"—"}</div>
+            <div style={{fontSize:".6rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Longest Ever</div>
           </div>
         </div>
         {isBelow&&(
           <div style={{fontSize:".78rem",color:"#fbbf24",fontWeight:600,textAlign:"center",padding:"8px 12px",background:"rgba(251,191,36,.08)",borderRadius:8,border:"1px solid rgba(251,191,36,.2)"}}>
-            Current session {fmtTimer(liveSecs)} · avg is {fmtTimer(avg)} — keep going!
+            {fmtTimer(liveSecs)} in · your avg is {fmtTimer(accountAvg)} — keep going!
+          </div>
+        )}
+        {isBeat&&(
+          <div style={{fontSize:".78rem",color:"var(--ac)",fontWeight:600,textAlign:"center",padding:"8px 12px",background:"rgba(200,255,87,.08)",borderRadius:8,border:"1px solid rgba(200,255,87,.2)"}}>
+            New longest session — you're in the zone!
           </div>
         )}
       </div>
