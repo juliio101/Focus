@@ -357,10 +357,19 @@ export default function App(){
   const lastActivityDays=fid=>{
     const ft=tasks.filter(t=>t.folderId===fid);
     let latest=null;
-    ft.forEach(t=>{Object.keys(t.timeLog??{}).forEach(d=>{if(!latest||d>latest)latest=d;});if(t.done&&t.startDate&&(!latest||t.startDate>latest))latest=t.startDate;});
-    const folderCalls=[...(calls.client??[])].filter(c=>c.folderId===fid);
+    ft.forEach(t=>{
+      // Check timeLog entries
+      Object.keys(t.timeLog??{}).forEach(d=>{if(!latest||d>latest)latest=d;});
+      // Check ALL task startDates (done or not) — key fix
+      if(t.startDate&&(!latest||t.startDate>latest))latest=t.startDate;
+      // Check doneOn dates for recurring tasks
+      (t.doneOn??[]).forEach(d=>{if(!latest||d>latest)latest=d;});
+    });
+    // Check calls linked to this folder
+    const folderCalls=(calls.client??[]).filter(c=>c.folderId===fid);
     folderCalls.forEach(c=>{if(!latest||c.date>latest)latest=c.date;});
-    if(!latest)return null;
+    // If truly no data ever — flag as 999 days (always show)
+    if(!latest)return 999;
     return Math.floor((new Date()-new Date(latest+'T00:00:00'))/86400000);
   };
   const resetSnoozeOnActivity=fid=>{if(folderSnooze[fid])clearSnooze(fid);};
@@ -475,39 +484,65 @@ export default function App(){
   };
 
   const ChaseThese=()=>{
-    const chasing=folders.filter(f=>{
-      if(f.archived)return false;
-      if(isSnoozed(f.id))return false;
+    const today=dStr();
+    const mk=monthKey();
+
+    // Build priority list for ALL non-archived folders
+    const priorities=folders.filter(f=>!f.archived&&!isSnoozed(f.id)).map(f=>{
+      const ft=tasks.filter(t=>t.folderId===f.id);
       const days=lastActivityDays(f.id);
-      if(days===null)return false;
-      return days>=chaseThreshold;
-    });
-    if(chasing.length===0)return null;
-    const getColor=days=>days>=10?"#ef4444":days>=6?"#fb923c":"#fbbf24";
-    const getBg=days=>days>=10?"#ef44440a":days>=6?"#fb923c0a":"#fbbf2408";
+      const hasOverdue=ft.some(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<today);
+      const hasTasksThisWeek=DAY_KEYS.some(dk=>tasksForDay(dk).some(t=>t.folderId===f.id));
+      const hasTasksToday=tasksForDay(todayKey()).some(t=>t.folderId===f.id);
+      const subPending=(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk];
+      let priority=0;
+      let reason="";
+      if(hasOverdue){priority=4;reason="Overdue tasks";}
+      else if(subPending&&days>=3){priority=3;reason="Payment pending";}
+      else if(!hasTasksToday&&hasTasksThisWeek){priority=2;reason="Has tasks this week";}
+      else if(days>=chaseThreshold&&!hasTasksToday){priority=1;reason=`${days===999?"No activity recorded":`${days}d no activity`}`;}
+      return{f,priority,reason,days,hasOverdue,subPending};
+    }).filter(p=>p.priority>0).sort((a,b)=>b.priority-a.priority);
+
+    if(priorities.length===0)return null;
+
+    const getColor=p=>{
+      if(p.priority===4)return"#ef4444";
+      if(p.priority===3)return"#fbbf24";
+      if(p.priority===2)return"#60a5fa";
+      return"#fb923c";
+    };
+    const getBg=p=>{
+      if(p.priority===4)return"#ef44440a";
+      if(p.priority===3)return"#fbbf2408";
+      if(p.priority===2)return"#60a5fa08";
+      return"#fb923c08";
+    };
+
     return(
       <div style={{marginBottom:20}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:".68rem",fontWeight:700,textTransform:"uppercase",letterSpacing:".14em",color:"#fb923c"}}>Chase These</span>
-            <span style={{fontSize:".65rem",background:"#fb923c20",color:"#fb923c",border:"1px solid #fb923c30",borderRadius:99,padding:"1px 8px",fontWeight:700}}>{chasing.length}</span>
+            <span style={{fontSize:".68rem",fontWeight:700,textTransform:"uppercase",letterSpacing:".14em",color:"#fb923c"}}>Focus Now</span>
+            <span style={{fontSize:".65rem",background:"#fb923c20",color:"#fb923c",border:"1px solid #fb923c30",borderRadius:99,padding:"1px 8px",fontWeight:700}}>{priorities.length}</span>
           </div>
-          <button onClick={()=>{}} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".72rem",fontWeight:600}} onClick={()=>{const d=prompt(`Chase threshold (days, current: ${chaseThreshold})`);if(d&&!isNaN(d))setChaseThreshold(parseInt(d));}}>Edit threshold</button>
+          <button onClick={()=>{const d=prompt(`Chase threshold in days (current: ${chaseThreshold})`);if(d&&!isNaN(d))setChaseThreshold(parseInt(d));}} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".72rem",fontWeight:600}}>Settings</button>
         </div>
-        {chasing.map(f=>{
-          const days=lastActivityDays(f.id);
-          const color=getColor(days);
+        {priorities.slice(0,6).map(p=>{
+          const color=getColor(p);
           return(
-            <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",background:getBg(days),border:`1px solid ${color}25`,borderLeft:`3px solid ${color}`,borderRadius:10,cursor:"pointer",marginBottom:7}}>
-              <span style={{fontSize:"1rem",flexShrink:0}} onClick={()=>goFolder(f.id)}>{f.icon}</span>
-              <div style={{flex:1,minWidth:0}} onClick={()=>goFolder(f.id)}>
-                <div style={{fontSize:".88rem",fontWeight:600,color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{f.name}</div>
-                <div style={{fontSize:".68rem",color:"var(--mu)",marginTop:2}}>{days} days since last activity</div>
+            <div key={p.f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",background:getBg(p),border:`1px solid ${color}25`,borderLeft:`3px solid ${color}`,borderRadius:10,cursor:"pointer",marginBottom:7}}>
+              <span style={{fontSize:"1rem",flexShrink:0}} onClick={()=>goFolder(p.f.id)}>{p.f.icon}</span>
+              <div style={{flex:1,minWidth:0}} onClick={()=>goFolder(p.f.id)}>
+                <div style={{fontSize:".88rem",fontWeight:600,color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.f.name}</div>
+                <div style={{fontSize:".68rem",color:"var(--mu)",marginTop:2}}>{p.reason}</div>
               </div>
-              <button onClick={e=>{e.stopPropagation();setSnoozingFolder(f);setShowSnoozeModal(true);}} style={{background:"none",border:`1px solid ${color}30`,color,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontSize:".72rem",fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>Snooze</button>
+              {(p.f.monthlyValue||0)>0&&<span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".82rem",color:p.subPending?"#fbbf24":"#34d399",flexShrink:0}}>${p.f.monthlyValue.toLocaleString()}</span>}
+              <button onClick={e=>{e.stopPropagation();setSnoozingFolder(p.f);setShowSnoozeModal(true);}} style={{background:"none",border:`1px solid ${color}30`,color,borderRadius:99,padding:"4px 10px",cursor:"pointer",fontSize:".68rem",fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>Snooze</button>
             </div>
           );
         })}
+        {priorities.length>6&&<div style={{fontSize:".75rem",color:"var(--mu)",textAlign:"center",padding:"6px 0"}}>+{priorities.length-6} more clients need attention</div>}
       </div>
     );
   };
@@ -741,7 +776,7 @@ export default function App(){
             {/* Pending first — these need chasing */}
             {activeRevFolders.filter(f=>!(f.subCollected??{})[mk]).length>0&&(
               <div style={{marginBottom:10}}>
-                <div style={{fontSize:".6rem",color:"#fbbf24",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>Chase these</div>
+                <div style={{fontSize:".6rem",color:"#fbbf24",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>Pending — follow up</div>
                 {activeRevFolders.filter(f=>!(f.subCollected??{})[mk]).map(f=>(
                   <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:"#fbbf2408",border:"1px solid #fbbf2425",borderLeft:"3px solid #fbbf24",borderRadius:10,marginBottom:6}}>
                     <span style={{fontSize:"1rem",flexShrink:0}}>{f.icon}</span>
