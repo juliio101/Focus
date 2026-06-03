@@ -348,6 +348,8 @@ export default function App(){
   const saveRename=()=>{const n=renameText.trim();if(!n)return;setFolders(p=>p.map(f=>f.id===renamingFolder.id?{...f,name:n,monthlyValue:parseFloat(renameValue)||0}:f));setShowRenameModal(false);};
   const archiveFolder=fid=>{setFolders(p=>p.map(f=>f.id===fid?{...f,archived:true,archivedDate:dStr()}:f));goHome();};
   const unarchiveFolder=fid=>setFolders(p=>p.map(f=>f.id===fid?{...f,archived:false,archivedDate:null}:f));
+  const pauseFolder=fid=>{setFolders(p=>p.map(f=>f.id===fid?{...f,paused:true,pausedDate:dStr()}:f));goHome();};
+  const unpauseFolder=fid=>setFolders(p=>p.map(f=>f.id===fid?{...f,paused:false,pausedDate:null}:f));
   const deleteFolder=fid=>{setFolders(p=>p.filter(f=>f.id!==fid));setTasks(p=>p.filter(t=>t.folderId!==fid));goHome();};
   const openHours=dk=>{setPendingHrs(hoursFor(dk));setHoursDay(dk);setShowHoursModal(true);};
   const saveHours=()=>{setDayHours(p=>({...p,[hoursDay]:pendingHrs}));setShowHoursModal(false);};
@@ -488,7 +490,7 @@ export default function App(){
     const mk=monthKey();
 
     // Build priority list for ALL non-archived folders
-    const priorities=folders.filter(f=>!f.archived&&!isSnoozed(f.id)).map(f=>{
+    const priorities=folders.filter(f=>!f.archived&&!f.paused&&!isSnoozed(f.id)).map(f=>{
       const ft=tasks.filter(t=>t.folderId===f.id);
       const days=lastActivityDays(f.id);
       const hasOverdue=ft.some(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<today);
@@ -1047,20 +1049,24 @@ export default function App(){
           {d.exp!=null&&<SCard label="Business Expenses" val={"$"+d.exp.toLocaleString()} color="#ef4444"/>}
           {net!=null&&<SCard label="Net Profit" val={"$"+net.toLocaleString()} color={net>=0?"#c8ff57":"#ef4444"}/>}
         </div>
-        <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r2)",padding:"16px 18px",marginBottom:10}}>
+          <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r2)",padding:"16px 18px",marginBottom:10}}>
           <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".12em",marginBottom:14}}>Clients</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-            <div style={{textAlign:"center",padding:"12px",background:"var(--bg)",borderRadius:10,border:"1px solid var(--b)"}}>
-              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.8rem",color:"#34d399",lineHeight:1,marginBottom:4}}>{folders.filter(f=>!f.archived).length}</div>
-              <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Active</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
+            <div style={{textAlign:"center",padding:"12px 6px",background:"var(--bg)",borderRadius:10,border:"1px solid var(--b)"}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.6rem",color:"#34d399",lineHeight:1,marginBottom:4}}>{folders.filter(f=>!f.archived&&!f.paused).length}</div>
+              <div style={{fontSize:".58rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Active</div>
             </div>
-            <div style={{textAlign:"center",padding:"12px",background:"var(--bg)",borderRadius:10,border:"1px solid var(--b)"}}>
-              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.8rem",color:"#fbbf24",lineHeight:1,marginBottom:4}}>{folders.filter(f=>f.archived).length}</div>
-              <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Archived</div>
+            <div style={{textAlign:"center",padding:"12px 6px",background:"var(--bg)",borderRadius:10,border:"1px solid var(--b)"}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.6rem",color:"#a78bfa",lineHeight:1,marginBottom:4}}>{folders.filter(f=>f.paused).length}</div>
+              <div style={{fontSize:".58rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Paused</div>
             </div>
-            <div style={{textAlign:"center",padding:"12px",background:"var(--bg)",borderRadius:10,border:"1px solid var(--b)"}}>
-              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.8rem",color:"var(--tx2)",lineHeight:1,marginBottom:4}}>{folders.length}</div>
-              <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Total</div>
+            <div style={{textAlign:"center",padding:"12px 6px",background:"var(--bg)",borderRadius:10,border:"1px solid var(--b)"}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.6rem",color:"#fbbf24",lineHeight:1,marginBottom:4}}>{folders.filter(f=>f.archived).length}</div>
+              <div style={{fontSize:".58rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Archived</div>
+            </div>
+            <div style={{textAlign:"center",padding:"12px 6px",background:"var(--bg)",borderRadius:10,border:"1px solid var(--b)"}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.6rem",color:"var(--tx2)",lineHeight:1,marginBottom:4}}>{folders.length}</div>
+              <div style={{fontSize:".58rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Total</div>
             </div>
           </div>
         </div>
@@ -1089,7 +1095,7 @@ export default function App(){
     const tMonth=()=>{let c=0;tasks.forEach(t=>{if(!t.recurring&&t.done)c++;else if(t.recurring)c+=(t.doneOn??[]).filter(d=>d.startsWith(monthStr)).length;});return c;};
     const weekDone=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0);
     const weekTotal=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0);
-    const enriched=[...folders].filter(f=>!f.archived).map(f=>{const td=todayKey(),ft=folderTasks(f.id),tdTasks=tasksForDay(td).filter(t=>t.folderId===f.id);const doneToday=tdTasks.filter(t=>isDone(t,td)).length,todayCount=tdTasks.length;let wDue=0,wDone=0;DAY_KEYS.forEach(d=>{const df=tasksForDay(d).filter(t=>t.folderId===f.id);wDue+=df.length;wDone+=df.filter(t=>isDone(t,d)).length;});const totalSecs=ft.reduce((s,t)=>s+(t.timerSeconds??0),0);return{f,todayCount,doneToday,wDue,wDone,wPct:wDue>0?Math.round(wDone/wDue*100):0,totalSecs,hasToday:todayCount>0};});
+    const enriched=[...folders].filter(f=>!f.archived&&!f.paused).map(f=>{const td=todayKey(),ft=folderTasks(f.id),tdTasks=tasksForDay(td).filter(t=>t.folderId===f.id);const doneToday=tdTasks.filter(t=>isDone(t,td)).length,todayCount=tdTasks.length;let wDue=0,wDone=0;DAY_KEYS.forEach(d=>{const df=tasksForDay(d).filter(t=>t.folderId===f.id);wDue+=df.length;wDone+=df.filter(t=>isDone(t,d)).length;});const totalSecs=ft.reduce((s,t)=>s+(t.timerSeconds??0),0);return{f,todayCount,doneToday,wDue,wDone,wPct:wDue>0?Math.round(wDone/wDue*100):0,totalSecs,hasToday:todayCount>0};});
     const active=enriched.filter(e=>e.hasToday).sort((a,b)=>b.todayCount-a.todayCount);
     const inactive=enriched.filter(e=>!e.hasToday);
     const FRow=({e,dim})=>{const{f,todayCount,doneToday,wDue,wDone,wPct,totalSecs}=e;return(
@@ -1110,10 +1116,10 @@ export default function App(){
       <div className="home-layout">
         <div>
           <RunningTimerBanner/>
-          <UrgentSection/>
-          <ChaseThese/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
           <RingsCard dk={dk}/>
+          <UrgentSection/>
+          <ChaseThese/>
           <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:"clamp(1.3rem,4vw,2rem)",fontWeight:800,letterSpacing:"-.4px",color:"var(--tx)",marginBottom:4,lineHeight:1.1}}>My Week</div>
           <div style={{fontSize:".85rem",color:"var(--mu)",marginBottom:20,fontWeight:400}}>Tap a day to manage tasks</div>
           <div className="day-grid">
@@ -1133,6 +1139,24 @@ export default function App(){
             </div>
           )}
           <CallsTracker/>
+          {folders.some(f=>f.paused)&&(
+            <div style={{marginTop:20}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                <span style={{fontSize:".7rem",fontWeight:600,textTransform:"uppercase",letterSpacing:".12em",color:"#a78bfa"}}>Paused</span>
+                <span style={{fontSize:".65rem",background:"#a78bfa20",color:"#a78bfa",border:"1px solid #a78bfa30",borderRadius:99,padding:"1px 8px",fontWeight:700}}>{folders.filter(f=>f.paused).length}</span>
+              </div>
+              {folders.filter(f=>f.paused).map(f=>(
+                <div key={f.id} style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r2)",padding:"12px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:10,opacity:.5}}>
+                  <span style={{fontSize:"1.2rem",flexShrink:0,filter:"grayscale(1)"}}>{f.icon}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:".9rem",fontWeight:600,color:"var(--mu)",marginBottom:2}}>{f.name}</div>
+                    <div style={{fontSize:".68rem",color:"var(--mu)"}}>Paused {f.pausedDate} — relationship on hold</div>
+                  </div>
+                  <button onClick={()=>unpauseFolder(f.id)} style={{background:"none",border:"1px solid #a78bfa40",color:"#a78bfa",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:".72rem",fontWeight:600,whiteSpace:"nowrap",flexShrink:0}}>Reactivate</button>
+                </div>
+              ))}
+            </div>
+          )}
           {folders.some(f=>f.archived)&&(
             <div style={{marginTop:24}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
@@ -1261,9 +1285,10 @@ export default function App(){
         {byDay.map(({d,lbl,ts})=>(<div className="task-grp" key={d}><div className="grp-hdr"><span className="grp-lbl" style={{color:DAY_KEYS.indexOf(d)===todayIdx()?folder.color:"var(--mu)"}}>{lbl}{DAY_KEYS.indexOf(d)===todayIdx()?" · Today":""}</span></div>{sortByAlert(ts).map(t=><TaskRow key={t.id} task={t} dk={d} color={folder.color} from="folder"/>)}</div>))}
         {ft.length===0&&<div className="empty">No tasks yet — add one below</div>}
         <AddRow dk={dk} fid={activeFolder} placeholder={`Add task to ${folder.name}...`}/>
-        <div style={{display:"flex",gap:10,marginTop:20}}>
-          <button className="del-folder-btn" style={{flex:1,background:"none",border:"1px solid rgba(251,191,36,.2)",color:"#fbbf24"}} onClick={()=>archiveFolder(activeFolder)}>Archive client</button>
-          <button className="del-folder-btn" style={{flex:1}} onClick={()=>{if(window.confirm("Delete permanently? All data will be lost."))deleteFolder(activeFolder);}}>Delete</button>
+        <div style={{display:"flex",gap:8,marginTop:20,flexWrap:"wrap"}}>
+          <button className="del-folder-btn" style={{flex:1,background:"none",border:"1px solid rgba(167,139,250,.2)",color:"#a78bfa",minWidth:80}} onClick={()=>pauseFolder(activeFolder)}>Pause client</button>
+          <button className="del-folder-btn" style={{flex:1,background:"none",border:"1px solid rgba(251,191,36,.2)",color:"#fbbf24",minWidth:80}} onClick={()=>archiveFolder(activeFolder)}>Archive client</button>
+          <button className="del-folder-btn" style={{flex:1,minWidth:80}} onClick={()=>{if(window.confirm("Delete permanently? All data will be lost."))deleteFolder(activeFolder);}}>Delete</button>
         </div>
       </div>
     );
