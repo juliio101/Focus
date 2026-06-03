@@ -262,8 +262,8 @@ export default function App(){
   const callMins=arr=>arr.reduce((s,c)=>s+c.duration,0);
   const hoursThisMonth=()=>{const mk=monthKey();let t=0;tasks.forEach(task=>{Object.entries(task.timeLog??{}).forEach(([date,s])=>{if(date.startsWith(mk))t+=s;});});t+=callMins([...callsThisMonth("client"),...callsThisMonth("outreach")])*60;return t/3600;};
   const hoursThisYear=()=>{const yr=String(new Date().getFullYear());let t=0;tasks.forEach(task=>{Object.entries(task.timeLog??{}).forEach(([date,s])=>{if(date.startsWith(yr))t+=s;});});t+=callMins([...callsThisYear("client"),...callsThisYear("outreach")])*60;return t/3600;};
-  const revenueThisMonth=()=>{const mk=monthKey();const active=folders.filter(f=>(f.monthlyValue||0)>0);const sub=active.filter(f=>(f.subCollected??{})[mk]).reduce((s,f)=>s+(f.monthlyValue||0),0);const ot=folders.flatMap(f=>(f.payments??[]).filter(p=>p.month===mk&&p.status==="collected")).reduce((s,p)=>s+p.amount,0);return sub+ot;};
-  const revenueThisYear=()=>{const yr=String(new Date().getFullYear());let t=0;folders.forEach(f=>{if((f.monthlyValue||0)>0)Object.entries(f.subCollected??{}).forEach(([m,v])=>{if(v&&m.startsWith(yr))t+=f.monthlyValue;});(f.payments??[]).forEach(p=>{if(p.status==="collected"&&(p.month??'').startsWith(yr))t+=p.amount;});});return t;};
+  const revenueThisMonth=()=>{const mk=monthKey();const active=folders.filter(f=>(f.monthlyValue||0)>0&&!f.archived);const sub=active.filter(f=>(f.subCollected??{})[mk]).reduce((s,f)=>s+(f.monthlyValue||0),0);const ot=folders.filter(f=>!f.archived).flatMap(f=>(f.payments??[]).filter(p=>p.month===mk&&p.status==="collected")).reduce((s,p)=>s+p.amount,0);return sub+ot;};
+  const revenueThisYear=()=>{const yr=String(new Date().getFullYear());let t=0;folders.filter(f=>!f.archived).forEach(f=>{if((f.monthlyValue||0)>0)Object.entries(f.subCollected??{}).forEach(([m,v])=>{if(v&&m.startsWith(yr))t+=f.monthlyValue;});(f.payments??[]).forEach(p=>{if(p.status==="collected"&&(p.month??'').startsWith(yr))t+=p.amount;});});return t;};
   const expensesThisMonth=()=>{const mk=monthKey();return expenses.filter(e=>e.category==="business").reduce((s,e)=>{if((e.paid??{})[mk])return s+getExpenseAmount(e);return s;},0);};
   const expensesThisYear=()=>{const yr=String(new Date().getFullYear());let t=0;expenses.filter(e=>e.category==="business").forEach(e=>{Object.entries(e.paid??{}).forEach(([m,paid])=>{if(paid&&m.startsWith(yr))t+=e.type==="variable"?((e.variableAmounts??{})[m]??0):e.amount;});});return t;};
   const hLastWeek=()=>lastWeekSecs()/3600;
@@ -658,7 +658,7 @@ export default function App(){
     const now=new Date();
     const monthName=now.toLocaleString("default",{month:"long",year:"numeric"});
     // Revenue
-    const activeRevFolders=[...folders].filter(f=>(f.monthlyValue||0)>0).sort((a,b)=>(b.monthlyValue||0)-(a.monthlyValue||0));
+    const activeRevFolders=[...folders].filter(f=>(f.monthlyValue||0)>0&&!f.archived).sort((a,b)=>(b.monthlyValue||0)-(a.monthlyValue||0));
     const totalMRR=activeRevFolders.reduce((s,f)=>s+(f.monthlyValue||0),0);
     const collectedMRR=activeRevFolders.filter(f=>(f.subCollected??{})[mk]).reduce((s,f)=>s+(f.monthlyValue||0),0);
     const allPayments=folders.flatMap(f=>(f.payments??[]).filter(p=>p.month===mk));
