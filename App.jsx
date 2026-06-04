@@ -123,6 +123,7 @@ export default function App(){
   const [nfColor,setNfColor]=useState(COLORS[0]);
   const [nfIcon,setNfIcon]=useState(ICON_OPTIONS[0]);
   const [nfValue,setNfValue]=useState("");
+  const [nfProspect,setNfProspect]=useState(false);
   const [pendingHrs,setPendingHrs]=useState(8);
   const [taskRecur,setTaskRecur]=useState(false);
   const [taskRecDays,setTaskRecDays]=useState([]);
@@ -227,9 +228,13 @@ export default function App(){
   const hoursFor=dk=>dayHours[dk]??8;
   const secsTracked=dk=>{
     const date=dateForDK(dk);
-    const taskSecs=tasksForDay(dk).reduce((s,t)=>{
+    // Use ALL tasks — a task created any day can have time logged on any day
+    const taskSecs=tasks.reduce((s,t)=>{
       const log=t.timeLog??{};const dayVal=log[date]??0;
-      if(t.timerRunning&&t.timerStartedAt){const startDate=dStr(new Date(t.timerStartedAt));if(startDate===date)return s+dayVal+(Date.now()-t.timerStartedAt)/1000;}
+      if(t.timerRunning&&t.timerStartedAt){
+        const startDate=dStr(new Date(t.timerStartedAt));
+        if(startDate===date)return s+dayVal+(Date.now()-t.timerStartedAt)/1000;
+      }
       return s+dayVal;
     },0);
     const callSecs=(calls.client??[]).filter(c=>c.date===date).reduce((s,c)=>s+c.duration*60,0)
@@ -339,7 +344,8 @@ export default function App(){
   const handlePinDel=()=>{if(showPinSetModal){if(pinStep===2)setPinConfirm(p=>p.slice(0,-1));else setPinInput(p=>p.slice(0,-1));}else if(showPinUnlock)setPinInput(p=>p.slice(0,-1));};
   const dismissLockDone=()=>{setIsLocked(false);setLockDone(false);setLockEndTime(null);setLockedTaskId(null);setLockedTaskDk(null);};
 
-  const createFolder=()=>{const n=nfName.trim();if(!n)return;setFolders(p=>[...p,{id:Date.now(),name:n,color:nfColor,icon:nfIcon,monthlyValue:parseFloat(nfValue)||0,payments:[],subCollected:{}}]);setNfName("");setNfColor(COLORS[0]);setNfIcon(ICON_OPTIONS[0]);setNfValue("");setShowFolderModal(false);};
+  const createFolder=()=>{const n=nfName.trim();if(!n)return;setFolders(p=>[...p,{id:Date.now(),name:n,color:nfColor,icon:nfIcon,monthlyValue:parseFloat(nfValue)||0,payments:[],subCollected:{},prospect:nfProspect}]);setNfName("");setNfColor(COLORS[0]);setNfIcon(ICON_OPTIONS[0]);setNfValue("");setNfProspect(false);setShowFolderModal(false);};
+  const convertToClient=fid=>{setFolders(p=>p.map(f=>f.id===fid?{...f,prospect:false}:f));goHome();};
   const toggleSubCollected=fid=>{const mk=monthKey();setFolders(p=>p.map(f=>{if(f.id!==fid)return f;const sc={...(f.subCollected??{})};sc[mk]=!sc[mk];return{...f,subCollected:sc};}));};
   const addPayment=()=>{const amt=parseFloat(paymentAmount);if(!amt||!paymentFolder)return;setFolders(p=>p.map(f=>{if(f.id!==paymentFolder)return f;const pay={id:Date.now(),amount:amt,note:paymentNote.trim()||"One-time payment",status:"sent",month:monthKey()};return{...f,payments:[...(f.payments??[]),pay]};}));setPaymentAmount("");setPaymentNote("");setShowPaymentModal(false);};
   const togglePayment=pid=>{setFolders(p=>p.map(f=>({...f,payments:(f.payments??[]).map(p=>p.id===pid?{...p,status:p.status==="sent"?"collected":"sent"}:p)})));};
@@ -490,7 +496,7 @@ export default function App(){
     const mk=monthKey();
 
     // Build priority list for ALL non-archived folders
-    const priorities=folders.filter(f=>!f.archived&&!f.paused&&!isSnoozed(f.id)).map(f=>{
+    const priorities=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect&&!isSnoozed(f.id)).map(f=>{
       const ft=tasks.filter(t=>t.folderId===f.id);
       const days=lastActivityDays(f.id);
       const hasOverdue=ft.some(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<today);
@@ -696,13 +702,16 @@ export default function App(){
     const now=new Date();
     const monthName=now.toLocaleString("default",{month:"long",year:"numeric"});
     // Revenue
-    const activeRevFolders=[...folders].filter(f=>(f.monthlyValue||0)>0&&!f.archived).sort((a,b)=>(b.monthlyValue||0)-(a.monthlyValue||0));
+    const activeRevFolders=[...folders].filter(f=>(f.monthlyValue||0)>0&&!f.archived&&!f.prospect).sort((a,b)=>(b.monthlyValue||0)-(a.monthlyValue||0));
     const totalMRR=activeRevFolders.reduce((s,f)=>s+(f.monthlyValue||0),0);
     const collectedMRR=activeRevFolders.filter(f=>(f.subCollected??{})[mk]).reduce((s,f)=>s+(f.monthlyValue||0),0);
-    const allPayments=folders.flatMap(f=>(f.payments??[]).filter(p=>p.month===mk));
+    const allPayments=folders.filter(f=>!f.prospect).flatMap(f=>(f.payments??[]).filter(p=>p.month===mk));
     const totalOneTime=allPayments.reduce((s,p)=>s+p.amount,0);
     const collectedOneTime=allPayments.filter(p=>p.status==="collected").reduce((s,p)=>s+p.amount,0);
     const totalRevenue=collectedMRR+collectedOneTime;
+    // Pipeline (prospects)
+    const prospects=folders.filter(f=>f.prospect&&!f.archived);
+    const pipelineValue=prospects.reduce((s,f)=>s+(f.monthlyValue||0),0);
     // Expenses
     const bizExps=expenses.filter(e=>e.category==="business");
     const perExps=expenses.filter(e=>e.category==="personal");
@@ -1095,7 +1104,7 @@ export default function App(){
     const tMonth=()=>{let c=0;tasks.forEach(t=>{if(!t.recurring&&t.done)c++;else if(t.recurring)c+=(t.doneOn??[]).filter(d=>d.startsWith(monthStr)).length;});return c;};
     const weekDone=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0);
     const weekTotal=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0);
-    const enriched=[...folders].filter(f=>!f.archived&&!f.paused).map(f=>{const td=todayKey(),ft=folderTasks(f.id),tdTasks=tasksForDay(td).filter(t=>t.folderId===f.id);const doneToday=tdTasks.filter(t=>isDone(t,td)).length,todayCount=tdTasks.length;let wDue=0,wDone=0;DAY_KEYS.forEach(d=>{const df=tasksForDay(d).filter(t=>t.folderId===f.id);wDue+=df.length;wDone+=df.filter(t=>isDone(t,d)).length;});const totalSecs=ft.reduce((s,t)=>s+(t.timerSeconds??0),0);return{f,todayCount,doneToday,wDue,wDone,wPct:wDue>0?Math.round(wDone/wDue*100):0,totalSecs,hasToday:todayCount>0};});
+    const enriched=[...folders].filter(f=>!f.archived&&!f.paused&&!f.prospect).map(f=>{const td=todayKey(),ft=folderTasks(f.id),tdTasks=tasksForDay(td).filter(t=>t.folderId===f.id);const doneToday=tdTasks.filter(t=>isDone(t,td)).length,todayCount=tdTasks.length;let wDue=0,wDone=0;DAY_KEYS.forEach(d=>{const df=tasksForDay(d).filter(t=>t.folderId===f.id);wDue+=df.length;wDone+=df.filter(t=>isDone(t,d)).length;});const totalSecs=ft.reduce((s,t)=>s+(t.timerSeconds??0),0);return{f,todayCount,doneToday,wDue,wDone,wPct:wDue>0?Math.round(wDone/wDue*100):0,totalSecs,hasToday:todayCount>0};});
     const active=enriched.filter(e=>e.hasToday).sort((a,b)=>b.todayCount-a.todayCount);
     const inactive=enriched.filter(e=>!e.hasToday);
     const FRow=({e,dim})=>{const{f,todayCount,doneToday,wDue,wDone,wPct,totalSecs}=e;return(
