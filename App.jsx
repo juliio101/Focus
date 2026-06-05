@@ -159,6 +159,17 @@ export default function App(){
 
   useEffect(()=>{const hasRunning=tasks.some(t=>t.timerRunning);if(!hasRunning&&!isLocked)return;const iv=setInterval(()=>setTick(t=>t+1),1000);return()=>clearInterval(iv);},[tasks,isLocked]);
   useEffect(()=>{if(activeTask){const u=tasks.find(t=>t.id===activeTask.id);if(u)setActiveTask(u);}},[tasks]);
+  useEffect(()=>{
+    const running=tasks.find(t=>t.timerRunning);
+    if(running){
+      const secs=Math.floor(getLiveSecs(running));
+      const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60),s=secs%60;
+      const time=h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+      document.title=`⏱ ${time} · effingFocus`;
+    }else{
+      document.title="effingFocus";
+    }
+  },[tick,tasks]);
   useEffect(()=>{if(!isLocked||!lockEndTime||lockDone)return;if(Date.now()>=lockEndTime){setLockDone(true);playWin();setConfetti(true);if(user)setDoc(doc(db,"users",user.uid),{activeLock:null},{merge:true}).catch(()=>{});}},[tick,isLocked,lockEndTime,lockDone]);
   useEffect(()=>{const unsub=onAuthStateChanged(auth,u=>{setUser(u);setAuthLoading(false);});return unsub;},[]);
 
