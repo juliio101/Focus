@@ -161,11 +161,11 @@ export default function App(){
   useEffect(()=>{if(activeTask){const u=tasks.find(t=>t.id===activeTask.id);if(u)setActiveTask(u);}},[tasks]);
   useEffect(()=>{
     const running=tasks.find(t=>t.timerRunning);
-    if(running){
-      const secs=Math.floor(getLiveSecs(running));
+    if(running&&running.timerStartedAt){
+      const secs=Math.floor((Date.now()-running.timerStartedAt)/1000);
       const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60),s=secs%60;
       const time=h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-      document.title=`⏱ ${time} · effingFocus`;
+      document.title=`${time} · effingFocus`;
     }else{
       document.title="effingFocus";
     }
