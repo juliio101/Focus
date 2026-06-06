@@ -202,13 +202,13 @@ export default function App(){
           setFolders(INIT_FOLDERS);setTasks(INIT_TASKS);setExpenses([]);setComplDates([]);setBest(0);setDayHours({});
           setUserPin(null);setIsLocked(false);setObStep(1);
         }
-      }catch(e){console.error("Load error:",e);}
+      }catch(e){console.error("Load error:",e);setLoaded(false);return;}
       setLoaded(true);
     })();
   },[user]);
 
-  useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{folders},{merge:true}).catch(console.error);},[user,loaded,folders]);
-  useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{tasks},{merge:true}).catch(console.error);},[user,loaded,tasks]);
+  useEffect(()=>{if(!user||!loaded)return;if(folders===INIT_FOLDERS)return;setDoc(doc(db,"users",user.uid),{folders},{merge:true}).catch(console.error);},[user,loaded,folders]);
+  useEffect(()=>{if(!user||!loaded)return;if(tasks===INIT_TASKS)return;setDoc(doc(db,"users",user.uid),{tasks},{merge:true}).catch(console.error);},[user,loaded,tasks]);
   useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{calls},{merge:true}).catch(console.error);},[user,loaded,calls]);
   useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{expenses},{merge:true}).catch(console.error);},[user,loaded,expenses]);
   useEffect(()=>{if(!user||!loaded)return;setDoc(doc(db,"users",user.uid),{dayHours},{merge:true}).catch(console.error);},[user,loaded,dayHours]);
