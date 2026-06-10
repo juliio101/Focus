@@ -609,6 +609,30 @@ export default function App(){
     );
   };
 
+
+  const TimeHeroCard=({dk})=>{
+    const st=secsTracked(dk),pct=hoursPct(dk);
+    const isRunning=tasks.some(t=>t.timerRunning);
+    const r=36,circ=2*Math.PI*r,offset=circ*(1-Math.min(pct,100)/100);
+    return(
+      <div className={`time-hero-card${isRunning?" running":""}`}>
+        <div className="time-hero-content">
+          <div className="time-hero-label">Time Tracked Today</div>
+          <div className="time-hero-timer" style={{color:isRunning?"var(--ac)":"var(--tx)"}}>{fmtTimer(st)}</div>
+          <div className="time-hero-sub">of {hoursFor(dk)} hr goal · <span style={{color:pct>=75?"var(--ac)":pct>=50?"#fb923c":"#ef4444"}}>{pct}%</span></div>
+          <div className="time-hero-bar"><div className="time-hero-bar-fill" style={{width:`${pct}%`,minWidth:st>0?"4px":"0"}}/></div>
+          {isRunning&&<div className="time-hero-running"><div className="running-dot"/><span>Timer running</span></div>}
+        </div>
+        <div className="time-hero-arc" onClick={()=>{setPendingWeekGoal(weeklyGoal);setShowWeekGoalModal(true);}}>
+          <svg width="90" height="90" style={{transform:"rotate(-90deg)",display:"block",flexShrink:0}}>
+            <circle cx="45" cy="45" r={r} fill="none" stroke="#1c1c1c" strokeWidth="8"/>
+            <circle cx="45" cy="45" r={r} fill="none" stroke={isRunning?"#c8ff57":"#2a2a2a"} strokeWidth="8" strokeLinecap="round" strokeDasharray={circ.toFixed(1)} strokeDashoffset={offset.toFixed(1)} style={{transition:"stroke-dashoffset .8s cubic-bezier(.34,1.56,.64,1)"}}/>
+          </svg>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:800,fontSize:".88rem",color:isRunning?"var(--ac)":"var(--tx2)"}}>{pct}%</div>
+        </div>
+      </div>
+    );
+  };
   const DayMomentum=({dk})=>{
     if(dk!==todayKey())return null;
     const now=new Date(),hour=now.getHours()+now.getMinutes()/60;
@@ -1125,6 +1149,107 @@ export default function App(){
     );
   };
 
+
+  const DesktopSidebar=()=>{
+    const activeFolders=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect);
+    const isActive=v=>(v==="today"&&(view==="home"||view==="today"))||(v==="clients"&&view==="all")||(v==="money"&&view==="money")||(v==="insights"&&view==="reports");
+    return(
+      <div className="desktop-sidebar">
+        <div className="ds-top">
+          <div className="logo" style={{fontSize:"1rem",padding:"18px 16px 14px",borderBottom:"1px solid var(--b)",display:"block"}}>effingFocus<em>.</em></div>
+        </div>
+        <nav className="ds-nav">
+          {[["today","⏱","Today"],["clients","👥","Clients"],["money","💰","Money"],["insights","📈","Insights"]].map(([v,ic,lbl])=>(
+            <div key={v} className={`ds-nav-item${isActive(v)?" active":""}`} onClick={()=>{if(v==="today")goHome();else if(v==="clients")setView("all");else if(v==="insights")setView("reports");else setView(v);}}>
+              <span className="ds-nav-icon">{ic}</span><span>{lbl}</span>
+              {isActive(v)&&<div className="ds-nav-dot"/>}
+            </div>
+          ))}
+        </nav>
+        <div className="ds-section-lbl">Clients</div>
+        <div className="ds-client-list">
+          {activeFolders.map(f=>(
+            <div key={f.id} className={`ds-client-item${activeFolder===f.id&&view==="folder"?" active":""}`} onClick={()=>goFolder(f.id)}>
+              <div className="ds-cdot" style={{background:f.color}}/>
+              <span className="ds-cname">{f.name}</span>
+              {(f.monthlyValue||0)>0&&<span className="ds-cmrr">${f.monthlyValue.toLocaleString()}</span>}
+            </div>
+          ))}
+          <div className="ds-client-item ds-add-client" onClick={()=>setShowFolderModal(true)}>
+            <div style={{width:7,height:7,borderRadius:"50%",border:"1px dashed #333",flexShrink:0}}/>
+            <span style={{color:"var(--mu)"}}>New client</span>
+          </div>
+        </div>
+        <div className="ds-bottom">
+          {user?.photoURL&&<img src={user.photoURL} className="avatar" alt=""/>}
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:".82rem",fontWeight:700,color:"var(--tx2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.displayName?.split(" ")[0]}</div><div style={{fontSize:".7rem",color:"var(--mu)"}}>Pro</div></div>
+          <button className="signout-btn" onClick={async()=>{const running=tasks.find(t=>t.timerRunning);if(running){pauseTimer(running.id);await new Promise(r=>setTimeout(r,400));}signOut(auth);}}>Out</button>
+        </div>
+      </div>
+    );
+  };
+
+  const DesktopRightPanel=()=>{
+    const dk=todayKey(),st=secsTracked(dk),pct=hoursPct(dk);
+    const running=tasks.find(t=>t.timerRunning);
+    const doneTasks=tasksForDay(dk).filter(t=>isDone(t,dk)).length;
+    const totalTasks=tasksForDay(dk).length;
+    const mk=monthKey(),today=dStr();
+    const topFocus=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect&&!isSnoozed(f.id)).map(f=>{
+      const ft=tasks.filter(t=>t.folderId===f.id);
+      const days=lastActivityDays(f.id);
+      const hasOverdue=ft.some(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<today);
+      const subPending=(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk];
+      let priority=0,reason="";
+      if(hasOverdue){priority=4;reason="Overdue tasks";}
+      else if(subPending&&days>=3){priority=3;reason="Payment pending";}
+      else if(days>=5){priority=1;reason=`${days===999?"No activity":days+"d"} no activity`;}
+      return{f,priority,reason};
+    }).filter(p=>p.priority>0).sort((a,b)=>b.priority-a.priority)[0];
+    return(
+      <div className="desktop-right">
+        <div className="dr-section">
+          <div className="dr-label">Timer</div>
+          <div className="dr-timer" style={{color:running?"var(--ac)":"var(--tx)"}}>{fmtTimer(st)}</div>
+          <div style={{fontSize:".68rem",color:running?"rgba(200,255,87,.5)":"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>{running?"● Running":"Paused"}</div>
+          <div className="dr-pbar"><div className="dr-pbar-fill" style={{width:`${pct}%`}}/></div>
+          <div style={{display:"flex",gap:6}}>
+            {running?(
+              <button className="dr-btn-pause" onClick={()=>pauseTimer(running.id)}>Pause</button>
+            ):(
+              <button className="dr-btn-start" onClick={()=>{const t=tasksForDay(dk).find(t=>!isDone(t,dk));if(t)startTimer(t.id);}}>▶ Start</button>
+            )}
+            <button onClick={()=>{if(!activeTask){const t=tasksForDay(dk).find(t=>!isDone(t,dk));if(t){setActiveTask(t);setActiveTaskDk(dk);}}openLockFlow();}} style={{flex:1,background:"none",border:"1px solid rgba(167,139,250,.25)",color:"#a78bfa",borderRadius:8,padding:"8px",cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:".78rem"}}>🔒 Lock</button>
+          </div>
+        </div>
+        {topFocus&&(
+          <div className="dr-section">
+            <div className="dr-label">🎯 Focus Now</div>
+            <div className="dr-focus-card" onClick={()=>goFolder(topFocus.f.id)}>
+              <span style={{fontSize:"1.1rem",flexShrink:0}}>{topFocus.f.icon}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:".85rem",fontWeight:700,color:"#fb923c",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{topFocus.f.name}</div>
+                <div style={{fontSize:".7rem",color:"var(--mu)",marginTop:2}}>{topFocus.reason}</div>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="dr-section">
+          <div className="dr-label">Today</div>
+          {[["Tasks done",`${doneTasks}/${totalTasks}`,"var(--ac)"],["Time tracked",fmtHrs(st/3600),"#fb923c"],["Progress",`${pct}%`,pct>=75?"var(--ac)":pct>=50?"#fb923c":"#ef4444"]].map(([k,v,c])=>(
+            <div key={k} className="dr-stat-row"><span className="dr-stat-k">{k}</span><span className="dr-stat-v" style={{color:c}}>{v}</span></div>
+          ))}
+        </div>
+        <div className="dr-section">
+          <div className="dr-label">This Week</div>
+          {[["Hours worked",fmtHrs(hWeek()),"#a78bfa"],["Goal",`${weeklyGoal} hrs`,"var(--mu)"],["Progress",`${Math.round(Math.min(100,hWeek()/weeklyGoal*100))}%`,"#a78bfa"]].map(([k,v,c])=>(
+            <div key={k} className="dr-stat-row"><span className="dr-stat-k">{k}</span><span className="dr-stat-v" style={{color:c}}>{v}</span></div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const HomeView=()=>{
     const dk=todayKey();
     const nowDate=new Date(),monthStr=`${nowDate.getFullYear()}-${String(nowDate.getMonth()+1).padStart(2,"0")}`,monthName=nowDate.toLocaleString("default",{month:"long"});
@@ -1148,12 +1273,20 @@ export default function App(){
         <span className="folder-arr">›</span>
       </div>
     );};
+    const h=new Date().getHours();
+    const greeting=h<12?"Good morning":h<17?"Good afternoon":"Good evening";
+    const firstName=user?.displayName?.split(" ")[0]||"there";
+    const dateStr=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
     return(
       <div className="home-layout">
         <div>
+          <div className="today-greeting">
+            <div className="today-date">{dateStr}</div>
+            <div className="today-title">{greeting}, {firstName}.</div>
+          </div>
           <RunningTimerBanner/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
-          <RingsCard dk={dk}/>
+          <TimeHeroCard dk={dk}/>
           <UrgentSection/>
           <ChaseThese/>
           <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:"clamp(1.3rem,4vw,2rem)",fontWeight:800,letterSpacing:"-.4px",color:"var(--tx)",marginBottom:4,lineHeight:1.1}}>My Week</div>
@@ -1167,7 +1300,7 @@ export default function App(){
               </div>
             );})}
           </div>
-          <div className="sec-hdr"><span className="sec-title">Folders</span><button className="ghost-btn" onClick={()=>setShowFolderModal(true)}>+ New Folder</button></div>
+          <div className="sec-hdr"><span className="sec-title">Clients</span><button className="ghost-btn" onClick={()=>setShowFolderModal(true)}>+ New Client</button></div>
           {folders.length===0?<div className="empty">No folders yet</div>:(
             <div className="folders-list">
               {active.map(e=><FRow key={e.f.id} e={e} dim={false}/>)}
@@ -1441,6 +1574,8 @@ export default function App(){
 
   return(
     <div className="app">
+      <DesktopSidebar/>
+      <div className="app-center">
       <div className="nav">
         <div className="logo">effingFocus<em>.</em></div>
         <div className="nav-right">
@@ -1454,21 +1589,23 @@ export default function App(){
           }}>Sign out</button>
         </div>
       </div>
-      {view==="home"&&<HomeView/>}
+      {(view==="home"||view==="today")&&<HomeView/>}
       {view==="day"&&<DayView/>}
       {view==="folder"&&<FolderView/>}
       {view==="task"&&<TaskDetailView/>}
-      {view==="all"&&<AllTasksView/>}
+      {(view==="all"||view==="clients")&&<AllTasksView/>}
       {view==="money"&&<MoneyView/>}
-      {view==="reports"&&<ReportsView/>}
+      {(view==="reports"||view==="insights")&&<ReportsView/>}
       {view!=="task"&&(
         <div className="tab-bar">
-          <button className={`tab-btn${(view==="home"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}><span className="tab-icon">🏠</span><span className="tab-lbl">Home</span><div className="tab-dot"/></button>
-          <button className={`tab-btn${view==="all"?" active":""}`} onClick={()=>setView("all")}><span className="tab-icon">📋</span><span className="tab-lbl">Tasks</span><div className="tab-dot"/></button>
+          <button className={`tab-btn${(view==="home"||view==="today"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}><span className="tab-icon">⏱</span><span className="tab-lbl">Today</span><div className="tab-dot"/></button>
+          <button className={`tab-btn${(view==="all"||view==="clients")?" active":""}`} onClick={()=>setView("all")}><span className="tab-icon">👥</span><span className="tab-lbl">Clients</span><div className="tab-dot"/></button>
           <button className={`tab-btn${view==="money"?" active":""}`} onClick={()=>setView("money")}><span className="tab-icon">💰</span><span className="tab-lbl">Money</span><div className="tab-dot"/></button>
-          <button className={`tab-btn${view==="reports"?" active":""}`} onClick={()=>setView("reports")}><span className="tab-icon">📈</span><span className="tab-lbl">Reports</span><div className="tab-dot"/></button>
+          <button className={`tab-btn${(view==="reports"||view==="insights")?" active":""}`} onClick={()=>setView("reports")}><span className="tab-icon">📈</span><span className="tab-lbl">Insights</span><div className="tab-dot"/></button>
         </div>
       )}
+      </div>
+      <DesktopRightPanel/>
       {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
       {obStep>0&&<OnboardingFlow/>}
       {isLocked&&<LockScreen/>}
