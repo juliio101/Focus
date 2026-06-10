@@ -759,3 +759,31 @@ input,textarea{user-select:text}
   .today-title{font-size:1.8rem;}
   .time-hero-timer{font-size:2.4rem;}
 }
+
+/* ── DESKTOP LAYOUT FIX ── */
+@media(min-width:900px){
+  /* Lock app to viewport — no page scroll, only center scrolls */
+  .app{height:100vh;height:100dvh;overflow:hidden;}
+  .app-center{overflow-y:auto;height:100vh;height:100dvh;}
+
+  /* Kill the old stats column — replaced by right panel */
+  .stats-col{display:none!important;}
+
+  /* Home layout single column on desktop — no more 2-col */
+  .home-layout{
+    grid-template-columns:1fr!important;
+    max-width:780px!important;
+    padding:32px 36px 60px!important;
+    margin:0 auto!important;
+  }
+
+  /* Clean minimal scrollbar — no white frame */
+  .app-center::-webkit-scrollbar{width:3px;}
+  .app-center::-webkit-scrollbar-track{background:transparent;}
+  .app-center::-webkit-scrollbar-thumb{background:#222;border-radius:99px;}
+  .app-center{scrollbar-width:thin;scrollbar-color:#222 transparent;}
+
+  /* Pages also centered and clean */
+  .page{max-width:780px!important;margin:0 auto!important;padding:32px 36px 60px!important;}
+  .task-detail{max-width:580px!important;margin:0 auto!important;padding:32px 36px 60px!important;}
+}
