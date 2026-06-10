@@ -1279,7 +1279,7 @@ export default function App(){
     const dateStr=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
     return(
       <div className="home-layout">
-        <div>
+        <div className="home-main">
           <div className="today-greeting">
             <div className="today-date">{dateStr}</div>
             <div className="today-title">{greeting}, {firstName}.</div>
