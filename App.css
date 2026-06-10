@@ -665,3 +665,97 @@ input,textarea{user-select:text}
   .f-stat-week{display:none!important}
   .tab-lbl{font-size:.54rem;letter-spacing:0}
 }
+
+/* ── APP SHELL — desktop 3-pane ── */
+.app{display:flex;min-height:100vh;min-height:100dvh;background:var(--bg);}
+.app-center{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── TODAY GREETING ── */
+.today-greeting{padding:4px 0 20px;}
+.today-date{font-size:.68rem;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
+.today-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:clamp(1.5rem,5vw,2rem);font-weight:800;color:var(--tx);letter-spacing:-.5px;line-height:1.1;}
+
+/* ── TIME HERO CARD ── */
+.time-hero-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r2);padding:20px;margin-bottom:16px;display:flex;align-items:center;gap:16px;transition:border-color .3s;}
+.time-hero-card.running{border-color:rgba(200,255,87,.25);}
+.time-hero-content{flex:1;min-width:0;}
+.time-hero-label{font-size:.62rem;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;}
+.time-hero-timer{font-family:'DM Mono',monospace;font-weight:700;font-size:clamp(2rem,8vw,2.8rem);line-height:1;letter-spacing:-2px;margin-bottom:6px;transition:color .3s;}
+.time-hero-sub{font-size:.78rem;color:var(--tx2);margin-bottom:12px;font-weight:400;}
+.time-hero-bar{height:4px;background:var(--b2);border-radius:99px;overflow:hidden;}
+.time-hero-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#c8ff57,#a8e040);transition:width .8s ease;}
+.time-hero-running{display:flex;align-items:center;gap:6px;margin-top:10px;}
+.time-hero-running span{font-size:.72rem;color:var(--ac);font-weight:600;}
+.running-dot{width:6px;height:6px;border-radius:50%;background:var(--ac);animation:dotpulse 1.2s infinite;}
+.time-hero-arc{position:relative;flex-shrink:0;width:90px;height:90px;}
+@media(max-width:400px){.time-hero-arc{display:none;}}
+
+/* ── DESKTOP SIDEBAR ── */
+.desktop-sidebar{
+  display:none;
+  width:210px;flex-shrink:0;flex-direction:column;
+  background:#0d0d0d;border-right:1px solid #161616;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.ds-top{padding:0;}
+.ds-nav{padding:8px 8px 0;}
+.ds-nav-item{
+  display:flex;align-items:center;gap:9px;padding:9px 10px;
+  border-radius:9px;cursor:pointer;color:var(--mu);
+  font-weight:600;font-size:.85rem;margin-bottom:1px;
+  transition:background .12s,color .12s;position:relative;
+}
+.ds-nav-item:hover{background:#141414;color:var(--tx2);}
+.ds-nav-item.active{background:#141414;color:var(--tx);}
+.ds-nav-icon{font-size:1rem;width:20px;text-align:center;flex-shrink:0;}
+.ds-nav-dot{width:5px;height:5px;border-radius:50%;background:var(--ac);margin-left:auto;}
+.ds-section-lbl{font-size:.62rem;font-weight:700;color:#2a2a2a;text-transform:uppercase;letter-spacing:.14em;padding:16px 18px 6px;}
+.ds-client-list{padding:0 8px;flex:1;}
+.ds-client-item{
+  display:flex;align-items:center;gap:8px;padding:7px 10px;
+  border-radius:8px;cursor:pointer;font-size:.82rem;font-weight:500;
+  color:var(--mu);transition:all .12s;
+}
+.ds-client-item:hover{background:#141414;color:var(--tx2);}
+.ds-client-item.active{background:#141414;color:var(--tx);}
+.ds-cdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.ds-cname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ds-cmrr{font-family:'DM Mono',monospace;font-size:.7rem;font-weight:700;color:#2a2a2a;flex-shrink:0;}
+.ds-add-client{opacity:.5;}
+.ds-add-client:hover{opacity:1;}
+.ds-bottom{padding:12px;border-top:1px solid #161616;display:flex;align-items:center;gap:9px;margin-top:auto;}
+
+/* ── DESKTOP RIGHT PANEL ── */
+.desktop-right{
+  display:none;
+  width:240px;flex-shrink:0;flex-direction:column;
+  background:#0d0d0d;border-left:1px solid #161616;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.dr-section{padding:16px;border-bottom:1px solid #161616;}
+.dr-section:last-child{border-bottom:none;}
+.dr-label{font-size:.62rem;font-weight:700;color:#2a2a2a;text-transform:uppercase;letter-spacing:.14em;margin-bottom:10px;}
+.dr-timer{font-family:'DM Mono',monospace;font-weight:700;font-size:1.9rem;letter-spacing:-2px;line-height:1;margin-bottom:4px;transition:color .3s;}
+.dr-pbar{height:3px;background:#1a1a1a;border-radius:99px;overflow:hidden;margin-bottom:10px;}
+.dr-pbar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#c8ff57,#a8e040);transition:width .8s;}
+.dr-btn-start{flex:1;background:var(--ac);color:#000;border:none;border-radius:8px;padding:8px;cursor:pointer;font-family:inherit;font-weight:700;font-size:.82rem;min-height:34px;}
+.dr-btn-pause{flex:1;background:#1c1c1c;color:var(--tx);border:1px solid var(--b2);border-radius:8px;padding:8px;cursor:pointer;font-family:inherit;font-weight:700;font-size:.82rem;min-height:34px;}
+.dr-focus-card{background:rgba(251,146,60,.05);border:1px solid rgba(251,146,60,.15);border-left:2px solid #fb923c;border-radius:10px;padding:11px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .12s;}
+.dr-focus-card:hover{background:rgba(251,146,60,.1);}
+.dr-stat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #161616;}
+.dr-stat-row:last-child{border-bottom:none;}
+.dr-stat-k{font-size:.78rem;color:var(--mu);}
+.dr-stat-v{font-family:'DM Mono',monospace;font-weight:700;font-size:.82rem;}
+
+/* ── DESKTOP BREAKPOINT ── */
+@media(min-width:900px){
+  .desktop-sidebar{display:flex;}
+  .desktop-right{display:flex;}
+  .nav{display:none!important;}
+  .tab-bar{display:none!important;}
+  .home-layout{padding:28px 28px 60px!important;}
+  .page{padding:28px 28px 60px!important;}
+  .task-detail{padding:28px 28px 60px!important;}
+  .today-title{font-size:1.8rem;}
+  .time-hero-timer{font-size:2.4rem;}
+}
