@@ -694,7 +694,9 @@ input,textarea{user-select:text}
   width:210px;flex-shrink:0;flex-direction:column;
   background:#0d0d0d;border-right:1px solid #161616;
   position:sticky;top:0;height:100vh;overflow-y:auto;
+  scrollbar-width:none;
 }
+.desktop-sidebar::-webkit-scrollbar{display:none;}
 .ds-top{padding:0;}
 .ds-nav{padding:8px 8px 0;}
 .ds-nav-item{
@@ -809,3 +811,8 @@ input,textarea{user-select:text}
   .page{max-width:none!important;padding:36px 48px 80px!important;}
   .task-detail{max-width:640px!important;margin:0 auto!important;padding:36px 48px 80px!important;}
 }
+
+/* ── WEEK SECTION HEADER ── */
+.week-section-hdr{margin:24px 0 12px;}
+.week-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:clamp(1.1rem,3vw,1.4rem);font-weight:700;letter-spacing:-.3px;color:var(--tx);margin-bottom:3px;line-height:1.1;}
+.week-sub{font-size:.82rem;color:var(--mu);font-weight:400;}
