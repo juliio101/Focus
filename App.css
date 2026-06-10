@@ -92,12 +92,10 @@ input,textarea{user-select:text}
   max-width:1160px;margin:0 auto;
   padding:16px 16px calc(80px + var(--safe-bottom));
 }
-@media(min-width:900px){
-  .home-layout{grid-template-columns:1fr 300px;gap:24px;padding:24px 24px calc(80px + var(--safe-bottom));align-items:start}
-}
+
 .stats-col{display:flex;flex-direction:column;gap:12px}
-@media(min-width:900px){.stats-col{position:sticky;top:80px}}
-@media(max-width:899px){.stats-col{display:none}}
+
+.stats-col{display:none!important;}
 
 /* ── STAT CARDS ── */
 .stat-card{background:var(--s);border:1px solid var(--b);border-radius:var(--r2);padding:18px 20px}
@@ -747,96 +745,67 @@ input,textarea{user-select:text}
 .dr-stat-k{font-size:.78rem;color:var(--mu);}
 .dr-stat-v{font-family:'DM Mono',monospace;font-weight:700;font-size:.82rem;}
 
-/* ── DESKTOP BREAKPOINT ── */
+
+/* ══════════════════════════════════════
+   DESKTOP LAYOUT — 900px+
+   One block. No conflicts.
+══════════════════════════════════════ */
 @media(min-width:900px){
+
+  /* ── Shell: app locked to viewport, center scrolls ── */
+  .app{height:100vh;height:100dvh;overflow:hidden;display:flex;}
+  .app-center{flex:1;min-width:0;overflow-y:auto;height:100vh;height:100dvh;display:flex;flex-direction:column;}
+  .app-center::-webkit-scrollbar{width:3px;}
+  .app-center::-webkit-scrollbar-track{background:transparent;}
+  .app-center::-webkit-scrollbar-thumb{background:#252525;border-radius:99px;}
+  .app-center{scrollbar-width:thin;scrollbar-color:#252525 transparent;}
+
+  /* ── Show sidebars, hide mobile nav/tabs ── */
   .desktop-sidebar{display:flex;}
   .desktop-right{display:flex;}
   .nav{display:none!important;}
   .tab-bar{display:none!important;}
-  .home-layout{padding:28px 28px 60px!important;}
-  .page{padding:28px 28px 60px!important;}
-  .task-detail{padding:28px 28px 60px!important;}
-  .today-title{font-size:1.8rem;}
-  .time-hero-timer{font-size:2.4rem;}
-}
 
-/* ── DESKTOP LAYOUT FIX ── */
-@media(min-width:900px){
-  /* Lock app to viewport — no page scroll, only center scrolls */
-  .app{height:100vh;height:100dvh;overflow:hidden;}
-  .app-center{overflow-y:auto;height:100vh;height:100dvh;}
-
-  /* Kill the old stats column — replaced by right panel */
-  .stats-col{display:none!important;}
-
-  /* Home layout single column on desktop — no more 2-col */
+  /* ── Home layout: full width, generous padding ── */
   .home-layout{
-    grid-template-columns:1fr!important;
-    max-width:780px!important;
-    padding:32px 36px 60px!important;
-    margin:0 auto!important;
-  }
-
-  /* Clean minimal scrollbar — no white frame */
-  .app-center::-webkit-scrollbar{width:3px;}
-  .app-center::-webkit-scrollbar-track{background:transparent;}
-  .app-center::-webkit-scrollbar-thumb{background:#222;border-radius:99px;}
-  .app-center{scrollbar-width:thin;scrollbar-color:#222 transparent;}
-
-  /* Pages also centered and clean */
-  .page{max-width:780px!important;margin:0 auto!important;padding:32px 36px 60px!important;}
-  .task-detail{max-width:580px!important;margin:0 auto!important;padding:32px 36px 60px!important;}
-}
-
-/* ── DESKTOP DASHBOARD LAYOUT — proper space usage ── */
-@media(min-width:900px){
-
-  /* Full width — no narrow column */
-  .home-layout{
-    max-width:none!important;
-    padding:32px 40px 60px!important;
     display:block!important;
+    max-width:none!important;
+    padding:36px 48px 80px!important;
+    margin:0!important;
   }
 
-  /* 2-column dashboard grid */
+  /* ── Home main: simple block, natural flow ── */
   .home-main{
-    display:grid!important;
-    grid-template-columns:1fr 360px!important;
-    grid-template-rows:auto!important;
-    gap:0 28px!important;
-    align-items:start!important;
+    display:block!important;
+    max-width:none!important;
   }
 
-  /* LEFT column items */
-  .today-greeting{ grid-column:1; grid-row:1; }
-  .time-hero-card{ grid-column:1; grid-row:3; }
-  .sec-hdr{ grid-column:1; grid-row:6; }
-  .folders-list{ grid-column:1; grid-row:7; }
-  .no-tasks-divider{ grid-column:1; }
+  /* ── Greeting bigger ── */
+  .today-title{font-size:2rem!important;}
+  .today-greeting{margin-bottom:28px!important;}
 
-  /* RIGHT column — Focus Now + Week pinned to right */
-  .streak{ grid-column:2; grid-row:1; margin-bottom:12px; }
+  /* ── Time hero: more prominent ── */
+  .time-hero-card{padding:28px 36px!important;margin-bottom:24px!important;}
+  .time-hero-timer{font-size:3rem!important;letter-spacing:-3px!important;}
+  .time-hero-arc{width:110px!important;height:110px!important;}
 
-  /* Full width items span both columns */
-  .day-grid{ grid-column:1/-1!important; grid-row:5; gap:10px!important; margin-bottom:28px!important; }
+  /* ── Day grid: bigger cards ── */
+  .day-grid{gap:12px!important;margin-bottom:32px!important;}
+  .day-card{min-height:84px!important;padding:16px 8px 12px!important;border-radius:14px!important;}
+  .day-lbl{font-size:.7rem!important;}
+  .day-cnt{font-size:.8rem!important;}
 
-  /* Time hero bigger */
-  .time-hero-card{ padding:28px 32px!important; }
-  .time-hero-timer{ font-size:3rem!important; letter-spacing:-3px!important; }
-  .time-hero-arc{ width:110px!important; height:110px!important; }
+  /* ── Clients: 2-column grid ── */
+  .folders-list{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:12px!important;
+  }
+  .no-tasks-divider{grid-column:1/-1!important;}
+  .folder-row{padding:16px 18px!important;border-radius:16px!important;min-height:68px!important;}
+  .folder-row-name{font-size:1rem!important;}
 
-  /* Day cards bigger — more tappable */
-  .day-card{ min-height:80px!important; padding:14px 8px 12px!important; border-radius:14px!important; }
-  .day-lbl{ font-size:.68rem!important; }
-  .day-cnt{ font-size:.78rem!important; }
-
-  /* Clients 2-column grid */
-  .folders-list{ display:grid!important; grid-template-columns:1fr 1fr!important; gap:10px!important; }
-
-  /* Folder rows more compact on desktop */
-  .folder-row{ padding:14px 16px!important; border-radius:14px!important; }
-  .folder-row-name{ font-size:1rem!important; }
-
-  /* Calls tracker full width */
-  .calls-tracker-wrap{ grid-column:1/-1; }
+  /* ── Pages ── */
+  .page{max-width:none!important;padding:36px 48px 80px!important;}
+  .task-detail{max-width:640px!important;margin:0 auto!important;padding:36px 48px 80px!important;}
 }
