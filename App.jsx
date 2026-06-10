@@ -1287,10 +1287,10 @@ export default function App(){
           <RunningTimerBanner/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
           <TimeHeroCard dk={dk}/>
-          <UrgentSection/>
-          <ChaseThese/>
-          <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:"clamp(1.3rem,4vw,2rem)",fontWeight:800,letterSpacing:"-.4px",color:"var(--tx)",marginBottom:4,lineHeight:1.1}}>My Week</div>
-          <div style={{fontSize:".85rem",color:"var(--mu)",marginBottom:20,fontWeight:400}}>Tap a day to manage tasks</div>
+          <div className="week-section-hdr">
+            <div className="week-title">My Week</div>
+            <div className="week-sub">Tap a day to manage tasks</div>
+          </div>
           <div className="day-grid">
             {DAY_KEYS.map((d,i)=>{const dt=tasksForDay(d),pct=donePct(dt,d),isT=i===todayIdx();return(
               <div key={d} className={`day-card${isT?" today":""}`} onClick={()=>goDay(d)}>
@@ -1300,6 +1300,8 @@ export default function App(){
               </div>
             );})}
           </div>
+          <UrgentSection/>
+          <ChaseThese/>
           <div className="sec-hdr"><span className="sec-title">Clients</span><button className="ghost-btn" onClick={()=>setShowFolderModal(true)}>+ New Client</button></div>
           {folders.length===0?<div className="empty">No folders yet</div>:(
             <div className="folders-list">
