@@ -787,3 +787,56 @@ input,textarea{user-select:text}
   .page{max-width:780px!important;margin:0 auto!important;padding:32px 36px 60px!important;}
   .task-detail{max-width:580px!important;margin:0 auto!important;padding:32px 36px 60px!important;}
 }
+
+/* ── DESKTOP DASHBOARD LAYOUT — proper space usage ── */
+@media(min-width:900px){
+
+  /* Full width — no narrow column */
+  .home-layout{
+    max-width:none!important;
+    padding:32px 40px 60px!important;
+    display:block!important;
+  }
+
+  /* 2-column dashboard grid */
+  .home-main{
+    display:grid!important;
+    grid-template-columns:1fr 360px!important;
+    grid-template-rows:auto!important;
+    gap:0 28px!important;
+    align-items:start!important;
+  }
+
+  /* LEFT column items */
+  .today-greeting{ grid-column:1; grid-row:1; }
+  .time-hero-card{ grid-column:1; grid-row:3; }
+  .sec-hdr{ grid-column:1; grid-row:6; }
+  .folders-list{ grid-column:1; grid-row:7; }
+  .no-tasks-divider{ grid-column:1; }
+
+  /* RIGHT column — Focus Now + Week pinned to right */
+  .streak{ grid-column:2; grid-row:1; margin-bottom:12px; }
+
+  /* Full width items span both columns */
+  .day-grid{ grid-column:1/-1!important; grid-row:5; gap:10px!important; margin-bottom:28px!important; }
+
+  /* Time hero bigger */
+  .time-hero-card{ padding:28px 32px!important; }
+  .time-hero-timer{ font-size:3rem!important; letter-spacing:-3px!important; }
+  .time-hero-arc{ width:110px!important; height:110px!important; }
+
+  /* Day cards bigger — more tappable */
+  .day-card{ min-height:80px!important; padding:14px 8px 12px!important; border-radius:14px!important; }
+  .day-lbl{ font-size:.68rem!important; }
+  .day-cnt{ font-size:.78rem!important; }
+
+  /* Clients 2-column grid */
+  .folders-list{ display:grid!important; grid-template-columns:1fr 1fr!important; gap:10px!important; }
+
+  /* Folder rows more compact on desktop */
+  .folder-row{ padding:14px 16px!important; border-radius:14px!important; }
+  .folder-row-name{ font-size:1rem!important; }
+
+  /* Calls tracker full width */
+  .calls-tracker-wrap{ grid-column:1/-1; }
+}
