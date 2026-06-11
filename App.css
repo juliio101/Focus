@@ -816,3 +816,7 @@ input,textarea{user-select:text}
 .week-section-hdr{margin:24px 0 12px;}
 .week-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:clamp(1.1rem,3vw,1.4rem);font-weight:700;letter-spacing:-.3px;color:var(--tx);margin-bottom:3px;line-height:1.1;}
 .week-sub{font-size:.82rem;color:var(--mu);font-weight:400;}
+
+/* ── CLIENTS VIEW ── */
+.clients-search:focus{border-color:#6366f1!important;box-shadow:0 0 0 3px rgba(99,102,241,0.1);}
+.clients-search::placeholder{color:#333;}
