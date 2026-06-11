@@ -115,6 +115,14 @@ export default function App(){
   const [renameValue,setRenameValue]=useState("");
   const [showEditTask,setShowEditTask]=useState(false);
   const [editTaskText,setEditTaskText]=useState("");
+  const [editTaskStartDate,setEditTaskStartDate]=useState(null);
+  const [editTaskDueDate,setEditTaskDueDate]=useState(null);
+  const [showManualTime,setShowManualTime]=useState(false);
+  const [manualHrs,setManualHrs]=useState("");
+  const [manualMins,setManualMins]=useState("");
+  const [manualDate,setManualDate]=useState(dStr());
+  const [showEditTime,setShowEditTime]=useState(false);
+  const [editTimeVal,setEditTimeVal]=useState("");
   const [showLockModal,setShowLockModal]=useState(false);
   const [showPinSetModal,setShowPinSetModal]=useState(false);
   const [showPinUnlock,setShowPinUnlock]=useState(false);
@@ -328,7 +336,46 @@ export default function App(){
   const deleteTask=(e,id)=>{e.stopPropagation();setTasks(p=>p.filter(t=>t.id!==id));};
   const uncompleteTask=()=>{if(!activeTask)return;const dk=activeTaskDk;setTasks(prev=>prev.map(t=>{if(t.id!==activeTask.id)return t;if(!t.recurring)return{...t,done:false};return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==dateForDK(dk))};}));goBack();};
   const deleteActiveTask=()=>{if(!activeTask)return;setTasks(p=>p.filter(t=>t.id!==activeTask.id));goBack();};
-  const saveEditTask=()=>{const txt=editTaskText.trim();if(!txt)return;setTasks(p=>p.map(t=>t.id===activeTask.id?{...t,text:txt}:t));setShowEditTask(false);};
+  const saveEditTask=()=>{
+    const txt=editTaskText.trim();if(!txt)return;
+    setTasks(p=>p.map(t=>t.id===activeTask.id?{
+      ...t,text:txt,
+      startDate:editTaskStartDate||t.startDate,
+      dueDate:editTaskDueDate!==undefined?editTaskDueDate:t.dueDate,
+    }:t));
+    setShowEditTask(false);
+  };
+
+  const addManualTime=()=>{
+    const h=parseInt(manualHrs)||0,m=parseInt(manualMins)||0;
+    const totalSecs=h*3600+m*60;
+    if(!totalSecs||!activeTask)return;
+    setTasks(p=>p.map(t=>{
+      if(t.id!==activeTask.id)return t;
+      const log={...(t.timeLog??{})};
+      log[manualDate]=(log[manualDate]??0)+totalSecs;
+      return{...t,timeLog:log,timerSeconds:(t.timerSeconds??0)+totalSecs};
+    }));
+    setManualHrs("");setManualMins("");setShowManualTime(false);
+  };
+
+  const saveEditTime=()=>{
+    const parts=editTimeVal.split(":").map(Number);
+    let secs=0;
+    if(parts.length===3)secs=parts[0]*3600+parts[1]*60+parts[2];
+    else if(parts.length===2)secs=parts[0]*3600+parts[1]*60;
+    if(!activeTask)return;
+    const dk=activeTaskDk||todayKey();
+    const date=dateForDK?.(dk)||dStr();
+    setTasks(p=>p.map(t=>{
+      if(t.id!==activeTask.id)return t;
+      const log={...(t.timeLog??{})};
+      log[date]=secs;
+      const totalLogged=Object.values(log).reduce((s,v)=>s+v,0);
+      return{...t,timeLog:log,timerSeconds:totalLogged};
+    }));
+    setShowEditTime(false);
+  };
 
   const completeTask=(remindDays=null)=>{
     if(!activeTask)return;
@@ -1708,7 +1755,10 @@ export default function App(){
           <div className="timer-status-lbl">{isRunning?"Working on this task…":"Timer paused"}</div>
           {!done&&(<div className="timer-btn-wrap">{isRunning?<button className="timer-btn pause" onClick={()=>pauseTimer(task.id)}>Pause</button>:<button className="timer-btn start" onClick={()=>startTimer(task.id)}>▶ Start Working</button>}<button className="lock-btn" onClick={openLockFlow}>🔒 Lock In</button></div>)}
           <div className="timer-stats">
-            <div className="t-stat"><div className="t-stat-val">{fmtTimer(task.timerSeconds??0)}</div><div className="t-stat-lbl">This task</div></div>
+            <div className="t-stat" style={{cursor:"pointer"}} onClick={()=>{setEditTimeVal(fmtTimer(getLiveSecs(task)));setShowEditTime(true);}}>
+              <div className="t-stat-val" style={{color:"var(--ac)"}}>{fmtTimer(task.timerSeconds??0)}</div>
+              <div className="t-stat-lbl">This task ✏️</div>
+            </div>
             <div className="t-stat"><div className="t-stat-val">{fmtTimer(totalSecsToday)}</div><div className="t-stat-lbl">Today total</div></div>
             <div className="t-stat"><div className="t-stat-val">{fmtHrs(hoursLeft(dk))}</div><div className="t-stat-lbl">Budget left</div></div>
           </div>
@@ -1997,7 +2047,48 @@ export default function App(){
       {isLocked&&<LockScreen/>}
       {showLockModal&&!isLocked&&(<div className="overlay" onClick={()=>setShowLockModal(false)}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modal-title">🔒 Lock In</div><div style={{fontSize:".82rem",color:"var(--mu)",marginBottom:18,lineHeight:1.6}}>Lock yourself in on <strong style={{color:"var(--tx)"}}>{activeTask?.text}</strong>. You'll need your PIN to exit early.</div><div className="modal-lbl">How long?</div><div className="lock-dur-grid">{LOCK_DURS.map(d=><div key={d} className={`lock-dur-opt${lockDuration===d?" sel":""}`} onClick={()=>setLockDuration(d)}>{d}<span style={{fontSize:".6rem",display:"block",fontWeight:500,marginTop:2}}>min</span></div>)}</div><div className="modal-btns"><button className="btn-c" onClick={()=>setShowLockModal(false)}>Cancel</button><button className="btn-ok" onClick={activateLock}>Lock In</button></div></div></div>)}
       {showPinSetModal&&(<div className="overlay"><div className="modal" style={{maxWidth:320}}><div className="modal-title" style={{textAlign:"center"}}>{pinStep===1?"Set your PIN":"Confirm your PIN"}</div><div style={{fontSize:".8rem",color:"var(--mu)",textAlign:"center",marginBottom:20}}>{pinStep===1?"Choose a 4-digit PIN to unlock early.":"Enter the same PIN again."}</div><PinNumpad currentPin={pinStep===1?pinInput:pinConfirm}/><button className="btn-c" style={{width:"100%",marginTop:12,textAlign:"center"}} onClick={()=>{setShowPinSetModal(false);setPinInput("");setPinStep(1);}}>Cancel</button></div></div>)}
-      {showEditTask&&(<div className="overlay" onClick={()=>setShowEditTask(false)}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modal-title">Edit Task</div><div className="modal-lbl">Task name</div><input className="modal-in" value={editTaskText} autoFocus onChange={e=>setEditTaskText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveEditTask()} placeholder="Task name"/><div className="modal-btns"><button className="btn-c" onClick={()=>setShowEditTask(false)}>Cancel</button><button className="btn-ok" onClick={saveEditTask}>Save</button></div></div></div>)}
+      {showEditTask&&(<div className="overlay" onClick={()=>setShowEditTask(false)}><div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">Edit Task</div>
+        <div className="modal-lbl">Task name</div>
+        <input className="modal-in" value={editTaskText} autoFocus onChange={e=>setEditTaskText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveEditTask()} placeholder="Task name"/>
+        <div className="modal-lbl">Start date</div>
+        <input className="modal-in" type="date" value={editTaskStartDate||""} onChange={e=>setEditTaskStartDate(e.target.value||null)} style={{colorScheme:"dark"}}/>
+        <div className="modal-lbl">Due date</div>
+        <input className="modal-in" type="date" value={editTaskDueDate||""} onChange={e=>setEditTaskDueDate(e.target.value||null)} style={{colorScheme:"dark"}}/>
+        <div className="modal-btns"><button className="btn-c" onClick={()=>setShowEditTask(false)}>Cancel</button><button className="btn-ok" onClick={saveEditTask}>Save</button></div>
+      </div></div>)}
+
+      {showManualTime&&(<div className="overlay" onClick={()=>setShowManualTime(false)}><div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">⏱ Add Time Manually</div>
+        <p style={{fontSize:".85rem",color:"var(--mu)",marginBottom:18,lineHeight:1.6}}>Add time on top of what's already tracked. Use this when you forgot to start the timer.</p>
+        <div style={{display:"flex",gap:10,marginBottom:16}}>
+          <div style={{flex:1}}>
+            <div className="modal-lbl">Hours</div>
+            <input className="modal-in" style={{marginBottom:0,textAlign:"center",fontSize:"1.4rem",fontFamily:"'DM Mono',monospace"}} value={manualHrs} onChange={e=>setManualHrs(e.target.value.replace(/[^0-9]/g,""))} placeholder="0" type="text" inputMode="numeric"/>
+          </div>
+          <div style={{display:"flex",alignItems:"center",paddingTop:28,fontSize:"1.4rem",color:"var(--mu)"}}>:</div>
+          <div style={{flex:1}}>
+            <div className="modal-lbl">Minutes</div>
+            <input className="modal-in" style={{marginBottom:0,textAlign:"center",fontSize:"1.4rem",fontFamily:"'DM Mono',monospace"}} value={manualMins} onChange={e=>setManualMins(e.target.value.replace(/[^0-9]/g,""))} placeholder="0" type="text" inputMode="numeric"/>
+          </div>
+        </div>
+        <div className="modal-lbl">Date</div>
+        <input className="modal-in" type="date" value={manualDate} onChange={e=>setManualDate(e.target.value)} style={{colorScheme:"dark"}}/>
+        {(parseInt(manualHrs)||0)+(parseInt(manualMins)||0)>0&&(
+          <div style={{background:"rgba(99,102,241,.08)",border:"1px solid rgba(99,102,241,.2)",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:".85rem",color:"#6366f1",fontWeight:600}}>
+            Adding {parseInt(manualHrs)||0}h {parseInt(manualMins)||0}m to {manualDate===dStr()?"today":manualDate}
+          </div>
+        )}
+        <div className="modal-btns"><button className="btn-c" onClick={()=>setShowManualTime(false)}>Cancel</button><button className="btn-ok" onClick={addManualTime} disabled={!(parseInt(manualHrs)||parseInt(manualMins))}>Add Time</button></div>
+      </div></div>)}
+
+      {showEditTime&&(<div className="overlay" onClick={()=>setShowEditTime(false)}><div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">✏️ Edit Tracked Time</div>
+        <p style={{fontSize:".85rem",color:"var(--mu)",marginBottom:18,lineHeight:1.6}}>Correct the time if the timer ran too long or too short. Format: h:mm:ss or h:mm</p>
+        <div className="modal-lbl">Time (h:mm:ss)</div>
+        <input className="modal-in" value={editTimeVal} autoFocus onChange={e=>setEditTimeVal(e.target.value)} placeholder="1:30:00" style={{fontFamily:"'DM Mono',monospace",fontSize:"1.4rem",textAlign:"center"}}/>
+        <div className="modal-btns"><button className="btn-c" onClick={()=>setShowEditTime(false)}>Cancel</button><button className="btn-ok" onClick={saveEditTime}>Save</button></div>
+      </div></div>)}
       {showRenameModal&&(<div className="overlay" onClick={()=>setShowRenameModal(false)}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modal-title">Edit Folder</div><div className="modal-lbl">Name</div><input className="modal-in" value={renameText} autoFocus onChange={e=>setRenameText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveRename()} placeholder="Folder name"/><div className="modal-lbl">Monthly value (optional)</div><div style={{position:"relative",marginBottom:16}}><span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--mu)",fontSize:".9rem",fontWeight:600}}>$</span><input className="modal-in" style={{paddingLeft:28,marginBottom:0}} value={renameValue} onChange={e=>setRenameValue(e.target.value.replace(/[^0-9.]/g,""))} placeholder="0" type="text" inputMode="decimal"/></div><div className="modal-btns"><button className="btn-c" onClick={()=>setShowRenameModal(false)}>Cancel</button><button className="btn-ok" onClick={saveRename}>Save</button></div></div></div>)}
       {showFolderModal&&(<div className="overlay" onClick={()=>setShowFolderModal(false)}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modal-title">New Folder</div><div className="modal-lbl">Name</div><input className="modal-in" value={nfName} autoFocus onChange={e=>setNfName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createFolder()} placeholder="e.g. Ajay Sharma"/><div className="modal-lbl">Monthly value (optional)</div><div style={{position:"relative",marginBottom:16}}><span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--mu)",fontSize:".9rem",fontWeight:600}}>$</span><input className="modal-in" style={{paddingLeft:28,marginBottom:0}} value={nfValue} onChange={e=>setNfValue(e.target.value.replace(/[^0-9.]/g,""))} placeholder="0" type="text" inputMode="decimal"/></div><div className="modal-lbl">Icon</div><div className="icon-grid">{ICON_OPTIONS.map(icon=><div key={icon} className={`icon-opt${nfIcon===icon?" sel":""}`} onClick={()=>setNfIcon(icon)}>{icon}</div>)}</div><div className="modal-lbl">Color</div><div className="swatches">{COLORS.map(c=><div key={c} className={`sw${nfColor===c?" sel":""}`} style={{background:c}} onClick={()=>setNfColor(c)}/>)}</div><div className="folder-preview" style={{background:`linear-gradient(135deg,${nfColor}dd,${nfColor}99)`}}><span style={{fontSize:"1.3rem"}}>{nfIcon}</span><span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".9rem",color:"#fff"}}>{nfName||"Folder name"}</span></div><div className="modal-btns"><button className="btn-c" onClick={()=>setShowFolderModal(false)}>Cancel</button><button className="btn-ok" onClick={createFolder}>Create</button></div></div></div>)}
       {showHoursModal&&(<div className="overlay" onClick={()=>setShowHoursModal(false)}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modal-title">Set Work Hours</div><div className="modal-lbl">Daily goal for {hoursDay?DAYS[DAY_KEYS.indexOf(hoursDay)]:""}</div><div className="hr-presets">{HR_PRESET.map(h=><button key={h} className={`hp${pendingHrs===h?" sel":""}`} onClick={()=>setPendingHrs(h)}>{h} hrs</button>)}</div><div style={{fontSize:".8rem",color:"var(--mu)",marginBottom:18}}>Tracks against actual time worked on tasks.</div><div className="modal-btns"><button className="btn-c" onClick={()=>setShowHoursModal(false)}>Cancel</button><button className="btn-ok" onClick={saveHours}>Save</button></div></div></div>)}
