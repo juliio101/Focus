@@ -154,6 +154,7 @@ export default function App(){
   const [callDuration,setCallDuration]=useState("");
   const [callFolder,setCallFolder]=useState(null);
   const [showCallGoalModal,setShowCallGoalModal]=useState(false);
+  const [showProfile,setShowProfile]=useState(false);
   const [pendingClientGoal,setPendingClientGoal]=useState(5);
   const [pendingOutreachGoal,setPendingOutreachGoal]=useState(20);
 
@@ -1740,6 +1741,173 @@ export default function App(){
     );
   };
 
+  const ProfileView=()=>{
+    const [pendingHrsDay,setPendingHrsDay]=useState(hoursFor(todayKey()));
+    const [pendingWeekHrs,setPendingWeekHrs]=useState(weeklyGoal);
+    const [pendingThreshold,setPendingThreshold]=useState(chaseThreshold);
+    const [pendingClientGoal2,setPendingClientGoal2]=useState(calls.clientGoal??5);
+    const [pendingOutreachGoal2,setPendingOutreachGoal2]=useState(calls.outreachGoal??20);
+    const [saved,setSaved]=useState(false);
+    const memberSince=user?.metadata?.creationTime?new Date(user.metadata.creationTime).toLocaleDateString("en-US",{month:"long",year:"numeric"}):"—";
+
+    const savePrefs=()=>{
+      setDayHours(p=>({...p,[todayKey()]:pendingHrsDay}));
+      setWeeklyGoal(pendingWeekHrs);
+      setChaseThreshold(pendingThreshold);
+      setCalls(p=>({...p,clientGoal:pendingClientGoal2,outreachGoal:pendingOutreachGoal2}));
+      setSaved(true);
+      setTimeout(()=>setSaved(false),2000);
+    };
+
+    const Section=({title,children})=>(
+      <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r2)",padding:"20px 20px",marginBottom:12}}>
+        <div style={{fontSize:".65rem",fontWeight:700,color:"var(--mu)",textTransform:"uppercase",letterSpacing:".12em",marginBottom:16}}>{title}</div>
+        {children}
+      </div>
+    );
+
+    const Row=({label,sub,children})=>(
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid var(--b)"}}>
+        <div>
+          <div style={{fontSize:".88rem",fontWeight:600,color:"var(--tx)"}}>{label}</div>
+          {sub&&<div style={{fontSize:".72rem",color:"var(--mu)",marginTop:2}}>{sub}</div>}
+        </div>
+        <div style={{flexShrink:0,marginLeft:16}}>{children}</div>
+      </div>
+    );
+
+    const Chips=({options,value,onChange})=>(
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        {options.map(o=>(
+          <button key={o} onClick={()=>onChange(o)} style={{
+            background:value===o?"#6366f1":"var(--bg)",
+            border:`1px solid ${value===o?"#6366f1":"var(--b2)"}`,
+            color:value===o?"#fff":"var(--tx2)",
+            borderRadius:8,padding:"6px 12px",cursor:"pointer",
+            fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".8rem",
+            transition:"all .15s",
+          }}>{o}</button>
+        ))}
+      </div>
+    );
+
+    return(
+      <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:200,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+        {/* Header */}
+        <div style={{
+          position:"sticky",top:0,zIndex:10,
+          background:"rgba(20,20,20,.95)",backdropFilter:"blur(20px)",
+          borderBottom:"1px solid var(--b)",
+          padding:"calc(var(--safe-top) + 14px) 18px 14px",
+          display:"flex",alignItems:"center",justifyContent:"space-between",
+        }}>
+          <button onClick={()=>setShowProfile(false)} style={{background:"none",border:"none",color:"#6366f1",cursor:"pointer",fontSize:".9rem",fontWeight:700,fontFamily:"'Inter',sans-serif",padding:0}}>‹ Back</button>
+          <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:".95rem",color:"var(--tx)"}}>Profile & Settings</div>
+          <button onClick={savePrefs} style={{
+            background:saved?"rgba(52,211,153,.15)":"rgba(99,102,241,.15)",
+            border:`1px solid ${saved?"rgba(52,211,153,.3)":"rgba(99,102,241,.3)"}`,
+            color:saved?"#34d399":"#6366f1",
+            borderRadius:99,padding:"7px 16px",cursor:"pointer",
+            fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:".82rem",
+            transition:"all .2s",
+          }}>{saved?"Saved ✓":"Save"}</button>
+        </div>
+
+        <div style={{padding:"20px 16px calc(40px + var(--safe-bottom))"}}>
+
+          {/* Account card */}
+          <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r2)",padding:"24px 20px",marginBottom:12,display:"flex",alignItems:"center",gap:16}}>
+            {user?.photoURL
+              ?<img src={user.photoURL} style={{width:60,height:60,borderRadius:"50%",border:"2px solid var(--b2)",flexShrink:0}} alt=""/>
+              :<div style={{width:60,height:60,borderRadius:"50%",background:"#6366f1",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem",flexShrink:0}}>👤</div>
+            }
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:800,fontSize:"1.1rem",color:"var(--tx)",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.displayName||"User"}</div>
+              <div style={{fontSize:".8rem",color:"var(--mu)",marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.email}</div>
+              <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(99,102,241,.1)",border:"1px solid rgba(99,102,241,.2)",borderRadius:99,padding:"3px 10px"}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:"#6366f1"}}/>
+                <span style={{fontSize:".68rem",fontWeight:700,color:"#6366f1"}}>Free Trial</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Work preferences */}
+          <Section title="Work Preferences">
+            <Row label="Daily hour goal" sub="How many hours you aim to work each day">
+              <Chips options={[4,6,7,8,9,10]} value={pendingHrsDay} onChange={setPendingHrsDay}/>
+            </Row>
+            <Row label="Weekly hour goal" sub="Your target hours for the week">
+              <Chips options={[20,25,30,35,40,45,50]} value={pendingWeekHrs} onChange={setPendingWeekHrs}/>
+            </Row>
+            <div style={{padding:"10px 0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                <div>
+                  <div style={{fontSize:".88rem",fontWeight:600,color:"var(--tx)"}}>Focus Now threshold</div>
+                  <div style={{fontSize:".72rem",color:"var(--mu)",marginTop:2}}>Days before a client shows as needing attention</div>
+                </div>
+              </div>
+              <Chips options={[3,5,7,10,14]} value={pendingThreshold} onChange={setPendingThreshold}/>
+            </div>
+          </Section>
+
+          {/* Calls */}
+          <Section title="Daily Call Goals">
+            <Row label="Client calls" sub="Calls with existing clients per day">
+              <Chips options={[3,5,8,10,15,20]} value={pendingClientGoal2} onChange={setPendingClientGoal2}/>
+            </Row>
+            <div style={{padding:"10px 0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                <div>
+                  <div style={{fontSize:".88rem",fontWeight:600,color:"var(--tx)"}}>Outreach calls</div>
+                  <div style={{fontSize:".72rem",color:"var(--mu)",marginTop:2}}>Cold outreach calls per day</div>
+                </div>
+              </div>
+              <Chips options={[5,10,15,20,25,30]} value={pendingOutreachGoal2} onChange={setPendingOutreachGoal2}/>
+            </div>
+          </Section>
+
+          {/* Billing placeholder */}
+          <Section title="Billing">
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid var(--b)"}}>
+              <div>
+                <div style={{fontSize:".88rem",fontWeight:600,color:"var(--tx)"}}>Current plan</div>
+                <div style={{fontSize:".72rem",color:"var(--mu)",marginTop:2}}>Free Trial</div>
+              </div>
+              <span style={{background:"rgba(99,102,241,.1)",border:"1px solid rgba(99,102,241,.2)",color:"#6366f1",borderRadius:99,padding:"4px 12px",fontSize:".75rem",fontWeight:700}}>Trial</span>
+            </div>
+            <div style={{padding:"10px 0",opacity:.4}}>
+              <div style={{fontSize:".88rem",fontWeight:600,color:"var(--tx)"}}>Manage billing</div>
+              <div style={{fontSize:".72rem",color:"var(--mu)",marginTop:2}}>Coming soon — upgrade to Pro</div>
+            </div>
+          </Section>
+
+          {/* Account */}
+          <Section title="Account">
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid var(--b)"}}>
+              <div style={{fontSize:".88rem",color:"var(--tx)"}}>Member since</div>
+              <div style={{fontSize:".85rem",color:"var(--mu)",fontWeight:600}}>{memberSince}</div>
+            </div>
+            <div style={{padding:"16px 0 4px"}}>
+              <button onClick={async()=>{
+                const running=tasks.find(t=>t.timerRunning);
+                if(running){pauseTimer(running.id);await new Promise(r=>setTimeout(r,400));}
+                signOut(auth);
+              }} style={{
+                width:"100%",background:"rgba(239,68,68,.08)",
+                border:"1px solid rgba(239,68,68,.2)",color:"#ef4444",
+                borderRadius:12,padding:"14px",cursor:"pointer",
+                fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,
+                fontSize:".95rem",minHeight:50,
+              }}>Sign out</button>
+            </div>
+          </Section>
+
+        </div>
+      </div>
+    );
+  };
+
+
   if(authLoading)return(<div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#333",fontSize:".9rem"}}>Loading…</div></div>);
   if(!user)return(
     <div className="login"><div className="login-card">
@@ -1797,7 +1965,7 @@ export default function App(){
         <div className="nav-right">
           {view==="task"&&<button className="back-btn" onClick={goBack}>Back</button>}
           {(view==="day"||view==="folder")&&<button className="back-btn" onClick={goHome}>Home</button>}
-          {user.photoURL&&<img src={user.photoURL} className="avatar" alt=""/>}
+          <div onClick={()=>setShowProfile(true)} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:8}}>{user.photoURL&&<img src={user.photoURL} className="avatar" alt="" style={{border:showProfile?'2px solid #6366f1':''}}/>}{!user.photoURL&&<div style={{width:32,height:32,borderRadius:'50%',background:'#6366f1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.9rem',cursor:'pointer'}}>👤</div>}</div>
           <button className="signout-btn" onClick={async()=>{
             const running=tasks.find(t=>t.timerRunning);
             if(running){pauseTimer(running.id);await new Promise(r=>setTimeout(r,400));}
@@ -1823,6 +1991,7 @@ export default function App(){
       )}
       </div>
       <DesktopRightPanel/>
+      {showProfile&&<ProfileView/>}
       {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
       {obStep>0&&<OnboardingFlow/>}
       {isLocked&&<LockScreen/>}
