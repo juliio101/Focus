@@ -820,3 +820,18 @@ input,textarea{user-select:text}
 /* ── CLIENTS VIEW ── */
 .clients-search:focus{border-color:#6366f1!important;box-shadow:0 0 0 3px rgba(99,102,241,0.1);}
 .clients-search::placeholder{color:#333;}
+
+/* ── CLIENT HEALTH GRID — periodic table style ── */
+.client-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(82px,1fr));
+  gap:8px;
+  margin-bottom:20px;
+}
+.client-grid > div:active{transform:scale(.94);opacity:.8;}
+@media(max-width:360px){
+  .client-grid{grid-template-columns:repeat(auto-fill,minmax(72px,1fr));}
+}
+@media(min-width:900px){
+  .client-grid{grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;}
+}
