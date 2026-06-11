@@ -1389,6 +1389,55 @@ export default function App(){
     );
   };
 
+
+  const clientHealth=f=>{
+    const days=lastActivityDays(f.id);
+    const ft=tasks.filter(t=>t.folderId===f.id);
+    const today=dStr(),mk=monthKey();
+    const hasOverdue=ft.some(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<today);
+    const isPending=(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk];
+    if(hasOverdue||days>=21)return"#ef4444";
+    if(days>=10||(isPending&&days>=5))return"#fb923c";
+    if(days>=5||isPending)return"#fbbf24";
+    if(days>=2)return"#a3e635";
+    return"#34d399";
+  };
+
+  const ClientTile=({f})=>{
+    const health=clientHealth(f);
+    const dk=todayKey();
+    const tdTasks=tasksForDay(dk).filter(t=>t.folderId===f.id);
+    const done=tdTasks.filter(t=>isDone(t,dk)).length;
+    const days=lastActivityDays(f.id);
+    const mk=monthKey();
+    const isPending=(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk];
+    const shortName=f.name.length>10?f.name.substring(0,9)+"…":f.name;
+    return(
+      <div onClick={()=>goFolder(f.id)} title={f.name} style={{
+        background:`${health}08`,
+        border:`1px solid ${health}22`,
+        borderTop:`3px solid ${health}`,
+        borderRadius:10,padding:"10px 6px 8px",
+        cursor:"pointer",textAlign:"center",
+        minHeight:90,display:"flex",flexDirection:"column",
+        alignItems:"center",justifyContent:"space-between",
+        transition:"transform .15s,background .15s",
+        position:"relative",
+      }}>
+        {isPending&&<div style={{position:"absolute",top:6,right:6,width:6,height:6,borderRadius:"50%",background:"#fbbf24"}}/>}
+        <div style={{fontSize:"1.3rem",lineHeight:1}}>{f.icon}</div>
+        <div style={{
+          fontSize:".65rem",fontWeight:700,color:"var(--tx)",
+          width:"100%",overflow:"hidden",textOverflow:"ellipsis",
+          whiteSpace:"nowrap",padding:"0 2px",lineHeight:1.3,
+        }}>{shortName}</div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:".6rem",fontWeight:700,color:health}}>
+          {tdTasks.length>0?`${done}/${tdTasks.length}`:(f.monthlyValue||0)>0?`$${f.monthlyValue.toLocaleString()}`:days===999?"new":days===0?"today":`${days}d`}
+        </div>
+      </div>
+    );
+  };
+
   const HomeView=()=>{
     const dk=todayKey();
     const nowDate=new Date(),monthStr=`${nowDate.getFullYear()}-${String(nowDate.getMonth()+1).padStart(2,"0")}`,monthName=nowDate.toLocaleString("default",{month:"long"});
@@ -1441,13 +1490,39 @@ export default function App(){
           </div>
           <UrgentSection/>
           <ChaseThese/>
-          <div className="sec-hdr"><span className="sec-title">Clients</span><button className="ghost-btn" onClick={()=>setShowFolderModal(true)}>+ New Client</button></div>
-          {folders.length===0?<div className="empty">No folders yet</div>:(
-            <div className="folders-list">
-              {active.map(e=><FRow key={e.f.id} e={e} dim={false}/>)}
-              {inactive.length>0&&<>{active.length>0&&<div className="no-tasks-divider"><span className="no-tasks-lbl">No tasks today</span></div>}{inactive.map(e=><FRow key={e.f.id} e={e} dim={true}/>)}</>}
+          <div className="sec-hdr" style={{marginTop:8}}>
+            <span className="sec-title">Clients</span>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <button className="ghost-btn" style={{fontSize:".75rem",padding:"6px 12px"}} onClick={()=>setView("clients")}>View all</button>
+              <button className="ghost-btn" style={{fontSize:".75rem",padding:"6px 12px"}} onClick={()=>setShowFolderModal(true)}>+ New</button>
             </div>
-          )}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+            {[["#34d399","Healthy"],["#a3e635","Good"],["#fbbf24","Watch"],["#fb923c","At risk"],["#ef4444","Critical"]].map(([c,l])=>(
+              <div key={l} style={{display:"flex",alignItems:"center",gap:4}}>
+                <div style={{width:8,height:8,borderRadius:2,background:c,flexShrink:0}}/>
+                <span style={{fontSize:".62rem",color:"var(--mu)",fontWeight:600}}>{l}</span>
+              </div>
+            ))}
+          </div>
+          {folders.length===0
+            ?<div className="empty">No clients yet</div>
+            :<div className="client-grid">
+              {[...folders]
+                .filter(f=>!f.archived&&!f.paused&&!f.prospect)
+                .sort((a,b)=>{
+                  const order=["#ef4444","#fb923c","#fbbf24","#a3e635","#34d399"];
+                  return order.indexOf(clientHealth(a))-order.indexOf(clientHealth(b));
+                })
+                .map(f=><ClientTile key={f.id} f={f}/>)}
+            </div>
+          }
+          {folders.some(f=>f.paused)&&<div style={{marginTop:12}}>
+            <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",marginBottom:8}}>Paused</div>
+            <div className="client-grid" style={{opacity:.45}}>
+              {folders.filter(f=>f.paused).map(f=><ClientTile key={f.id} f={f}/>)}
+            </div>
+          </div>}
           <CallsTracker/>
           {folders.some(f=>f.paused)&&(
             <div style={{marginTop:20}}>
