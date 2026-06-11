@@ -797,13 +797,7 @@ input,textarea{user-select:text}
   .day-lbl{font-size:.7rem!important;}
   .day-cnt{font-size:.8rem!important;}
 
-  /* ── Clients: 2-column grid ── */
-  .folders-list{
-    display:grid!important;
-    grid-template-columns:1fr 1fr!important;
-    gap:12px!important;
-  }
-  .no-tasks-divider{grid-column:1/-1!important;}
+  /* folders-list stays single column — HomeView uses client-grid instead */
   .folder-row{padding:16px 18px!important;border-radius:16px!important;min-height:68px!important;}
   .folder-row-name{font-size:1rem!important;}
 
