@@ -1,11 +1,13 @@
 {
-  "name": "effingFocus",
+  "id": "com.effingfocus.app",
+  "name": "effingFocus — Stay Accountable",
   "short_name": "effingFocus",
-  "description": "The app that keeps you accountable. Track clients, time, and revenue.",
+  "description": "The productivity app built for people who work for themselves. Track clients, time, and revenue. Know exactly where your day went.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0a0a0f",
+  "background_color": "#080808",
   "theme_color": "#6366f1",
   "icons": [
     {
@@ -21,7 +23,24 @@
       "purpose": "any maskable"
     }
   ],
+  "screenshots": [
+    {
+      "src": "/screenshot-1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Today view — track time and focus"
+    },
+    {
+      "src": "/screenshot-2.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Clients — see who needs attention"
+    }
+  ],
   "categories": ["productivity", "business"],
-  "screenshots": [],
+  "lang": "en",
+  "dir": "ltr",
   "prefer_related_applications": false
 }
