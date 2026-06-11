@@ -1152,7 +1152,7 @@ export default function App(){
 
   const DesktopSidebar=()=>{
     const activeFolders=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect);
-    const isActive=v=>(v==="today"&&(view==="home"||view==="today"))||(v==="clients"&&view==="all")||(v==="money"&&view==="money")||(v==="insights"&&view==="reports");
+    const isActive=v=>(v==="today"&&(view==="home"||view==="today"))||(v==="clients"&&(view==="clients"||view==="all"))||(v==="money"&&view==="money")||(v==="insights"&&view==="reports");
     return(
       <div className="desktop-sidebar">
         <div className="ds-top">
@@ -1178,6 +1178,9 @@ export default function App(){
           <div className="ds-client-item ds-add-client" onClick={()=>setShowFolderModal(true)}>
             <div style={{width:7,height:7,borderRadius:"50%",border:"1px dashed #333",flexShrink:0}}/>
             <span style={{color:"var(--mu)"}}>New client</span>
+          </div>
+          <div className="ds-client-item" onClick={()=>setView("clients")} style={{marginTop:4,borderTop:"1px solid #1a1a1a",paddingTop:10}}>
+            <span style={{color:"#6366f1",fontSize:".8rem",fontWeight:700}}>View all clients →</span>
           </div>
         </div>
         <div className="ds-bottom">
@@ -1246,6 +1249,142 @@ export default function App(){
             <div key={k} className="dr-stat-row"><span className="dr-stat-k">{k}</span><span className="dr-stat-v" style={{color:c}}>{v}</span></div>
           ))}
         </div>
+      </div>
+    );
+  };
+
+
+  const ClientsView=()=>{
+    const [search,setSearch]=useState("");
+    const [filter,setFilter]=useState("all");
+    const [sort,setSort]=useState("activity");
+    const mk=monthKey();
+    const totalMRR=folders.filter(f=>!f.archived&&!f.prospect&&!f.paused).reduce((s,f)=>s+(f.monthlyValue||0),0);
+
+    const counts={
+      all:folders.length,
+      active:folders.filter(f=>!f.archived&&!f.paused&&!f.prospect).length,
+      pending:folders.filter(f=>(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk]&&!f.archived&&!f.prospect&&!f.paused).length,
+      paused:folders.filter(f=>f.paused).length,
+      archived:folders.filter(f=>f.archived).length,
+      prospect:folders.filter(f=>f.prospect).length,
+    };
+
+    const filtered=[...folders]
+      .filter(f=>{
+        if(search&&!f.name.toLowerCase().includes(search.toLowerCase()))return false;
+        if(filter==="active")return !f.archived&&!f.paused&&!f.prospect;
+        if(filter==="paused")return f.paused;
+        if(filter==="archived")return f.archived;
+        if(filter==="prospect")return f.prospect;
+        if(filter==="pending")return (f.monthlyValue||0)>0&&!(f.subCollected??{})[mk]&&!f.archived&&!f.prospect&&!f.paused;
+        return true;
+      })
+      .sort((a,b)=>{
+        if(sort==="name")return a.name.localeCompare(b.name);
+        if(sort==="mrr")return (b.monthlyValue||0)-(a.monthlyValue||0);
+        return lastActivityDays(a.id)-lastActivityDays(b.id);
+      });
+
+    const dk=todayKey();
+    return(
+      <div className="page">
+        <div style={{marginBottom:20}}>
+          <div className="view-title">Clients</div>
+          <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:4}}>
+            <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.6rem",color:"var(--ac)",letterSpacing:"-1px"}}>${totalMRR.toLocaleString()}</span>
+            <span style={{fontSize:".82rem",color:"var(--mu)"}}>/ month</span>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div style={{position:"relative",marginBottom:14}}>
+          <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:"1rem",opacity:.4}}>🔍</span>
+          <input
+            className="clients-search"
+            placeholder="Search clients..."
+            value={search}
+            onChange={e=>setSearch(e.target.value)}
+            style={{width:"100%",background:"var(--s)",border:"1px solid var(--b2)",borderRadius:12,padding:"13px 16px 13px 40px",color:"var(--tx)",fontSize:16,outline:"none",fontFamily:"'Inter',sans-serif"}}
+          />
+          {search&&<button onClick={()=>setSearch("")} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:"1.1rem"}}>×</button>}
+        </div>
+
+        {/* Filter chips */}
+        <div style={{display:"flex",gap:7,marginBottom:10,flexWrap:"wrap"}}>
+          {[["all","All"],["active","Active"],["pending","Pending"],["paused","Paused"],["archived","Archived"],["prospect","Pipeline"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setFilter(v)} style={{
+              background:filter===v?"rgba(99,102,241,0.12)":"var(--s)",
+              border:`1px solid ${filter===v?"rgba(99,102,241,0.4)":"var(--b2)"}`,
+              color:filter===v?"#6366f1":"var(--tx2)",
+              borderRadius:99,padding:"7px 14px",cursor:"pointer",
+              fontSize:".78rem",fontWeight:700,fontFamily:"'Inter',sans-serif",
+              display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap",
+            }}>
+              {l}
+              <span style={{background:filter===v?"rgba(99,102,241,0.2)":"var(--b2)",borderRadius:99,padding:"1px 7px",fontSize:".68rem",color:filter===v?"#6366f1":"var(--mu)"}}>{counts[v]||0}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Sort */}
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20}}>
+          <span style={{fontSize:".72rem",color:"var(--mu)",fontWeight:600}}>Sort:</span>
+          {[["activity","Recent"],["mrr","MRR"],["name","A–Z"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setSort(v)} style={{
+              background:sort===v?"var(--b2)":"none",
+              border:"none",color:sort===v?"var(--tx)":"var(--mu)",
+              borderRadius:7,padding:"5px 10px",cursor:"pointer",
+              fontSize:".78rem",fontWeight:600,fontFamily:"'Inter',sans-serif",
+            }}>{l}</button>
+          ))}
+          <button className="ghost-btn" style={{marginLeft:"auto",padding:"7px 14px",fontSize:".82rem"}} onClick={()=>setShowFolderModal(true)}>+ New Client</button>
+        </div>
+
+        {/* Client list */}
+        {filtered.length===0&&<div className="empty">No clients found</div>}
+        {filtered.map(f=>{
+          const ft=folderTasks(f.id);
+          const tdTasks=tasksForDay(dk).filter(t=>t.folderId===f.id);
+          const doneTd=tdTasks.filter(t=>isDone(t,dk)).length;
+          const totalSecs=ft.reduce((s,t)=>s+Object.values(t.timeLog??{}).reduce((a,b)=>a+b,0),0);
+          const days=lastActivityDays(f.id);
+          const isPending=(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk];
+          const statusColor=f.archived?"#444":f.paused?"#a78bfa":f.prospect?"#60a5fa":isPending?"#fbbf24":"#34d399";
+          const statusLabel=f.archived?"Archived":f.paused?"Paused":f.prospect?"Pipeline":isPending?"Pending":"Active";
+          return(
+            <div key={f.id} onClick={()=>goFolder(f.id)} style={{
+              background:"var(--s)",border:"1px solid var(--b)",
+              borderLeft:`3px solid ${f.color}`,
+              borderRadius:"var(--r2)",padding:"16px 16px",
+              marginBottom:10,cursor:"pointer",
+              display:"flex",alignItems:"center",gap:14,
+              opacity:f.archived?.6:1,
+            }}>
+              <div style={{fontSize:"1.4rem",flexShrink:0}}>{f.icon}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                  <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:".95rem",color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</span>
+                  <span style={{fontSize:".62rem",fontWeight:700,background:`${statusColor}18`,color:statusColor,border:`1px solid ${statusColor}30`,borderRadius:99,padding:"1px 8px",flexShrink:0}}>{statusLabel}</span>
+                </div>
+                <div style={{display:"flex",gap:14,alignItems:"center"}}>
+                  <span style={{fontSize:".75rem",color:"var(--mu)"}}>
+                    {days===999?"No activity":days===0?"Active today":`${days}d ago`}
+                  </span>
+                  {tdTasks.length>0&&<span style={{fontSize:".75rem",color:"var(--mu)"}}>{doneTd}/{tdTasks.length} today</span>}
+                  {totalSecs>0&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:".72rem",color:"var(--mu)"}}>{fmtTimer(totalSecs)}</span>}
+                </div>
+              </div>
+              {(f.monthlyValue||0)>0&&(
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:".95rem",color:"#34d399"}}>${(f.monthlyValue||0).toLocaleString()}</div>
+                  <div style={{fontSize:".65rem",color:"var(--mu)"}}>/ mo</div>
+                </div>
+              )}
+              <span style={{color:"var(--mu)",opacity:.3,fontSize:".9rem",flexShrink:0}}>›</span>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -1595,13 +1734,14 @@ export default function App(){
       {view==="day"&&<DayView/>}
       {view==="folder"&&<FolderView/>}
       {view==="task"&&<TaskDetailView/>}
-      {(view==="all"||view==="clients")&&<AllTasksView/>}
+      {view==="all"&&<AllTasksView/>}
+      {view==="clients"&&<ClientsView/>}
       {view==="money"&&<MoneyView/>}
       {(view==="reports"||view==="insights")&&<ReportsView/>}
       {view!=="task"&&(
         <div className="tab-bar">
           <button className={`tab-btn${(view==="home"||view==="today"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}><span className="tab-icon">⏱</span><span className="tab-lbl">Today</span><div className="tab-dot"/></button>
-          <button className={`tab-btn${(view==="all"||view==="clients")?" active":""}`} onClick={()=>setView("all")}><span className="tab-icon">👥</span><span className="tab-lbl">Clients</span><div className="tab-dot"/></button>
+          <button className={`tab-btn${(view==="all"||view==="clients")?" active":""}`} onClick={()=>setView("clients")}><span className="tab-icon">👥</span><span className="tab-lbl">Clients</span><div className="tab-dot"/></button>
           <button className={`tab-btn${view==="money"?" active":""}`} onClick={()=>setView("money")}><span className="tab-icon">💰</span><span className="tab-lbl">Money</span><div className="tab-dot"/></button>
           <button className={`tab-btn${(view==="reports"||view==="insights")?" active":""}`} onClick={()=>setView("reports")}><span className="tab-icon">📈</span><span className="tab-lbl">Insights</span><div className="tab-dot"/></button>
         </div>
