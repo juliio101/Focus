@@ -1661,7 +1661,50 @@ export default function App(){
           </div>
           <RunningTimerBanner/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
-          <TimeHeroCard dk={dk}/>
+          {/* Time Hero + Boss Score — side by side */}
+          {(()=>{
+            const {score,band,color,tip}=calcBossScore();
+            return(<>
+              <div style={{display:"flex",gap:10,marginBottom:10}}>
+                {/* Time Hero — left, wider */}
+                <div style={{flex:"0 0 58%"}}>
+                  <TimeHeroCard dk={dk}/>
+                </div>
+                {/* Boss Score — right */}
+                <div style={{
+                  flex:1,background:"var(--s)",
+                  border:`1px solid ${color}22`,
+                  borderTop:`3px solid ${color}`,
+                  borderRadius:"var(--r2)",
+                  padding:"14px 12px",
+                  display:"flex",flexDirection:"column",
+                  alignItems:"center",justifyContent:"center",
+                  textAlign:"center",gap:6,
+                }}>
+                  <div style={{fontSize:".6rem",fontWeight:700,color:"var(--mu)",textTransform:"uppercase",letterSpacing:".12em"}}>Boss Score</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:"2.4rem",fontWeight:700,color:color,letterSpacing:"-2px",lineHeight:1}}>{score}</div>
+                  <div style={{
+                    display:"inline-flex",alignItems:"center",gap:5,
+                    background:`${color}12`,border:`1px solid ${color}25`,
+                    borderRadius:99,padding:"3px 10px",
+                  }}>
+                    <div style={{width:5,height:5,borderRadius:"50%",background:color,flexShrink:0}}/>
+                    <span style={{fontSize:".65rem",fontWeight:700,color:color}}>{band}</span>
+                  </div>
+                </div>
+              </div>
+              {/* Coach message bar — full width */}
+              <div style={{
+                borderLeft:`3px solid ${color}`,
+                background:`${color}08`,
+                borderRadius:"0 var(--r) var(--r) 0",
+                padding:"10px 14px",
+                marginBottom:20,
+              }}>
+                <div style={{fontSize:".78rem",color:"var(--tx2)",lineHeight:1.6,fontStyle:"italic"}}>"{tip}"</div>
+              </div>
+            </>);
+          })()}
           <div className="week-section-hdr">
             <div className="week-title">My Week</div>
             <div className="week-sub">Tap a day to manage tasks</div>
