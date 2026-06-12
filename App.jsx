@@ -1380,17 +1380,26 @@ export default function App(){
     return(
       <div className="desktop-right">
         <div className="dr-section">
-          <div className="dr-label">Timer</div>
-          <div className="dr-timer" style={{color:running?"var(--ac)":"var(--tx)"}}>{fmtTimer(st)}</div>
-          <div style={{fontSize:".68rem",color:running?"rgba(200,255,87,.5)":"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>{running?"● Running":"Paused"}</div>
-          <div className="dr-pbar"><div className="dr-pbar-fill" style={{width:`${pct}%`}}/></div>
-          <div style={{display:"flex",gap:6}}>
-            {running
-              ?<button className="dr-btn-pause" onClick={()=>pauseTimer(running.id)}>Pause</button>
-              :<button className="dr-btn-start" onClick={()=>{const t=tasksForDay(dk).find(t=>!isDone(t,dk));if(t)startTimer(t.id);}}>▶ Start</button>
-            }
-            <button onClick={()=>{if(!activeTask){const t=tasksForDay(dk).find(t=>!isDone(t,dk));if(t){setActiveTask(t);setActiveTaskDk(dk);}}openLockFlow();}} style={{flex:1,background:"none",border:"1px solid rgba(167,139,250,.25)",color:"#a78bfa",borderRadius:8,padding:"8px",cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:".78rem"}}>🔒 Lock</button>
-          </div>
+          {(()=>{
+            let score=50,band="Fair",color="#fbbf24",tip="Tracking your progress...";
+            try{const r=calcBossScore();score=r.score;band=r.band;color=r.color;tip=r.tip;}catch(e){}
+            return(
+              <>
+                <div className="dr-label" style={{marginBottom:14}}>Boss Score</div>
+                <div style={{textAlign:"center",marginBottom:10}}>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:"3.8rem",fontWeight:700,color:color,letterSpacing:"-3px",lineHeight:1,marginBottom:8}}>{score}</div>
+                  <div style={{display:"inline-flex",alignItems:"center",gap:6,background:`${color}15`,border:`1px solid ${color}30`,borderRadius:99,padding:"4px 14px"}}>
+                    <div style={{width:7,height:7,borderRadius:"50%",background:color}}/>
+                    <span style={{fontSize:".75rem",fontWeight:700,color:color}}>{band}</span>
+                  </div>
+                </div>
+                <div style={{height:4,background:"var(--b2)",borderRadius:99,marginBottom:12,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${score}%`,background:`linear-gradient(90deg,${score<45?"#ef4444":score<65?"#fbbf24":color},${color})`,borderRadius:99,transition:"width .6s ease"}}/>
+                </div>
+                <div style={{background:`${color}08`,border:`1px solid ${color}20`,borderRadius:10,padding:"10px 12px",fontSize:".75rem",color:"var(--tx2)",lineHeight:1.6,fontStyle:"italic"}}>"{tip}"</div>
+              </>
+            );
+          })()}
         </div>
         {topFocus&&(
           <div className="dr-section">
