@@ -1667,29 +1667,30 @@ export default function App(){
             return(<>
               <div style={{display:"flex",gap:10,marginBottom:10}}>
                 {/* Time Hero — left, wider */}
-                <div style={{flex:"0 0 58%"}}>
+                <div style={{flex:"0 0 57%",overflow:"hidden",borderRadius:"var(--r2)",background:"var(--s)",border:"1px solid var(--b)"}}>
                   <TimeHeroCard dk={dk}/>
                 </div>
-                {/* Boss Score — right */}
+                {/* Boss Score — right, full colored */}
                 <div style={{
-                  flex:1,background:"var(--s)",
-                  border:`1px solid ${color}22`,
-                  borderTop:`3px solid ${color}`,
+                  flex:1,
+                  background:`linear-gradient(135deg,${color}28,${color}14)`,
+                  border:`1px solid ${color}40`,
                   borderRadius:"var(--r2)",
-                  padding:"14px 12px",
+                  padding:"16px 12px",
                   display:"flex",flexDirection:"column",
                   alignItems:"center",justifyContent:"center",
-                  textAlign:"center",gap:6,
+                  textAlign:"center",gap:8,
+                  minHeight:140,
                 }}>
-                  <div style={{fontSize:".6rem",fontWeight:700,color:"var(--mu)",textTransform:"uppercase",letterSpacing:".12em"}}>Boss Score</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:"2.4rem",fontWeight:700,color:color,letterSpacing:"-2px",lineHeight:1}}>{score}</div>
+                  <div style={{fontSize:".58rem",fontWeight:700,color:`${color}cc`,textTransform:"uppercase",letterSpacing:".14em"}}>Boss Score</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:"2.6rem",fontWeight:700,color:"#fff",letterSpacing:"-2px",lineHeight:1,textShadow:`0 0 20px ${color}80`}}>{score}</div>
                   <div style={{
                     display:"inline-flex",alignItems:"center",gap:5,
-                    background:`${color}12`,border:`1px solid ${color}25`,
-                    borderRadius:99,padding:"3px 10px",
+                    background:"rgba(0,0,0,.25)",
+                    borderRadius:99,padding:"4px 11px",
                   }}>
-                    <div style={{width:5,height:5,borderRadius:"50%",background:color,flexShrink:0}}/>
-                    <span style={{fontSize:".65rem",fontWeight:700,color:color}}>{band}</span>
+                    <div style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0}}/>
+                    <span style={{fontSize:".68rem",fontWeight:700,color:"#fff"}}>{band}</span>
                   </div>
                 </div>
               </div>
