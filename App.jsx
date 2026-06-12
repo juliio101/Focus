@@ -1294,66 +1294,66 @@ export default function App(){
 
 
   const calcBossScore=()=>{
-    let score=50; // Start at 50 — earn it up, lose it down
+    let score=30;
     const tips=[];
-    const now=Date.now();
-    const day=86400000;
-    const today=dStr();
-    const sevenDaysAgo=new Date(now-7*day).toISOString().split("T")[0];
-    const last7Days=Array.from({length:7},(_,i)=>new Date(now-i*day).toISOString().split("T")[0]);
+    const todayStr=dStr();
+    const todayDk=todayKey();
+    const todayDate=dateForDK(todayDk);
+    const activeClientIds=new Set(folders.filter(f=>!f.archived&&!f.paused&&!f.prospect).map(f=>f.id));
 
-    // ── EARN POINTS ────────────────────────────────────────────────
-    // 1. Hours tracked TODAY vs daily goal (+0 to +25)
-    const todaySecs=tasks.reduce((s,t)=>s+(t.timeLog?.[today]??0),0);
+    // 1. Hours tracked today (+0 to +30) — timeLog keyed by dStr()
+    const todaySecs=tasks.reduce((s,t)=>s+(t.timeLog?.[todayStr]??0),0);
     const todayHrs=todaySecs/3600;
-    const dailyGoalHrs=hoursFor(today)||8;
+    const dailyGoalHrs=hoursFor(todayDk)||8;
     const todayPct=Math.min(1,todayHrs/dailyGoalHrs);
-    score+=Math.round(todayPct*25);
-    if(todayPct===0)tips.push("You haven\'t tracked any time today.");
-    else if(todayPct<0.5)tips.push(`You\'re ${Math.round(todayPct*100)}% through your daily goal. Keep going.`);
+    score+=Math.round(todayPct*30);
+    if(todayPct===0)tips.push("No time tracked today. Start the timer.");
+    else if(todayPct<0.5)tips.push(`${Math.round(todayPct*100)}% of your daily goal done. Keep pushing.`);
 
-    // 2. Tasks completed today (+5 each, max +15)
-    const todayTasks=tasksForDay(today);
-    const doneTodayCount=todayTasks.filter(t=>isDone(t,today)).length;
-    score+=Math.min(15,doneTodayCount*5);
+    // 2. Tasks completed today (+10 each, max +20)
+    const doneNR=tasks.filter(t=>!t.recurring&&t.done&&activeClientIds.has(t.folderId)).length;
+    const doneRec=tasks.filter(t=>t.recurring&&(t.doneOn??[]).includes(todayDate)&&activeClientIds.has(t.folderId)).length;
+    const doneTodayCount=doneNR+doneRec;
+    score+=Math.min(20,doneTodayCount*10);
+    if(doneTodayCount>0&&!tips.length)tips.push(`${doneTodayCount} task${doneTodayCount>1?"s":""} done today. Nice work.`);
 
-    // 3. Active days this week — days with any tracked time (+3 each, max +15)
-    const activeDays=last7Days.filter(dk=>
-      tasks.some(t=>(t.timeLog?.[dk]??0)>0)
-    ).length;
-    score+=Math.min(15,activeDays*3);
+    // 3. Calls made today (+8 each, max +16)
+    const allCalls=[...(calls.client??[]),...(calls.outreach??[])];
+    const todayCalls=allCalls.filter(c=>c.date===todayStr).length;
+    score+=Math.min(16,todayCalls*8);
+    if(todayCalls>0&&!tips.length)tips.push(`${todayCalls} call${todayCalls>1?"s":""} logged today.`);
 
-    // 4. Calls logged this week (+2 each, max +10)
-    const weekCalls=(calls.log??[]).filter(c=>c.date>=sevenDaysAgo).length;
-    score+=Math.min(10,weekCalls*2);
+    // 4. Active days this week (+2 each, max +10)
+    let activeDays=0;
+    for(let i=0;i<7;i++){
+      const d=dStr(new Date(Date.now()-i*86400000));
+      if(tasks.some(t=>(t.timeLog?.[d]??0)>0))activeDays++;
+    }
+    score+=Math.min(10,activeDays*2);
 
-    // ── LOSE POINTS ────────────────────────────────────────────────
-    // 5. Overdue tasks (-10 each, max -25)
-    const activeClients=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect);
-    const overdueTasks=tasks.filter(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<today&&activeClients.some(f=>f.id===t.folderId));
-    score-=Math.min(25,overdueTasks.length*10);
-    if(overdueTasks.length>0)tips.push(`${overdueTasks.length} overdue task${overdueTasks.length>1?"s are":" is"} hurting your score.`);
+    // 5. Overdue tasks (-12 each, max -24)
+    const overdueTasks=tasks.filter(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<todayStr&&activeClientIds.has(t.folderId));
+    score-=Math.min(24,overdueTasks.length*12);
+    if(overdueTasks.length>0)tips.push(`${overdueTasks.length} overdue task${overdueTasks.length>1?"s":""} pulling your score down.`);
 
-    // 6. Neglected clients — 7+ days no activity (-7 each, max -20)
-    const neglected=activeClients.filter(f=>lastActivityDays(f.id)>=7);
-    score-=Math.min(20,neglected.length*7);
-    if(neglected.length>0&&!tips.length)tips.push(`${neglected.length} client${neglected.length>1?"s haven\'t":"hasn\'t"} heard from you in over a week.`);
+    // 6. Neglected clients (-8 each, max -16)
+    const neglected=[...activeClientIds].map(id=>folders.find(f=>f.id===id)).filter(f=>f&&lastActivityDays(f.id)>=7);
+    score-=Math.min(16,neglected.length*8);
+    if(neglected.length>0&&!tips.length)tips.push(`${neglected.length} client${neglected.length>1?"s haven't":"hasn't"} heard from you in 7+ days.`);
 
-    // 7. Pending payments (-5 each, max -15)
+    // 7. Pending payments (-5 each, max -10)
     const mk=monthKey();
-    const pendingPay=activeClients.filter(f=>(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk]);
-    score-=Math.min(15,pendingPay.length*5);
-    if(pendingPay.length>0&&!tips.length)tips.push(`${pendingPay.length} unpaid invoice${pendingPay.length>1?"s need":"needs"} following up.`);
+    const pendingPay=[...activeClientIds].map(id=>folders.find(f=>f.id===id)).filter(f=>f&&(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk]);
+    score-=Math.min(10,pendingPay.length*5);
+    if(pendingPay.length>0&&!tips.length)tips.push(`${pendingPay.length} payment${pendingPay.length>1?"s":""} pending this month.`);
 
     score=Math.max(0,Math.min(100,Math.round(score)));
-
     let band,color,emoji;
     if(score>=85){band="Excellent";color="#34d399";emoji="🟢";}
     else if(score>=65){band="Good";color="#a3e635";emoji="🟡";}
     else if(score>=45){band="Fair";color="#fbbf24";emoji="🟡";}
     else if(score>=25){band="At Risk";color="#fb923c";emoji="🟠";}
     else{band="Critical";color="#ef4444";emoji="🔴";}
-
     const tip=tips.length>0?tips[0]:"Your boss is impressed. Keep it up.";
     return{score,band,color,emoji,tip};
   };
@@ -2209,7 +2209,7 @@ export default function App(){
   const [bossScoreData,setBossScoreData]=useState({score:50,band:"Fair",color:"#fbbf24",emoji:"🟡",tip:"Start tracking your day."});
   useEffect(()=>{
     setBossScoreData(calcBossScore());
-  },[tasks,folders,calls,dayHours,weeklyGoal]);
+  },[tasks,folders,calls,dayHours,weeklyGoal,complDates]);
 
   if(authLoading)return(<div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#333",fontSize:".9rem"}}>Loading…</div></div>);
   if(!user)return(
