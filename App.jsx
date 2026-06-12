@@ -1641,36 +1641,38 @@ export default function App(){
           </div>
           <RunningTimerBanner/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
-          {/* Time Hero + Boss Score — side by side, direct state access */}
-          <div style={{display:"flex",gap:10,marginBottom:10}}>
-            <div style={{flex:"0 0 57%"}}>
-              <TimeHeroCard dk={dk}/>
-            </div>
-            <div style={{
-              flex:1,minHeight:140,
-              background:`linear-gradient(135deg,${bossScoreData.color}28,${bossScoreData.color}14)`,
-              border:`1px solid ${bossScoreData.color}40`,
-              borderRadius:"var(--r2)",padding:"16px 12px",
-              display:"flex",flexDirection:"column",
-              alignItems:"center",justifyContent:"center",
-              textAlign:"center",gap:8,
-            }}>
-              <div style={{fontSize:".58rem",fontWeight:700,color:`${bossScoreData.color}cc`,textTransform:"uppercase",letterSpacing:".14em"}}>Boss Score</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:"2.6rem",fontWeight:700,color:"#fff",letterSpacing:"-2px",lineHeight:1}}>{bossScoreData.score}</div>
-              <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"rgba(0,0,0,.25)",borderRadius:99,padding:"4px 11px"}}>
-                <div style={{width:6,height:6,borderRadius:"50%",background:bossScoreData.color,flexShrink:0}}/>
-                <span style={{fontSize:".68rem",fontWeight:700,color:"#fff"}}>{bossScoreData.band}</span>
-              </div>
-            </div>
-          </div>
-          <div style={{
-            borderLeft:`3px solid ${bossScoreData.color}`,
-            background:`${bossScoreData.color}08`,
-            borderRadius:"0 var(--r) var(--r) 0",
-            padding:"10px 14px",marginBottom:20,
-          }}>
-            <div style={{fontSize:".78rem",color:"var(--tx2)",lineHeight:1.6,fontStyle:"italic"}}>"{bossScoreData.tip}"</div>
-          </div>
+          {/* Time Hero + Boss Score — computed safely at render */}
+          {(()=>{
+            let score=50,band="Fair",color="#fbbf24",tip="Tracking your progress...";
+            try{const r=calcBossScore();score=r.score;band=r.band;color=r.color;tip=r.tip;}catch(e){}
+            return(
+              <>
+                <div style={{display:"flex",gap:10,marginBottom:10}}>
+                  <div style={{flex:"0 0 57%"}}>
+                    <TimeHeroCard dk={dk}/>
+                  </div>
+                  <div style={{
+                    flex:1,minHeight:140,
+                    background:`linear-gradient(135deg,${color}28,${color}14)`,
+                    border:`1px solid ${color}40`,
+                    borderRadius:"var(--r2)",padding:"16px 12px",
+                    display:"flex",flexDirection:"column",
+                    alignItems:"center",justifyContent:"center",textAlign:"center",gap:8,
+                  }}>
+                    <div style={{fontSize:".58rem",fontWeight:700,color:`${color}cc`,textTransform:"uppercase",letterSpacing:".14em"}}>Boss Score</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:"2.6rem",fontWeight:700,color:"#fff",letterSpacing:"-2px",lineHeight:1}}>{score}</div>
+                    <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"rgba(0,0,0,.25)",borderRadius:99,padding:"4px 11px"}}>
+                      <div style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0}}/>
+                      <span style={{fontSize:".68rem",fontWeight:700,color:"#fff"}}>{band}</span>
+                    </div>
+                  </div>
+                </div>
+                <div style={{borderLeft:`3px solid ${color}`,background:`${color}08`,borderRadius:"0 var(--r) var(--r) 0",padding:"10px 14px",marginBottom:20}}>
+                  <div style={{fontSize:".78rem",color:"var(--tx2)",lineHeight:1.6,fontStyle:"italic"}}>"{tip}"</div>
+                </div>
+              </>
+            );
+          })()}
           <div className="week-section-hdr">
             <div className="week-title">My Week</div>
             <div className="week-sub">Tap a day to manage tasks</div>
@@ -2169,12 +2171,7 @@ export default function App(){
   };
 
 
-  // Boss Score — useState+useEffect guarantees update on every dependency change
-  const [bossScoreData,setBossScoreData]=useState({score:50,band:"Fair",color:"#fbbf24",emoji:"🟡",tip:"Start tracking your day."});
-  useEffect(()=>{
-    try{setBossScoreData(calcBossScore());}
-    catch(e){console.error("Boss score effect error:",e);}
-  },[tasks,folders,calls,dayHours,weeklyGoal,complDates]);
+  // Boss Score computed directly at render time — no state needed
 
   if(authLoading)return(<div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#333",fontSize:".9rem"}}>Loading…</div></div>);
   if(!user)return(
