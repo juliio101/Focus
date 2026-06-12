@@ -1292,6 +1292,71 @@ export default function App(){
     );
   };
 
+
+  const calcBossScore=()=>{
+    let score=100;
+    const tips=[];
+    const now=Date.now();
+    const day=86400000;
+    const sevenDaysAgo=new Date(now-7*day).toISOString().split("T")[0];
+
+    // Hours logged last 7 days
+    const last7Days=Array.from({length:7},(_,i)=>{
+      const d=new Date(now-i*day);
+      return d.toISOString().split("T")[0];
+    });
+    const totalHrsLogged=last7Days.reduce((s,dk)=>{
+      const h=dayHours[dk]??0;
+      return s+(typeof h==="number"?h:0);
+    },0);
+    const weekGoalHrs=weeklyGoal||40;
+    const hrsPct=Math.min(1,totalHrsLogged/weekGoalHrs);
+    const hrsPoints=Math.round(hrsPct*30);
+    score-=(30-hrsPoints);
+    if(hrsPct<0.3)tips.push("You\'ve barely tracked any hours this week.");
+    else if(hrsPct<0.7)tips.push("You\'re behind on your weekly hour goal.");
+
+    // Overdue tasks
+    const today=dStr();
+    const overdueTasks=tasks.filter(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<today&&!folders.find(f=>f.id===t.folderId)?.archived);
+    score-=Math.min(25,overdueTasks.length*8);
+    if(overdueTasks.length>0)tips.push(`${overdueTasks.length} overdue task${overdueTasks.length>1?"s are":" is"} dragging your score down.`);
+
+    // Clients not contacted in 7 days
+    const activeClients=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect);
+    const neglectedClients=activeClients.filter(f=>lastActivityDays(f.id)>=7);
+    score-=Math.min(20,neglectedClients.length*6);
+    if(neglectedClients.length>0)tips.push(`${neglectedClients.length} client${neglectedClients.length>1?"s haven\'t":"hasn\'t"} heard from you in over a week.`);
+
+    // Pending payments
+    const mk=monthKey();
+    const pendingPayments=activeClients.filter(f=>(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk]);
+    score-=Math.min(15,pendingPayments.length*5);
+    if(pendingPayments.length>0)tips.push(`${pendingPayments.length} pending payment${pendingPayments.length>1?"s":""}  need following up.`);
+
+    // Calls logged this week
+    const weekCalls=(calls.log??[]).filter(c=>c.date>=sevenDaysAgo).length;
+    const callGoal=(calls.clientGoal??5)*7;
+    if(weekCalls===0&&callGoal>0){score-=10;tips.push("No calls logged this week.");}
+
+    // Bonus: daily goal hit today
+    const todayHrs=dayHours[today]??0;
+    const dailyGoal=hoursFor(today);
+    if(todayHrs>=dailyGoal&&dailyGoal>0)score=Math.min(100,score+5);
+
+    score=Math.max(0,Math.min(100,Math.round(score)));
+
+    let band,color,emoji;
+    if(score>=85){band="Excellent";color="#34d399";emoji="🟢";}
+    else if(score>=65){band="Good";color="#a3e635";emoji="🟡";}
+    else if(score>=45){band="Fair";color="#fbbf24";emoji="🟡";}
+    else if(score>=25){band="At Risk";color="#fb923c";emoji="🟠";}
+    else{band="Critical";color="#ef4444";emoji="🔴";}
+
+    const tip=tips.length>0?tips[0]:"Keep it up. Your boss is impressed.";
+    return{score,band,color,emoji,tip};
+  };
+
   const DesktopRightPanel=()=>{
     const dk=todayKey(),st=secsTracked(dk),pct=hoursPct(dk);
     const running=tasks.find(t=>t.timerRunning);
@@ -1312,18 +1377,40 @@ export default function App(){
     return(
       <div className="desktop-right">
         <div className="dr-section">
-          <div className="dr-label">Timer</div>
-          <div className="dr-timer" style={{color:running?"var(--ac)":"var(--tx)"}}>{fmtTimer(st)}</div>
-          <div style={{fontSize:".68rem",color:running?"rgba(200,255,87,.5)":"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>{running?"● Running":"Paused"}</div>
-          <div className="dr-pbar"><div className="dr-pbar-fill" style={{width:`${pct}%`}}/></div>
-          <div style={{display:"flex",gap:6}}>
-            {running?(
-              <button className="dr-btn-pause" onClick={()=>pauseTimer(running.id)}>Pause</button>
-            ):(
-              <button className="dr-btn-start" onClick={()=>{const t=tasksForDay(dk).find(t=>!isDone(t,dk));if(t)startTimer(t.id);}}>▶ Start</button>
-            )}
-            <button onClick={()=>{if(!activeTask){const t=tasksForDay(dk).find(t=>!isDone(t,dk));if(t){setActiveTask(t);setActiveTaskDk(dk);}}openLockFlow();}} style={{flex:1,background:"none",border:"1px solid rgba(167,139,250,.25)",color:"#a78bfa",borderRadius:8,padding:"8px",cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:".78rem"}}>🔒 Lock</button>
-          </div>
+          {(()=>{
+            const {score,band,color,tip}=calcBossScore();
+            return(
+              <>
+                <div className="dr-label" style={{marginBottom:14}}>Boss Score</div>
+                <div style={{textAlign:"center",marginBottom:12}}>
+                  <div style={{
+                    fontFamily:"'DM Mono',monospace",
+                    fontSize:"3.8rem",fontWeight:700,
+                    color:color,letterSpacing:"-3px",lineHeight:1,
+                    marginBottom:6,
+                  }}>{score}</div>
+                  <div style={{
+                    display:"inline-flex",alignItems:"center",gap:6,
+                    background:`${color}15`,border:`1px solid ${color}30`,
+                    borderRadius:99,padding:"4px 14px",
+                  }}>
+                    <div style={{width:7,height:7,borderRadius:"50%",background:color}}/>
+                    <span style={{fontSize:".75rem",fontWeight:700,color:color}}>{band}</span>
+                  </div>
+                </div>
+                {/* Score bar */}
+                <div style={{height:5,background:"var(--b2)",borderRadius:99,marginBottom:12,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${score}%`,background:`linear-gradient(90deg,${score<45?"#ef4444":score<65?"#fbbf24":color},${color})`,borderRadius:99,transition:"width .6s ease"}}/>
+                </div>
+                {/* Coach tip */}
+                <div style={{
+                  background:`${color}08`,border:`1px solid ${color}20`,
+                  borderRadius:10,padding:"10px 12px",
+                  fontSize:".75rem",color:"var(--tx2)",lineHeight:1.6,fontStyle:"italic",
+                }}>"{tip}"</div>
+              </>
+            );
+          })()}
         </div>
         {topFocus&&(
           <div className="dr-section">
