@@ -1380,40 +1380,17 @@ export default function App(){
     return(
       <div className="desktop-right">
         <div className="dr-section">
-          {(()=>{
-            const {score,band,color,tip}=bossScoreData;
-            return(
-              <>
-                <div className="dr-label" style={{marginBottom:14}}>Boss Score</div>
-                <div style={{textAlign:"center",marginBottom:12}}>
-                  <div style={{
-                    fontFamily:"'DM Mono',monospace",
-                    fontSize:"3.8rem",fontWeight:700,
-                    color:color,letterSpacing:"-3px",lineHeight:1,
-                    marginBottom:6,
-                  }}>{score}</div>
-                  <div style={{
-                    display:"inline-flex",alignItems:"center",gap:6,
-                    background:`${color}15`,border:`1px solid ${color}30`,
-                    borderRadius:99,padding:"4px 14px",
-                  }}>
-                    <div style={{width:7,height:7,borderRadius:"50%",background:color}}/>
-                    <span style={{fontSize:".75rem",fontWeight:700,color:color}}>{band}</span>
-                  </div>
-                </div>
-                {/* Score bar */}
-                <div style={{height:5,background:"var(--b2)",borderRadius:99,marginBottom:12,overflow:"hidden"}}>
-                  <div style={{height:"100%",width:`${score}%`,background:`linear-gradient(90deg,${score<45?"#ef4444":score<65?"#fbbf24":color},${color})`,borderRadius:99,transition:"width .6s ease"}}/>
-                </div>
-                {/* Coach tip */}
-                <div style={{
-                  background:`${color}08`,border:`1px solid ${color}20`,
-                  borderRadius:10,padding:"10px 12px",
-                  fontSize:".75rem",color:"var(--tx2)",lineHeight:1.6,fontStyle:"italic",
-                }}>"{tip}"</div>
-              </>
-            );
-          })()}
+          <div className="dr-label">Timer</div>
+          <div className="dr-timer" style={{color:running?"var(--ac)":"var(--tx)"}}>{fmtTimer(st)}</div>
+          <div style={{fontSize:".68rem",color:running?"rgba(200,255,87,.5)":"var(--mu)",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>{running?"● Running":"Paused"}</div>
+          <div className="dr-pbar"><div className="dr-pbar-fill" style={{width:`${pct}%`}}/></div>
+          <div style={{display:"flex",gap:6}}>
+            {running
+              ?<button className="dr-btn-pause" onClick={()=>pauseTimer(running.id)}>Pause</button>
+              :<button className="dr-btn-start" onClick={()=>{const t=tasksForDay(dk).find(t=>!isDone(t,dk));if(t)startTimer(t.id);}}>▶ Start</button>
+            }
+            <button onClick={()=>{if(!activeTask){const t=tasksForDay(dk).find(t=>!isDone(t,dk));if(t){setActiveTask(t);setActiveTaskDk(dk);}}openLockFlow();}} style={{flex:1,background:"none",border:"1px solid rgba(167,139,250,.25)",color:"#a78bfa",borderRadius:8,padding:"8px",cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:".78rem"}}>🔒 Lock</button>
+          </div>
         </div>
         {topFocus&&(
           <div className="dr-section">
@@ -1664,51 +1641,36 @@ export default function App(){
           </div>
           <RunningTimerBanner/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
-          {/* Time Hero + Boss Score — side by side */}
-          {(()=>{
-            const {score,band,color,tip}=bossScoreData;
-            return(<>
-              <div style={{display:"flex",gap:10,marginBottom:10}}>
-                {/* Time Hero — left, wider */}
-                <div style={{flex:"0 0 57%",overflow:"hidden",borderRadius:"var(--r2)",background:"var(--s)",border:"1px solid var(--b)"}}>
-                  <TimeHeroCard dk={dk}/>
-                </div>
-                {/* Boss Score — right, full colored */}
-                <div style={{
-                  flex:1,
-                  background:`linear-gradient(135deg,${color}28,${color}14)`,
-                  border:`1px solid ${color}40`,
-                  borderRadius:"var(--r2)",
-                  padding:"16px 12px",
-                  display:"flex",flexDirection:"column",
-                  alignItems:"center",justifyContent:"center",
-                  textAlign:"center",gap:8,
-                  minHeight:140,
-                }}>
-                  <div style={{fontSize:".58rem",fontWeight:700,color:`${color}cc`,textTransform:"uppercase",letterSpacing:".14em"}}>Boss Score</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:"2.6rem",fontWeight:700,color:"#fff",letterSpacing:"-2px",lineHeight:1,textShadow:`0 0 20px ${color}80`}}>{score}</div>
-                  <div style={{
-                    display:"inline-flex",alignItems:"center",gap:5,
-                    background:"rgba(0,0,0,.25)",
-                    borderRadius:99,padding:"4px 11px",
-                  }}>
-                    <div style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0}}/>
-                    <span style={{fontSize:".68rem",fontWeight:700,color:"#fff"}}>{band}</span>
-                  </div>
-                </div>
+          {/* Time Hero + Boss Score — side by side, direct state access */}
+          <div style={{display:"flex",gap:10,marginBottom:10}}>
+            <div style={{flex:"0 0 57%"}}>
+              <TimeHeroCard dk={dk}/>
+            </div>
+            <div style={{
+              flex:1,minHeight:140,
+              background:`linear-gradient(135deg,${bossScoreData.color}28,${bossScoreData.color}14)`,
+              border:`1px solid ${bossScoreData.color}40`,
+              borderRadius:"var(--r2)",padding:"16px 12px",
+              display:"flex",flexDirection:"column",
+              alignItems:"center",justifyContent:"center",
+              textAlign:"center",gap:8,
+            }}>
+              <div style={{fontSize:".58rem",fontWeight:700,color:`${bossScoreData.color}cc`,textTransform:"uppercase",letterSpacing:".14em"}}>Boss Score</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:"2.6rem",fontWeight:700,color:"#fff",letterSpacing:"-2px",lineHeight:1}}>{bossScoreData.score}</div>
+              <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"rgba(0,0,0,.25)",borderRadius:99,padding:"4px 11px"}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:bossScoreData.color,flexShrink:0}}/>
+                <span style={{fontSize:".68rem",fontWeight:700,color:"#fff"}}>{bossScoreData.band}</span>
               </div>
-              {/* Coach message bar — full width */}
-              <div style={{
-                borderLeft:`3px solid ${color}`,
-                background:`${color}08`,
-                borderRadius:"0 var(--r) var(--r) 0",
-                padding:"10px 14px",
-                marginBottom:20,
-              }}>
-                <div style={{fontSize:".78rem",color:"var(--tx2)",lineHeight:1.6,fontStyle:"italic"}}>"{tip}"</div>
-              </div>
-            </>);
-          })()}
+            </div>
+          </div>
+          <div style={{
+            borderLeft:`3px solid ${bossScoreData.color}`,
+            background:`${bossScoreData.color}08`,
+            borderRadius:"0 var(--r) var(--r) 0",
+            padding:"10px 14px",marginBottom:20,
+          }}>
+            <div style={{fontSize:".78rem",color:"var(--tx2)",lineHeight:1.6,fontStyle:"italic"}}>"{bossScoreData.tip}"</div>
+          </div>
           <div className="week-section-hdr">
             <div className="week-title">My Week</div>
             <div className="week-sub">Tap a day to manage tasks</div>
