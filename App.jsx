@@ -175,6 +175,9 @@ export default function App(){
   const [callFolder,setCallFolder]=useState(null);
   const [showCallGoalModal,setShowCallGoalModal]=useState(false);
   const [showProfile,setShowProfile]=useState(false);
+  const [subscribed,setSubscribed]=useState(false);
+  const [showPaywall,setShowPaywall]=useState(false);
+  const [checkoutLoading,setCheckoutLoading]=useState(false);
   const [deleteConfirm,setDeleteConfirm]=useState(null); // {type:'folder'|'task', id, name, folderId}
   const [isExampleData,setIsExampleData]=useState(false);
   const [trialStartDate,setTrialStartDate]=useState(null);
@@ -217,6 +220,7 @@ export default function App(){
           setComplDates(d.completedDates??[]);setBest(d.bestStreak??0);setDayHours(d.dayHours??{});
           if(d.weeklyGoal)setWeeklyGoal(d.weeklyGoal);
           if(d.trialStartDate)setTrialStartDate(d.trialStartDate);
+            if(d.subscribed)setSubscribed(d.subscribed??false);
           if(d.isExampleData!==undefined)setIsExampleData(d.isExampleData);
           if(d.folderSnooze)setFolderSnooze(d.folderSnooze);
           if(d.userPin)setUserPin(d.userPin);
@@ -2037,6 +2041,82 @@ export default function App(){
     }
   };
 
+
+  const openBillingPortal=async()=>{
+    setCheckoutLoading(true);
+    try{
+      const{getFunctions,httpsCallable}=await import("firebase/functions");
+      const fns=getFunctions();
+      const createPortal=httpsCallable(fns,"createPortalSession");
+      const result=await createPortal({});
+      window.open(result.data.url,"_blank");
+    }catch(e){
+      console.error("Portal error:",e);
+      alert("Something went wrong. Please try again.");
+    }
+    setCheckoutLoading(false);
+  };
+
+  const startCheckout=async(plan)=>{
+    setCheckoutLoading(true);
+    try{
+      const{getFunctions,httpsCallable}=await import("firebase/functions");
+      const fns=getFunctions();
+      const createCheckout=httpsCallable(fns,"createCheckout");
+      const result=await createCheckout({plan});
+      window.open(result.data.url,"_blank");
+    }catch(e){
+      console.error("Checkout error:",e);
+      alert("Something went wrong. Please try again.");
+    }
+    setCheckoutLoading(false);
+  };
+
+  const PaywallView=()=>(
+    <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:300,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px",overflowY:"auto"}}>
+      <div style={{maxWidth:420,width:"100%",textAlign:"center"}}>
+        <div style={{fontSize:"3rem",marginBottom:16}}>🔒</div>
+        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"1.8rem",color:"var(--tx)",letterSpacing:"-.5px",marginBottom:8,lineHeight:1.2}}>Your free trial has ended.</h1>
+        <p style={{fontSize:".95rem",color:"var(--mu)",lineHeight:1.7,marginBottom:32}}>Your data is safe. Upgrade to keep your clients, time tracking, Boss Score, and everything you built during your trial.</p>
+
+        {/* Monthly plan */}
+        <div onClick={()=>startCheckout("monthly")} style={{
+          background:"var(--s)",border:"2px solid #6366f1",borderRadius:16,
+          padding:"20px 24px",marginBottom:12,cursor:"pointer",
+          transition:"transform .15s",
+        }}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+            <span style={{fontWeight:700,fontSize:"1rem",color:"var(--tx)"}}>Monthly</span>
+            <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.4rem",color:"#6366f1"}}>$12<span style={{fontSize:".8rem",color:"var(--mu)",fontWeight:400}}>/mo</span></span>
+          </div>
+          <div style={{fontSize:".8rem",color:"var(--mu)",textAlign:"left"}}>Cancel anytime. No contracts.</div>
+        </div>
+
+        {/* Yearly plan */}
+        <div onClick={()=>startCheckout("yearly")} style={{
+          background:"rgba(99,102,241,.08)",border:"2px solid rgba(99,102,241,.3)",borderRadius:16,
+          padding:"20px 24px",marginBottom:24,cursor:"pointer",position:"relative",overflow:"hidden",
+        }}>
+          <div style={{position:"absolute",top:10,right:10,background:"#6366f1",color:"#fff",fontSize:".65rem",fontWeight:700,borderRadius:99,padding:"3px 10px"}}>SAVE 31%</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+            <span style={{fontWeight:700,fontSize:"1rem",color:"var(--tx)"}}>Annual</span>
+            <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.4rem",color:"#6366f1"}}>$99<span style={{fontSize:".8rem",color:"var(--mu)",fontWeight:400}}>/yr</span></span>
+          </div>
+          <div style={{fontSize:".8rem",color:"var(--mu)",textAlign:"left"}}>$8.25/month — best value.</div>
+        </div>
+
+        <button onClick={()=>startCheckout("monthly")} disabled={checkoutLoading} style={{
+          width:"100%",background:"#6366f1",color:"#fff",border:"none",
+          borderRadius:12,padding:"16px",cursor:"pointer",
+          fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:"1rem",
+          marginBottom:12,opacity:checkoutLoading?.7:1,
+        }}>{checkoutLoading?"Opening payment page...":"Upgrade now →"}</button>
+
+        <p style={{fontSize:".75rem",color:"var(--mu)"}}>Secure payment via Stripe · Your data is never deleted</p>
+      </div>
+    </div>
+  );
+
   const ProfileView=()=>{
     const [pendingHrsDay,setPendingHrsDay]=useState(hoursFor(todayKey()));
     const [pendingWeekHrs,setPendingWeekHrs]=useState(weeklyGoal);
@@ -2189,14 +2269,23 @@ export default function App(){
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid var(--b)"}}>
               <div>
                 <div style={{fontSize:".88rem",fontWeight:600,color:"var(--tx)"}}>Current plan</div>
-                <div style={{fontSize:".72rem",color:"var(--mu)",marginTop:2}}>Free Trial</div>
+                <div style={{fontSize:".72rem",color:"var(--mu)",marginTop:2}}>{subscribed?"Pro":"Free Trial"}</div>
               </div>
-              <span style={{background:"rgba(99,102,241,.1)",border:"1px solid rgba(99,102,241,.2)",color:"#6366f1",borderRadius:99,padding:"4px 12px",fontSize:".75rem",fontWeight:700}}>Trial</span>
+              <span style={{background:subscribed?"rgba(52,211,153,.1)":"rgba(99,102,241,.1)",border:`1px solid ${subscribed?"rgba(52,211,153,.2)":"rgba(99,102,241,.2)"}`,color:subscribed?"#34d399":"#6366f1",borderRadius:99,padding:"4px 12px",fontSize:".75rem",fontWeight:700}}>{subscribed?"Pro ✓":"Trial"}</span>
             </div>
-            <div style={{padding:"10px 0",opacity:.4}}>
-              <div style={{fontSize:".88rem",fontWeight:600,color:"var(--tx)"}}>Manage billing</div>
-              <div style={{fontSize:".72rem",color:"var(--mu)",marginTop:2}}>Coming soon — upgrade to Pro</div>
-            </div>
+            {!subscribed&&(
+              <div style={{padding:"10px 0"}}>
+                <button onClick={()=>{setShowProfile(false);startCheckout("monthly");}} style={{width:"100%",background:"#6366f1",color:"#fff",border:"none",borderRadius:10,padding:"12px",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:".9rem"}}>Upgrade to Pro →</button>
+              </div>
+            )}
+            {subscribed&&(
+              <div style={{padding:"10px 0"}}>
+                <button onClick={openBillingPortal} disabled={checkoutLoading} style={{width:"100%",background:"none",border:"1px solid var(--b2)",borderRadius:10,padding:"12px",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:".9rem",color:"var(--tx2)",opacity:checkoutLoading?.6:1}}>
+                  {checkoutLoading?"Opening...":"Manage billing / Cancel →"}
+                </button>
+                <div style={{fontSize:".7rem",color:"var(--mu)",textAlign:"center",marginTop:6}}>Cancel anytime via Stripe</div>
+              </div>
+            )}
           </Section>
 
           {/* Account */}
@@ -2342,6 +2431,7 @@ export default function App(){
       </div>
       <DesktopRightPanel/>
       {showProfile&&<ProfileView/>}
+      {trialExpired&&!subscribed&&<PaywallView/>}
 
       {/* Delete confirmation modal */}
       {deleteConfirm&&(
