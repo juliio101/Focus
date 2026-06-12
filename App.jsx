@@ -59,10 +59,22 @@ function Ring({pct=0,color="#c8ff57",size=96,stroke=9,label,val,sub,onClick}){
   );
 }
 
-const INIT_FOLDERS=[{id:1,name:"Work",color:"#60a5fa",icon:"💼"},{id:2,name:"Personal",color:"#c8ff57",icon:"🏠"}];
+const INIT_FOLDERS=[
+  {id:1,name:"Client A",color:"#6366f1",icon:"⭐",monthlyValue:1200,status:"active"},
+  {id:2,name:"Client B",color:"#34d399",icon:"🏢",monthlyValue:800,status:"active"},
+  {id:3,name:"Client C",color:"#fb923c",icon:"💼",monthlyValue:500,status:"active"},
+];
 const INIT_TASKS=[
-  {id:1,text:"Check emails",folderId:1,recurring:true,recurringDays:["mon","tue","wed","thu","fri"],doneOn:[],timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{}},
-  {id:2,text:"Morning routine",folderId:2,recurring:true,recurringDays:["mon","tue","wed","thu","fri","sat","sun"],doneOn:[],timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{}},
+  {id:1,text:"Send weekly progress report",folderId:1,recurring:true,recurringDays:["fri"],doneOn:[],timerSeconds:3240,timerRunning:false,timerStartedAt:null,timeLog:{}},
+  {id:2,text:"Review campaign performance",folderId:1,recurring:false,done:false,timerSeconds:1800,timerRunning:false,timerStartedAt:null,timeLog:{}},
+  {id:3,text:"Follow up on invoice",folderId:2,recurring:false,done:false,timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{},dueDate:new Date(Date.now()-86400000).toISOString().split("T")[0]},
+  {id:4,text:"Prepare strategy document",folderId:2,recurring:false,done:false,timerSeconds:5400,timerRunning:false,timerStartedAt:null,timeLog:{}},
+  {id:5,text:"Monthly check-in call",folderId:3,recurring:true,recurringDays:["mon"],doneOn:[],timerSeconds:2700,timerRunning:false,timerStartedAt:null,timeLog:{}},
+];
+// ← EXAMPLE DATA ABOVE. Replace with your own clients.
+const EXAMPLE_DATA_BANNER=true;
+const INIT_TASKS_OLD=[
+  {id:1,text:"Check emails",folderId:1,recurring:true,recurringDays:["mon","tue","wed","thu","fri","sat","sun"],doneOn:[],timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{}},
 ];
 
 export default function App(){
@@ -163,6 +175,10 @@ export default function App(){
   const [callFolder,setCallFolder]=useState(null);
   const [showCallGoalModal,setShowCallGoalModal]=useState(false);
   const [showProfile,setShowProfile]=useState(false);
+  const [deleteConfirm,setDeleteConfirm]=useState(null); // {type:'folder'|'task', id, name, folderId}
+  const [isExampleData,setIsExampleData]=useState(false);
+  const [trialStartDate,setTrialStartDate]=useState(null);
+  const [notifPermission,setNotifPermission]=useState(typeof Notification!=="undefined"?Notification.permission:"denied");
   const [pendingClientGoal,setPendingClientGoal]=useState(5);
   const [pendingOutreachGoal,setPendingOutreachGoal]=useState(20);
 
@@ -200,6 +216,8 @@ export default function App(){
           setCalls(d.calls??{client:[],outreach:[],clientGoal:5,outreachGoal:20});
           setComplDates(d.completedDates??[]);setBest(d.bestStreak??0);setDayHours(d.dayHours??{});
           if(d.weeklyGoal)setWeeklyGoal(d.weeklyGoal);
+          if(d.trialStartDate)setTrialStartDate(d.trialStartDate);
+          if(d.isExampleData!==undefined)setIsExampleData(d.isExampleData);
           if(d.folderSnooze)setFolderSnooze(d.folderSnooze);
           if(d.userPin)setUserPin(d.userPin);
           if(d.activeLock&&d.activeLock.endTime>Date.now()){
@@ -207,9 +225,11 @@ export default function App(){
             setLockedTaskId(d.activeLock.taskId);setLockedTaskDk(d.activeLock.taskDk);
           }
         }else{
-          await setDoc(ref,{folders:INIT_FOLDERS,tasks:INIT_TASKS,expenses:[],completedDates:[],bestStreak:0,dayHours:{}},{merge:true});
+          const trialStart=new Date().toISOString();
+          await setDoc(ref,{folders:INIT_FOLDERS,tasks:INIT_TASKS,expenses:[],completedDates:[],bestStreak:0,dayHours:{},trialStartDate:trialStart,isExampleData:true},{merge:true});
           if(window.fbq)window.fbq('track','StartTrial');
           setFolders(INIT_FOLDERS);setTasks(INIT_TASKS);setExpenses([]);setComplDates([]);setBest(0);setDayHours({});
+          setTrialStartDate(trialStart);setIsExampleData(true);
           setUserPin(null);setIsLocked(false);setObStep(1);
           setSyncStatus("success");return;
         }
@@ -231,7 +251,9 @@ export default function App(){
         const ref=doc(db,"users",user.uid);
         await setDoc(ref,{
           folders,tasks,calls,expenses,dayHours,weeklyGoal,folderSnooze,
-          completedDates:complDates,bestStreak
+          completedDates:complDates,bestStreak,
+          ...(trialStartDate&&{trialStartDate}),
+          isExampleData
         },{merge:true});
       }catch(e){console.error("Auto-save failed:",e);}
     };
@@ -333,7 +355,12 @@ export default function App(){
       return{...t,timerRunning:false,timerStartedAt:null,timerSeconds:(t.timerSeconds??0)+el,timeLog:log};
     }));
   };
-  const deleteTask=(e,id)=>{e.stopPropagation();setTasks(p=>p.filter(t=>t.id!==id));};
+  const deleteTask=(e,id)=>{
+    e.stopPropagation();
+    const t=tasks.find(x=>x.id===id);
+    setDeleteConfirm({type:"task",id,name:t?.text||"this task"});
+  };
+  const confirmDeleteTask=id=>{setTasks(p=>p.filter(t=>t.id!==id));setDeleteConfirm(null);if(activeTask?.id===id)setActiveTask(null);};
   const uncompleteTask=()=>{if(!activeTask)return;const dk=activeTaskDk;setTasks(prev=>prev.map(t=>{if(t.id!==activeTask.id)return t;if(!t.recurring)return{...t,done:false};return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==dateForDK(dk))};}));goBack();};
   const deleteActiveTask=()=>{if(!activeTask)return;setTasks(p=>p.filter(t=>t.id!==activeTask.id));goBack();};
   const saveEditTask=()=>{
@@ -431,7 +458,11 @@ export default function App(){
   const unarchiveFolder=fid=>setFolders(p=>p.map(f=>f.id===fid?{...f,archived:false,archivedDate:null}:f));
   const pauseFolder=fid=>{setFolders(p=>p.map(f=>f.id===fid?{...f,paused:true,pausedDate:dStr()}:f));goHome();};
   const unpauseFolder=fid=>setFolders(p=>p.map(f=>f.id===fid?{...f,paused:false,pausedDate:null}:f));
-  const deleteFolder=fid=>{setFolders(p=>p.filter(f=>f.id!==fid));setTasks(p=>p.filter(t=>t.folderId!==fid));goHome();};
+  const deleteFolder=fid=>{
+    const f=folders.find(x=>x.id===fid);
+    setDeleteConfirm({type:"folder",id:fid,name:f?.name||"this client",taskCount:tasks.filter(t=>t.folderId===fid).length});
+  };
+  const confirmDeleteFolder=fid=>{setFolders(p=>p.filter(f=>f.id!==fid));setTasks(p=>p.filter(t=>t.folderId!==fid));setDeleteConfirm(null);goHome();};
   const openHours=dk=>{setPendingHrs(hoursFor(dk));setHoursDay(dk);setShowHoursModal(true);};
   const saveHours=()=>{setDayHours(p=>({...p,[hoursDay]:pendingHrs}));setShowHoursModal(false);};
   const snoozeFolder=(fid,days)=>{const until=new Date();until.setDate(until.getDate()+days);setFolderSnooze(p=>({...p,[fid]:until.toISOString()}));setShowSnoozeModal(false);setSnoozingFolder(null);};
@@ -1791,6 +1822,47 @@ export default function App(){
     );
   };
 
+
+  // ── Trial days remaining ──────────────────────────────────────────────────
+  const trialDaysLeft=trialStartDate
+    ?Math.max(0,7-Math.floor((Date.now()-new Date(trialStartDate).getTime())/(1000*60*60*24)))
+    :7;
+  const trialExpired=trialStartDate&&trialDaysLeft===0;
+
+  // ── Request notifications ─────────────────────────────────────────────────
+  const requestNotifications=async()=>{
+    if(typeof Notification==="undefined")return;
+    const perm=await Notification.requestPermission();
+    setNotifPermission(perm);
+    if(perm==="granted"){
+      scheduleNotifications();
+    }
+  };
+
+  const scheduleNotifications=()=>{
+    if(typeof Notification==="undefined"||Notification.permission!=="granted")return;
+    // Focus Now notification — fire after 2 minutes if app is open
+    const focusClients=folders
+      .filter(f=>!f.archived&&!f.paused&&!f.prospect)
+      .sort((a,b)=>lastActivityDays(a.id)-lastActivityDays(b.id))
+      .slice(0,3);
+    if(focusClients.length>0){
+      const top=focusClients[0];
+      const days=lastActivityDays(top.id);
+      if(days>=3){
+        setTimeout(()=>{
+          try{
+            new Notification("effingFocus — Focus Now",{
+              body:`${top.name} hasn\'t heard from you in ${days} day${days!==1?"s":""}. Time to check in.`,
+              icon:"/icon-192.png",
+              badge:"/icon-192.png",
+            });
+          }catch(e){}
+        },120000);
+      }
+    }
+  };
+
   const ProfileView=()=>{
     const [pendingHrsDay,setPendingHrsDay]=useState(hoursFor(todayKey()));
     const [pendingWeekHrs,setPendingWeekHrs]=useState(weeklyGoal);
@@ -1916,6 +1988,28 @@ export default function App(){
             </div>
           </Section>
 
+          {/* Notifications */}
+          <Section title="Notifications">
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid var(--b)"}}>
+              <div>
+                <div style={{fontSize:".88rem",fontWeight:600,color:"var(--tx)"}}>Focus Now reminders</div>
+                <div style={{fontSize:".72rem",color:"var(--mu)",marginTop:2}}>Get notified when a client needs attention</div>
+              </div>
+              {notifPermission==="granted"
+                ?<span style={{background:"rgba(52,211,153,.1)",border:"1px solid rgba(52,211,153,.2)",color:"#34d399",borderRadius:99,padding:"4px 12px",fontSize:".75rem",fontWeight:700}}>On ✓</span>
+                :notifPermission==="denied"
+                  ?<span style={{fontSize:".75rem",color:"var(--mu)"}}>Blocked in browser</span>
+                  :<button onClick={requestNotifications} style={{background:"#6366f1",border:"none",borderRadius:10,color:"#fff",padding:"8px 16px",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:".82rem"}}>Enable</button>
+              }
+            </div>
+            <div style={{padding:"10px 0"}}>
+              <div style={{fontSize:".88rem",fontWeight:600,color:"var(--tx)"}}>Trial status</div>
+              <div style={{fontSize:".82rem",color:trialDaysLeft<=2?"#ef4444":"var(--mu)",marginTop:4,fontWeight:600}}>
+                {trialExpired?"Trial expired":trialDaysLeft+" day"+(trialDaysLeft!==1?"s":"")+" remaining"}
+              </div>
+            </div>
+          </Section>
+
           {/* Billing placeholder */}
           <Section title="Billing">
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid var(--b)"}}>
@@ -2002,7 +2096,37 @@ export default function App(){
     if(obStep===2)return(<div className="ob-overlay"><Dots/><div className="ob-emoji">📁</div><div className="ob-title">Create your first client folder</div><div className="ob-sub">One folder per client. Tasks, time, and money — all in one place.</div><div className="ob-card"><div className="ob-card-label">Client or project name</div><input className="ob-input" value={obFolderName} autoFocus onChange={e=>setObFolderName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&completeObFolder()} placeholder="e.g. Ajay Sharma, Nike, Personal..."/><div className="ob-card-label">Colour</div><div className="ob-color-row" style={{marginBottom:14}}>{COLORS.map(c=><div key={c} className={`ob-color${obFolderColor===c?" sel":""}`} style={{background:c}} onClick={()=>setObFolderColor(c)}/>)}</div><div className="ob-card-label">Icon</div><div className="ob-icon-row">{["💼","🏠","👤","🎯","📊","🤝","⭐","💡","🌿","❤️"].map(ic=><div key={ic} className={`ob-icon${obFolderIcon===ic?" sel":""}`} onClick={()=>setObFolderIcon(ic)}>{ic}</div>)}</div></div><button className="ob-primary" onClick={completeObFolder} disabled={!obFolderName.trim()}>Create folder</button><button className="ob-skip" onClick={skipOnboarding}>Skip setup</button></div>);
     if(obStep===3)return(<div className="ob-overlay"><Dots/><div className="ob-emoji">✅</div><div className="ob-title">Add your first task</div><div className="ob-sub">What's the one thing you need to get done for this client today?</div><div className="ob-card"><div className="ob-card-label">Task</div><input className="ob-input" value={obTaskText} autoFocus onChange={e=>setObTaskText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&completeObTask()} placeholder="e.g. Send proposal, Review brief..."/></div><button className="ob-primary" onClick={completeObTask} disabled={!obTaskText.trim()}>Add task</button><button className="ob-skip" onClick={skipOnboarding}>Skip setup</button></div>);
     if(obStep===4)return(<div className="ob-overlay"><Dots/><div className="ob-emoji">⏱</div><div className="ob-title">Start the timer when you work</div><div className="ob-sub">Tap a task → hit Start Working. That's how effingFocus knows where your time actually went.</div><div className="ob-card"><div className="ob-card-label">Your task</div><div className="ob-task-row"><div className="ob-chk"/><span className="ob-task-txt">{obTaskText||"Your task"}</span><span className="ob-badge">▶ Start</span></div><div style={{marginTop:14,fontSize:".85rem",color:"var(--mu)",lineHeight:1.7}}>At the end of the day you'll see exactly how many hours you worked and what your time is actually worth per hour.</div></div><button className="ob-primary" onClick={()=>setObStep(5)}>Got it</button><button className="ob-skip" onClick={skipOnboarding}>Skip</button></div>);
-    if(obStep===5)return(<div className="ob-overlay"><Dots/><div className="ob-emoji">🚀</div><div className="ob-title">You're all set.</div><div className="ob-sub">Your boss is ready. Here's what to explore first.</div><div className="ob-card"><div className="ob-card-label">What's inside</div><div style={{display:"flex",flexDirection:"column",gap:12}}>{[["📁","Folders — one per client. Tasks, time, money in one place."],["⏱","Timer — tap Start Working on any task. Time is tracked automatically."],["🎯","Focus Now — the app tells you which clients need attention today."],["🔒","Lock In — commit to one task with a PIN. No distractions."],["💰","Money tab — see who's paid, who owes you, and your net profit."],["📈","Reports — your real effective hourly rate, always visible."]].map(([ic,txt])=>(<div key={txt} style={{display:"flex",alignItems:"flex-start",gap:10,fontSize:".85rem",color:"var(--tx2)",lineHeight:1.5}}><span style={{flexShrink:0,fontSize:"1rem"}}>{ic}</span><span>{txt}</span></div>))}</div></div><button className="ob-primary" onClick={finishOnboarding}>Start focusing</button></div>);
+    if(obStep===5)return(<div className="ob-overlay"><Dots/><div className="ob-emoji">🚀</div><div className="ob-title">You're all set.</div><div className="ob-sub">Your boss is ready. Here's what to explore first.</div><div className="ob-card"><div className="ob-card-label">What's inside</div><div style={{display:"flex",flexDirection:"column",gap:12}}>{[["📁","Folders — one per client. Tasks, time, money in one place."],["⏱","Timer — tap Start Working on any task. Time is tracked automatically."],["🎯","Focus Now — the app tells you which clients need attention today."],["🔒","Lock In — commit to one task with a PIN. No distractions."],["💰","Money tab — see who's paid, who owes you, and your net profit."],["📈","Reports — your real effective hourly rate, always visible."]].map(([ic,txt])=>(<div key={txt} style={{display:"flex",alignItems:"flex-start",gap:10,fontSize:".85rem",color:"var(--tx2)",lineHeight:1.5}}><span style={{flexShrink:0,fontSize:"1rem"}}>{ic}</span><span>{txt}</span></div>))}</div></div><button className="ob-primary" onClick={()=>setObStep(6)}>Continue</button></div>);
+    // ── Step 6 — Pricing / Trial confirmation ──────────────────────────
+    if(obStep===6)return(<div className="ob-overlay">
+      <Dots/>
+      <div className="ob-emoji">🎉</div>
+      <div className="ob-title">7 days free.<span style={{color:"var(--ac)"}}>No surprises.</span></div>
+      <div className="ob-sub">Your trial starts today. Here's exactly what happens.</div>
+      <div className="ob-card">
+        <div className="ob-card-label">Your trial timeline</div>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {[
+            ["Today","Full access — everything unlocked","#34d399"],
+            ["Day 5","We'll remind you your trial is ending","#fbbf24"],
+            ["Day 7","Trial ends — upgrade to keep your data","#fb923c"],
+          ].map(([day,desc,col])=>(
+            <div key={day} style={{display:"flex",alignItems:"center",gap:12}}>
+              <div style={{width:48,height:48,borderRadius:10,background:`${col}15`,border:`1px solid ${col}30`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <span style={{fontSize:".72rem",fontWeight:700,color:col}}>{day}</span>
+              </div>
+              <span style={{fontSize:".85rem",color:"var(--tx2)",lineHeight:1.4}}>{desc}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:20,paddingTop:16,borderTop:"1px solid var(--b)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span style={{fontSize:".82rem",color:"var(--mu)"}}>After trial</span>
+          <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"var(--tx)"}}>$12<span style={{fontSize:".75rem",color:"var(--mu)",fontWeight:400}}>/month</span></span>
+        </div>
+      </div>
+      <div style={{fontSize:".78rem",color:"var(--mu)",textAlign:"center",marginBottom:16}}>No credit card required now. Cancel anytime.</div>
+      <button className="ob-primary" onClick={finishOnboarding}>Start my free trial →</button>
+    </div>);
     return null;
   };
 
@@ -2042,6 +2166,59 @@ export default function App(){
       </div>
       <DesktopRightPanel/>
       {showProfile&&<ProfileView/>}
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm&&(
+        <div className="overlay" onClick={()=>setDeleteConfirm(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:"2rem",textAlign:"center",marginBottom:12}}>{deleteConfirm.type==="folder"?"🗑️":"✕"}</div>
+            <div className="modal-title">Delete {deleteConfirm.type==="folder"?"Client":"Task"}?</div>
+            <p style={{fontSize:".9rem",color:"var(--mu)",textAlign:"center",lineHeight:1.7,marginBottom:20}}>
+              {deleteConfirm.type==="folder"
+                ?`Deleting "${deleteConfirm.name}" will permanently remove this client and all ${deleteConfirm.taskCount} task${deleteConfirm.taskCount!==1?"s":""} associated with it. This cannot be undone.`
+                :`Are you sure you want to delete "${deleteConfirm.name}"? This cannot be undone.`
+              }
+            </p>
+            <div className="modal-btns">
+              <button className="btn-c" onClick={()=>setDeleteConfirm(null)}>Cancel</button>
+              <button onClick={()=>deleteConfirm.type==="folder"?confirmDeleteFolder(deleteConfirm.id):confirmDeleteTask(deleteConfirm.id)} style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:10,padding:"13px 24px",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:".95rem",flex:1}}>
+                Delete {deleteConfirm.type==="folder"?"Client":"Task"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Example data banner */}
+      {isExampleData&&syncStatus==="success"&&(
+        <div style={{position:"fixed",bottom:"calc(70px + var(--safe-bottom))",left:"50%",transform:"translateX(-50%)",
+          background:"rgba(99,102,241,.95)",backdropFilter:"blur(10px)",
+          border:"1px solid rgba(99,102,241,.4)",borderRadius:12,
+          padding:"10px 18px",zIndex:150,display:"flex",alignItems:"center",gap:12,
+          maxWidth:"90vw",boxShadow:"0 4px 24px rgba(0,0,0,.3)"
+        }}>
+          <span style={{fontSize:".82rem",color:"#fff",fontWeight:600}}>👋 This is example data — replace with your real clients</span>
+          <button onClick={()=>{setFolders([]);setTasks([]);setIsExampleData(false);}} style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:8,color:"#fff",padding:"5px 10px",cursor:"pointer",fontSize:".75rem",fontWeight:700,whiteSpace:"nowrap"}}>Clear it</button>
+        </div>
+      )}
+
+      {/* Trial countdown banner */}
+      {trialStartDate&&!trialExpired&&trialDaysLeft<=5&&(
+        <div style={{position:"fixed",top:"calc(var(--safe-top) + 0px)",left:0,right:0,
+          background:trialDaysLeft<=2?"rgba(239,68,68,.95)":"rgba(251,146,60,.95)",
+          backdropFilter:"blur(10px)",zIndex:180,
+          padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",
+          boxShadow:"0 2px 12px rgba(0,0,0,.3)"
+        }}>
+          <span style={{fontSize:".82rem",color:"#fff",fontWeight:700}}>
+            {trialDaysLeft===0?"Your trial has expired":"⏰ "+trialDaysLeft+" day"+(trialDaysLeft!==1?"s":"")+" left on your free trial"}
+          </span>
+          <button onClick={()=>setShowProfile(true)} style={{background:"rgba(255,255,255,.25)",border:"1px solid rgba(255,255,255,.4)",color:"#fff",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:".78rem",fontWeight:700,whiteSpace:"nowrap"}}>
+            Upgrade →
+          </button>
+        </div>
+      )}
+
       {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
       {obStep>0&&<OnboardingFlow/>}
       {isLocked&&<LockScreen/>}
