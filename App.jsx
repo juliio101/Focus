@@ -1300,15 +1300,15 @@ export default function App(){
     const day=86400000;
     const sevenDaysAgo=new Date(now-7*day).toISOString().split("T")[0];
 
-    // Hours logged last 7 days
+    // Hours logged last 7 days — reads from actual timeLog across all tasks
     const last7Days=Array.from({length:7},(_,i)=>{
       const d=new Date(now-i*day);
       return d.toISOString().split("T")[0];
     });
-    const totalHrsLogged=last7Days.reduce((s,dk)=>{
-      const h=dayHours[dk]??0;
-      return s+(typeof h==="number"?h:0);
+    const totalSecsLogged=tasks.reduce((total,t)=>{
+      return total+last7Days.reduce((s,dk)=>s+(t.timeLog?.[dk]??0),0);
     },0);
+    const totalHrsLogged=totalSecsLogged/3600;
     const weekGoalHrs=weeklyGoal||40;
     const hrsPct=Math.min(1,totalHrsLogged/weekGoalHrs);
     const hrsPoints=Math.round(hrsPct*30);
