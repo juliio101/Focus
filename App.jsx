@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import "./App.css";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -2205,8 +2205,11 @@ export default function App(){
   };
 
 
-  // Boss Score — computed at App level so React tracks deps correctly
-  const bossScoreData=useMemo(()=>calcBossScore(),[tasks,folders,calls,dayHours,weeklyGoal]);
+  // Boss Score — useState+useEffect guarantees update on every dependency change
+  const [bossScoreData,setBossScoreData]=useState({score:50,band:"Fair",color:"#fbbf24",emoji:"🟡",tip:"Start tracking your day."});
+  useEffect(()=>{
+    setBossScoreData(calcBossScore());
+  },[tasks,folders,calls,dayHours,weeklyGoal]);
 
   if(authLoading)return(<div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#333",fontSize:".9rem"}}>Loading…</div></div>);
   if(!user)return(
