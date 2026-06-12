@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import "./App.css";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -1294,55 +1294,56 @@ export default function App(){
 
 
   const calcBossScore=()=>{
-    let score=100;
+    let score=50; // Start at 50 — earn it up, lose it down
     const tips=[];
     const now=Date.now();
     const day=86400000;
-    const sevenDaysAgo=new Date(now-7*day).toISOString().split("T")[0];
-
-    // Hours logged last 7 days — reads from actual timeLog across all tasks
-    const last7Days=Array.from({length:7},(_,i)=>{
-      const d=new Date(now-i*day);
-      return d.toISOString().split("T")[0];
-    });
-    const totalSecsLogged=tasks.reduce((total,t)=>{
-      return total+last7Days.reduce((s,dk)=>s+(t.timeLog?.[dk]??0),0);
-    },0);
-    const totalHrsLogged=totalSecsLogged/3600;
-    const weekGoalHrs=weeklyGoal||40;
-    const hrsPct=Math.min(1,totalHrsLogged/weekGoalHrs);
-    const hrsPoints=Math.round(hrsPct*30);
-    score-=(30-hrsPoints);
-    if(hrsPct<0.3)tips.push("You\'ve barely tracked any hours this week.");
-    else if(hrsPct<0.7)tips.push("You\'re behind on your weekly hour goal.");
-
-    // Overdue tasks
     const today=dStr();
-    const overdueTasks=tasks.filter(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<today&&!folders.find(f=>f.id===t.folderId)?.archived);
-    score-=Math.min(25,overdueTasks.length*8);
-    if(overdueTasks.length>0)tips.push(`${overdueTasks.length} overdue task${overdueTasks.length>1?"s are":" is"} dragging your score down.`);
+    const sevenDaysAgo=new Date(now-7*day).toISOString().split("T")[0];
+    const last7Days=Array.from({length:7},(_,i)=>new Date(now-i*day).toISOString().split("T")[0]);
 
-    // Clients not contacted in 7 days
-    const activeClients=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect);
-    const neglectedClients=activeClients.filter(f=>lastActivityDays(f.id)>=7);
-    score-=Math.min(20,neglectedClients.length*6);
-    if(neglectedClients.length>0)tips.push(`${neglectedClients.length} client${neglectedClients.length>1?"s haven\'t":"hasn\'t"} heard from you in over a week.`);
+    // ── EARN POINTS ────────────────────────────────────────────────
+    // 1. Hours tracked TODAY vs daily goal (+0 to +25)
+    const todaySecs=tasks.reduce((s,t)=>s+(t.timeLog?.[today]??0),0);
+    const todayHrs=todaySecs/3600;
+    const dailyGoalHrs=hoursFor(today)||8;
+    const todayPct=Math.min(1,todayHrs/dailyGoalHrs);
+    score+=Math.round(todayPct*25);
+    if(todayPct===0)tips.push("You haven\'t tracked any time today.");
+    else if(todayPct<0.5)tips.push(`You\'re ${Math.round(todayPct*100)}% through your daily goal. Keep going.`);
 
-    // Pending payments
-    const mk=monthKey();
-    const pendingPayments=activeClients.filter(f=>(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk]);
-    score-=Math.min(15,pendingPayments.length*5);
-    if(pendingPayments.length>0)tips.push(`${pendingPayments.length} pending payment${pendingPayments.length>1?"s":""}  need following up.`);
+    // 2. Tasks completed today (+5 each, max +15)
+    const todayTasks=tasksForDay(today);
+    const doneTodayCount=todayTasks.filter(t=>isDone(t,today)).length;
+    score+=Math.min(15,doneTodayCount*5);
 
-    // Calls logged this week
+    // 3. Active days this week — days with any tracked time (+3 each, max +15)
+    const activeDays=last7Days.filter(dk=>
+      tasks.some(t=>(t.timeLog?.[dk]??0)>0)
+    ).length;
+    score+=Math.min(15,activeDays*3);
+
+    // 4. Calls logged this week (+2 each, max +10)
     const weekCalls=(calls.log??[]).filter(c=>c.date>=sevenDaysAgo).length;
-    const callGoal=(calls.clientGoal??5)*7;
-    if(weekCalls===0&&callGoal>0){score-=10;tips.push("No calls logged this week.");}
+    score+=Math.min(10,weekCalls*2);
 
-    // Bonus: daily goal hit today
-    const todayHrs=dayHours[today]??0;
-    const dailyGoal=hoursFor(today);
-    if(todayHrs>=dailyGoal&&dailyGoal>0)score=Math.min(100,score+5);
+    // ── LOSE POINTS ────────────────────────────────────────────────
+    // 5. Overdue tasks (-10 each, max -25)
+    const activeClients=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect);
+    const overdueTasks=tasks.filter(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<today&&activeClients.some(f=>f.id===t.folderId));
+    score-=Math.min(25,overdueTasks.length*10);
+    if(overdueTasks.length>0)tips.push(`${overdueTasks.length} overdue task${overdueTasks.length>1?"s are":" is"} hurting your score.`);
+
+    // 6. Neglected clients — 7+ days no activity (-7 each, max -20)
+    const neglected=activeClients.filter(f=>lastActivityDays(f.id)>=7);
+    score-=Math.min(20,neglected.length*7);
+    if(neglected.length>0&&!tips.length)tips.push(`${neglected.length} client${neglected.length>1?"s haven\'t":"hasn\'t"} heard from you in over a week.`);
+
+    // 7. Pending payments (-5 each, max -15)
+    const mk=monthKey();
+    const pendingPay=activeClients.filter(f=>(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk]);
+    score-=Math.min(15,pendingPay.length*5);
+    if(pendingPay.length>0&&!tips.length)tips.push(`${pendingPay.length} unpaid invoice${pendingPay.length>1?"s need":"needs"} following up.`);
 
     score=Math.max(0,Math.min(100,Math.round(score)));
 
@@ -1353,7 +1354,7 @@ export default function App(){
     else if(score>=25){band="At Risk";color="#fb923c";emoji="🟠";}
     else{band="Critical";color="#ef4444";emoji="🔴";}
 
-    const tip=tips.length>0?tips[0]:"Keep it up. Your boss is impressed.";
+    const tip=tips.length>0?tips[0]:"Your boss is impressed. Keep it up.";
     return{score,band,color,emoji,tip};
   };
 
@@ -1378,7 +1379,7 @@ export default function App(){
       <div className="desktop-right">
         <div className="dr-section">
           {(()=>{
-            const {score,band,color,tip}=calcBossScore();
+            const {score,band,color,tip}=bossScoreData;
             return(
               <>
                 <div className="dr-label" style={{marginBottom:14}}>Boss Score</div>
@@ -1663,7 +1664,7 @@ export default function App(){
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
           {/* Time Hero + Boss Score — side by side */}
           {(()=>{
-            const {score,band,color,tip}=calcBossScore();
+            const {score,band,color,tip}=bossScoreData;
             return(<>
               <div style={{display:"flex",gap:10,marginBottom:10}}>
                 {/* Time Hero — left, wider */}
@@ -2203,6 +2204,9 @@ export default function App(){
     );
   };
 
+
+  // Boss Score — computed at App level so React tracks deps correctly
+  const bossScoreData=useMemo(()=>calcBossScore(),[tasks,folders,calls,dayHours,weeklyGoal]);
 
   if(authLoading)return(<div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#333",fontSize:".9rem"}}>Loading…</div></div>);
   if(!user)return(
