@@ -1845,19 +1845,65 @@ export default function App(){
     const mk=monthKey();
     const subCollected=(folder.subCollected??{})[mk]||false;
     const monthPayments=(folder.payments??[]).filter(p=>p.month===mk);
+    const monthSecs=ft.reduce((s,t)=>s+Object.values(t.timeLog??{}).reduce((a,b)=>a+b,0),0);
+    const monthHrs=fmtHrs(monthSecs/3600);
+    const totalCollected=(folder.monthlyValue&&subCollected?folder.monthlyValue:0)+(monthPayments.filter(p=>p.status==="collected").reduce((s,p)=>s+(p.amount||0),0));
+    const totalPending=(folder.monthlyValue&&!subCollected?folder.monthlyValue:0)+(monthPayments.filter(p=>p.status!=="collected").reduce((s,p)=>s+(p.amount||0),0));
+    const statusColor=folder.archived?"#666":folder.paused?"#a78bfa":folder.prospect?"#60a5fa":"#34d399";
+    const statusLabel=folder.archived?"Archived":folder.paused?"Paused":folder.prospect?"Pipeline":"Active";
+
     return(
       <div className="page">
-        <div className="view-hdr"><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:10,height:10,borderRadius:"50%",background:folder.color,flexShrink:0}}/><div className="view-title">{folder.name}</div></div><div className="view-sub">{ft.length} tasks total</div></div>
-        <div className="big-prog">
-          <div className="big-top"><span className="big-frac">{done}<span className="d">/{ft.length}</span></span><span className="big-pct" style={{color:folder.color}}>{pct}% today</span></div>
-          <div className="big-bar"><div className="big-fill" style={{width:`${pct}%`,background:folder.color}}/></div>
-        </div>
-        {(folder.monthlyValue||0)>0&&(
-          <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"16px 18px",marginBottom:14}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div><div style={{fontSize:".63rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:3}}>Monthly Retainer</div><div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.3rem",color:"#34d399",letterSpacing:"-1px"}}>${(folder.monthlyValue).toLocaleString()}<span style={{fontSize:".75rem",color:"var(--mu)",fontWeight:500}}>/mo</span></div></div>
-              <button onClick={()=>toggleSubCollected(folder.id)} style={{background:subCollected?"#34d39918":"var(--bg)",border:`1px solid ${subCollected?"#34d39940":"var(--b2)"}`,color:subCollected?"#34d399":"var(--mu)",borderRadius:99,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:".8rem",transition:"all .2s"}}>{subCollected?"Collected ✓":"Mark Collected"}</button>
+
+        {/* ── Compact header ── */}
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+          <div style={{width:36,height:36,borderRadius:"50%",background:`${folder.color}20`,border:`2px solid ${folder.color}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.2rem",flexShrink:0}}>{folder.icon}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:800,fontSize:"1.25rem",color:"var(--tx)",letterSpacing:"-.3px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{folder.name}</div>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:statusColor,flexShrink:0}}/>
+              <span style={{fontSize:".72rem",color:statusColor,fontWeight:600}}>{statusLabel}</span>
+              <span style={{fontSize:".72rem",color:"var(--mu)"}}>·</span>
+              <span style={{fontSize:".72rem",color:"var(--mu)"}}>{ft.length} task{ft.length!==1?"s":""}</span>
             </div>
+          </div>
+          <button onClick={()=>{setEditFolderTarget(folder);setShowEditFolder(true);}} style={{background:"none",border:"1px solid var(--b2)",borderRadius:9,padding:"7px 12px",cursor:"pointer",color:"var(--mu)",fontSize:".8rem",fontWeight:600}}>Edit</button>
+        </div>
+
+        {/* ── Stats row ── */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:16}}>
+          {/* Tasks today */}
+          <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"12px 12px",textAlign:"center"}}>
+            <div style={{fontSize:".6rem",fontWeight:700,color:"var(--mu)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>Today</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:pct===100?"#34d399":folder.color,letterSpacing:"-1px"}}>{done}/{ft.length}</div>
+            <div style={{height:3,background:"var(--b2)",borderRadius:99,marginTop:6,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:pct===100?"#34d399":folder.color,borderRadius:99}}/></div>
+          </div>
+          {/* Hours this month */}
+          <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"12px 12px",textAlign:"center"}}>
+            <div style={{fontSize:".6rem",fontWeight:700,color:"var(--mu)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>Hrs/Month</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"#fb923c",letterSpacing:"-1px"}}>{monthHrs}</div>
+          </div>
+          {/* Collected */}
+          <div style={{background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"12px 12px",textAlign:"center"}}>
+            <div style={{fontSize:".6rem",fontWeight:700,color:"var(--mu)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>Collected</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:"#34d399",letterSpacing:"-1px"}}>${totalCollected.toLocaleString()}</div>
+          </div>
+          {/* Pending */}
+          <div style={{background:"var(--s)",border:`1px solid ${totalPending>0?"rgba(251,191,36,.2)":"var(--b)"}`,borderRadius:"var(--r)",padding:"12px 12px",textAlign:"center",cursor:totalPending>0?"pointer":"default"}}
+            onClick={()=>{if((folder.monthlyValue||0)>0&&!subCollected)toggleSubCollected(folder.id);}}>
+            <div style={{fontSize:".6rem",fontWeight:700,color:"var(--mu)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>Pending</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1.1rem",color:totalPending>0?"#fbbf24":"var(--mu)",letterSpacing:"-1px"}}>{totalPending>0?`$${totalPending.toLocaleString()}`:"—"}</div>
+          </div>
+        </div>
+
+        {/* ── Retainer collected button — only if has retainer ── */}
+        {(folder.monthlyValue||0)>0&&(
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--s)",border:"1px solid var(--b)",borderRadius:"var(--r)",padding:"12px 16px",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:".62rem",color:"var(--mu)",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",marginBottom:2}}>Monthly Retainer</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:"1rem",color:"#34d399"}}>${folder.monthlyValue.toLocaleString()}<span style={{fontSize:".72rem",color:"var(--mu)",fontWeight:500}}>/mo</span></div>
+            </div>
+            <button onClick={()=>toggleSubCollected(folder.id)} style={{background:subCollected?"#34d39918":"var(--bg)",border:`1px solid ${subCollected?"#34d39940":"var(--b2)"}`,color:subCollected?"#34d399":"var(--mu)",borderRadius:99,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:".8rem",transition:"all .2s"}}>{subCollected?"Collected ✓":"Mark Collected"}</button>
           </div>
         )}
         <div style={{marginBottom:14}}>
