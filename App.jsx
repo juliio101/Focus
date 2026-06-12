@@ -1294,6 +1294,7 @@ export default function App(){
 
 
   const calcBossScore=()=>{
+    try{
     let score=30;
     const tips=[];
     const todayStr=dStr();
@@ -1356,6 +1357,7 @@ export default function App(){
     else{band="Critical";color="#ef4444";emoji="🔴";}
     const tip=tips.length>0?tips[0]:"Your boss is impressed. Keep it up.";
     return{score,band,color,emoji,tip};
+    }catch(e){console.error("Boss score error:",e);return{score:50,band:"Fair",color:"#fbbf24",emoji:"🟡",tip:"Tracking your progress..."};}
   };
 
   const DesktopRightPanel=()=>{
@@ -2208,7 +2210,8 @@ export default function App(){
   // Boss Score — useState+useEffect guarantees update on every dependency change
   const [bossScoreData,setBossScoreData]=useState({score:50,band:"Fair",color:"#fbbf24",emoji:"🟡",tip:"Start tracking your day."});
   useEffect(()=>{
-    setBossScoreData(calcBossScore());
+    try{setBossScoreData(calcBossScore());}
+    catch(e){console.error("Boss score effect error:",e);}
   },[tasks,folders,calls,dayHours,weeklyGoal,complDates]);
 
   if(authLoading)return(<div style={{minHeight:"100vh",background:"#080808",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#333",fontSize:".9rem"}}>Loading…</div></div>);
