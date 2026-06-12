@@ -29,7 +29,7 @@
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Today view — track time and focus"
+      "label": "Today — track your time and focus"
     },
     {
       "src": "/screenshot-2.png",
@@ -37,6 +37,20 @@
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Clients — see who needs attention"
+    },
+    {
+      "src": "/screenshot-3.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Focus Now — never drop the ball"
+    },
+    {
+      "src": "/screenshot-4.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Money — know exactly what you earned"
     }
   ],
   "categories": ["productivity", "business"],
