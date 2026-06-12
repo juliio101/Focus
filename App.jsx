@@ -1231,15 +1231,15 @@ export default function App(){
 
   const DesktopSidebar=()=>{
     const activeFolders=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect);
-    const isActive=v=>(v==="today"&&(view==="home"||view==="today"))||(v==="clients"&&(view==="clients"||view==="all"))||(v==="money"&&view==="money")||(v==="insights"&&view==="reports");
+    const isActive=v=>(v==="today"&&(view==="home"||view==="today"))||(v==="tasks"&&(view==="all"))||(v==="money"&&view==="money")||(v==="insights"&&view==="reports");
     return(
       <div className="desktop-sidebar">
         <div className="ds-top">
           <div className="logo" style={{fontSize:"1rem",padding:"18px 16px 14px",borderBottom:"1px solid var(--b)",display:"block"}}>effingFocus<em>.</em></div>
         </div>
         <nav className="ds-nav">
-          {[["today","⏱","Today"],["clients","👥","Clients"],["money","💰","Money"],["insights","📈","Insights"]].map(([v,ic,lbl])=>(
-            <div key={v} className={`ds-nav-item${isActive(v)?" active":""}`} onClick={()=>{if(v==="today")goHome();else if(v==="clients")setView("all");else if(v==="insights")setView("reports");else setView(v);}}>
+          {[["today","⏱","Today"],["tasks","📋","Tasks"],["money","💰","Money"],["insights","📈","Insights"]].map(([v,ic,lbl])=>(
+            <div key={v} className={`ds-nav-item${isActive(v)?" active":""}`} onClick={()=>{if(v==="today")goHome();else if(v==="tasks")setView("all");else if(v==="insights")setView("reports");else setView(v);}}>
               <span className="ds-nav-icon">{ic}</span><span>{lbl}</span>
               {isActive(v)&&<div className="ds-nav-dot"/>}
             </div>
@@ -1260,6 +1260,27 @@ export default function App(){
           </div>
           <div className="ds-client-item" onClick={()=>setView("clients")} style={{marginTop:4,borderTop:"1px solid #1a1a1a",paddingTop:10}}>
             <span style={{color:"#6366f1",fontSize:".8rem",fontWeight:700}}>View all clients →</span>
+          </div>
+        </div>
+        {/* Profile button at bottom of sidebar */}
+        <div style={{marginTop:"auto",borderTop:"1px solid #1a1a1a",padding:"12px 12px"}}>
+          <div onClick={()=>setShowProfile(true)} style={{
+            display:"flex",alignItems:"center",gap:10,cursor:"pointer",
+            padding:"8px 10px",borderRadius:10,
+            transition:"background .15s",
+          }}
+          onMouseEnter={e=>e.currentTarget.style.background="#1a1a1a"}
+          onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+          >
+            {user?.photoURL
+              ?<img src={user.photoURL} style={{width:30,height:30,borderRadius:"50%",border:"1.5px solid #2a2a2a",flexShrink:0}} alt=""/>
+              :<div style={{width:30,height:30,borderRadius:"50%",background:"#6366f1",display:"flex",alignItems:"center",justifyContent:"center",fontSize:".85rem",flexShrink:0}}>👤</div>
+            }
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:".78rem",fontWeight:700,color:"var(--tx)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.displayName?.split(" ")[0]||"Profile"}</div>
+              <div style={{fontSize:".65rem",color:"var(--mu)"}}>Settings & billing</div>
+            </div>
+            <span style={{fontSize:".7rem",color:"var(--mu)"}}>⚙️</span>
           </div>
         </div>
         <div className="ds-bottom">
@@ -2158,7 +2179,7 @@ export default function App(){
       {view!=="task"&&(
         <div className="tab-bar">
           <button className={`tab-btn${(view==="home"||view==="today"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}><span className="tab-icon">⏱</span><span className="tab-lbl">Today</span><div className="tab-dot"/></button>
-          <button className={`tab-btn${(view==="all"||view==="clients")?" active":""}`} onClick={()=>setView("clients")}><span className="tab-icon">👥</span><span className="tab-lbl">Clients</span><div className="tab-dot"/></button>
+          <button className={`tab-btn${view==="all"?" active":""}`} onClick={()=>setView("all")}><span className="tab-icon">📋</span><span className="tab-lbl">Tasks</span><div className="tab-dot"/></button>
           <button className={`tab-btn${view==="money"?" active":""}`} onClick={()=>setView("money")}><span className="tab-icon">💰</span><span className="tab-lbl">Money</span><div className="tab-dot"/></button>
           <button className={`tab-btn${(view==="reports"||view==="insights")?" active":""}`} onClick={()=>setView("reports")}><span className="tab-icon">📈</span><span className="tab-lbl">Insights</span><div className="tab-dot"/></button>
         </div>
