@@ -16,7 +16,26 @@ const dStr=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart
 const todayIdx=()=>(new Date().getDay()+6)%7;
 const todayKey=()=>DAY_KEYS[todayIdx()];
 const dateForDK=dk=>{const n=new Date();n.setHours(0,0,0,0);const d=new Date(n);d.setDate(n.getDate()+DAY_KEYS.indexOf(dk)-todayIdx());return dStr(d);};
-const calcStreak=(dates=[])=>{const s=new Set(dates),t=dStr(),y=dStr(new Date(Date.now()-864e5));if(!s.has(t)&&!s.has(y))return 0;let c=0,cur=new Date(s.has(t)?t:y);while(s.has(dStr(cur))){c++;cur.setDate(cur.getDate()-1);}return c;};
+const calcStreak=(dates=[],dh={})=>{
+  const s=new Set(dates);
+  const isWorkDay=d=>(dh[DAY_KEYS[(d.getDay()+6)%7]]??8)>0;
+  let cur=new Date();cur.setHours(0,0,0,0);
+  let count=0,iters=0;
+  // Today: if it's a workday and not done yet, don't break — just don't count it, move to yesterday
+  if(isWorkDay(cur)){
+    if(s.has(dStr(cur))){count++;}
+  }
+  cur.setDate(cur.getDate()-1);
+  while(iters++<366){
+    if(isWorkDay(cur)){
+      if(s.has(dStr(cur))){count++;cur.setDate(cur.getDate()-1);}
+      else break;
+    }else{
+      cur.setDate(cur.getDate()-1); // rest day — skip, doesn't break streak
+    }
+  }
+  return count;
+};
 const fmtTimer=secs=>{const s=Math.floor(Math.max(0,secs)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h>0?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;};
 const fmtHrs=h=>{if(h<=0||h<1/60)return"—";if(h<1)return`${Math.round(h*60)} min`;return h===Math.floor(h)?`${h} hrs`:`${h.toFixed(1)} hrs`;};
 const getLiveSecs=t=>{const logTotal=Object.values(t.timeLog??{}).reduce((s,v)=>s+v,0);const legacy=t.timeLog?0:(t.timerSeconds??0);const base=logTotal+legacy;if(!t.timerRunning||!t.timerStartedAt)return base;return base+(Date.now()-t.timerStartedAt)/1000;};
@@ -176,6 +195,10 @@ export default function App(){
   const [showCallGoalModal,setShowCallGoalModal]=useState(false);
   const [showProfile,setShowProfile]=useState(false);
   const [subscribed,setSubscribed]=useState(false);
+  const [templates,setTemplates]=useState([]);
+  const [showApplyTemplate,setShowApplyTemplate]=useState(false);
+  const [showSaveTemplate,setShowSaveTemplate]=useState(false);
+  const [templateNameInput,setTemplateNameInput]=useState("");
   const [showPaywall,setShowPaywall]=useState(false);
   const [checkoutLoading,setCheckoutLoading]=useState(false);
   const [deleteConfirm,setDeleteConfirm]=useState(null); // {type:'folder'|'task', id, name, folderId}
@@ -220,6 +243,7 @@ export default function App(){
           setComplDates(d.completedDates??[]);setBest(d.bestStreak??0);setDayHours(d.dayHours??{});
           if(d.weeklyGoal)setWeeklyGoal(d.weeklyGoal);
           if(d.trialStartDate)setTrialStartDate(d.trialStartDate);
+            if(d.templates)setTemplates(d.templates??[]);
             if(d.subscribed)setSubscribed(d.subscribed??false);
           if(d.isExampleData!==undefined)setIsExampleData(d.isExampleData);
           if(d.folderSnooze)setFolderSnooze(d.folderSnooze);
@@ -255,7 +279,7 @@ export default function App(){
         const ref=doc(db,"users",user.uid);
         await setDoc(ref,{
           folders,tasks,calls,expenses,dayHours,weeklyGoal,folderSnooze,
-          completedDates:complDates,bestStreak,
+          completedDates:complDates,bestStreak,templates,
           ...(trialStartDate&&{trialStartDate}),
           isExampleData
         },{merge:true});
@@ -528,7 +552,7 @@ export default function App(){
     setActiveTask(task);setActiveTaskDk(dk);setPrevView(from??view);setShowRemind(false);setView("task");
   };
   const goBack=()=>{if(prevView==="day")setView("day");else if(prevView==="folder")setView("folder");else if(prevView==="all")setView("all");else setView("home");};
-  const streak=calcStreak(complDates);
+  const streak=calcStreak(complDates,dayHours);
 
   const PinNumpad=({currentPin})=>(
     <div>
@@ -1845,7 +1869,14 @@ export default function App(){
     const folder=folders.find(f=>f.id===activeFolder);if(!folder)return null;
     const ft=folderTasks(activeFolder),dk=todayKey();
     const done=ft.filter(t=>isDone(t,dk)).length,pct=ft.length?Math.round(done/ft.length*100):0;
-    const byDay=DAY_KEYS.map((d,i)=>({d,lbl:DAYS[i],ts:ft.filter(t=>(!t.recurring&&(t.day===d||t.startDate===dateForDK(d)))||(t.recurring&&t.recurringDays?.includes(d)))})).filter(g=>g.ts.length);
+    const todayI=todayIdx();
+    const byDay=DAY_KEYS.map((d,i)=>({d,lbl:DAYS[i],ts:ft.filter(t=>(!t.recurring&&(t.day===d||t.startDate===dateForDK(d)))||(t.recurring&&t.recurringDays?.includes(d)))}))
+      .filter(g=>g.ts.length)
+      .sort((a,b)=>{
+        const da=(DAY_KEYS.indexOf(a.d)-todayI+7)%7;
+        const db=(DAY_KEYS.indexOf(b.d)-todayI+7)%7;
+        return da-db;
+      });
     const mk=monthKey();
     const subCollected=(folder.subCollected??{})[mk]||false;
     const monthPayments=(folder.payments??[]).filter(p=>p.month===mk);
@@ -1924,8 +1955,20 @@ export default function App(){
             </div>
           ))}
         </div>
-        {byDay.map(({d,lbl,ts})=>(<div className="task-grp" key={d}><div className="grp-hdr"><span className="grp-lbl" style={{color:DAY_KEYS.indexOf(d)===todayIdx()?folder.color:"var(--mu)"}}>{lbl}{DAY_KEYS.indexOf(d)===todayIdx()?" · Today":""}</span></div>{sortByAlert(ts).map(t=><TaskRow key={t.id} task={t} dk={d} color={folder.color} from="folder"/>)}</div>))}
+        {byDay.map(({d,lbl,ts})=>{
+          const notDone=sortByAlert(ts.filter(t=>!isDone(t,d)));
+          const done=ts.filter(t=>isDone(t,d));
+          const ordered=[...notDone,...done];
+          return(<div className="task-grp" key={d}><div className="grp-hdr"><span className="grp-lbl" style={{color:DAY_KEYS.indexOf(d)===todayIdx()?folder.color:"var(--mu)"}}>{lbl}{DAY_KEYS.indexOf(d)===todayIdx()?" · Today":""}</span></div>{ordered.map(t=><TaskRow key={t.id} task={t} dk={d} color={folder.color} from="folder"/>)}</div>);
+        })}
         {ft.length===0&&<div className="empty">No tasks yet — add one below</div>}
+
+        {/* Workflow Templates */}
+        <div style={{display:"flex",gap:8,marginTop:16,marginBottom:8,flexWrap:"wrap"}}>
+          <button className="ghost-btn" style={{fontSize:".78rem",padding:"8px 14px"}} onClick={()=>setShowApplyTemplate(true)}>📋 Apply Template</button>
+          {ft.length>0&&<button className="ghost-btn" style={{fontSize:".78rem",padding:"8px 14px"}} onClick={()=>setShowSaveTemplate(true)}>💾 Save as Template</button>}
+        </div>
+
         <AddRow dk={dk} fid={activeFolder} placeholder={`Add task to ${folder.name}...`}/>
         <div style={{display:"flex",gap:8,marginTop:20,flexWrap:"wrap"}}>
           <button className="del-folder-btn" style={{flex:1,background:"none",border:"1px solid rgba(167,139,250,.2)",color:"#a78bfa",minWidth:80}} onClick={()=>pauseFolder(activeFolder)}>Pause client</button>
@@ -2116,6 +2159,44 @@ export default function App(){
       </div>
     </div>
   );
+
+
+  // ── Workflow Templates ────────────────────────────────────────────────────
+  const saveAsTemplate=(folderId,name)=>{
+    const nm=name.trim();if(!nm)return;
+    const ft=tasks.filter(t=>t.folderId===folderId);
+    if(ft.length===0)return;
+    const templateTasks=ft.map(t=>({
+      text:t.text,
+      recurring:!!t.recurring,
+      recurringDays:t.recurring?(t.recurringDays??[]):undefined,
+    }));
+    const newTemplate={id:Date.now(),name:nm,icon:"📋",tasks:templateTasks};
+    setTemplates(p=>[...p,newTemplate]);
+    setShowSaveTemplate(false);setTemplateNameInput("");
+  };
+
+  const deleteTemplate=id=>{
+    setTemplates(p=>p.filter(t=>t.id!==id));
+  };
+
+  const applyTemplate=(folderId,templateId)=>{
+    const tpl=templates.find(t=>t.id===templateId);
+    if(!tpl)return;
+    const today=dStr();
+    const newTasks=tpl.tasks.map((tt,i)=>({
+      id:Date.now()+i,
+      text:tt.text,
+      folderId,
+      timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{},
+      ...(tt.recurring
+        ?{recurring:true,recurringDays:tt.recurringDays?.length?tt.recurringDays:[todayKey()],doneOn:[]}
+        :{recurring:false,done:false,startDate:today,dueDate:null}
+      ),
+    }));
+    setTasks(p=>[...p,...newTasks]);
+    setShowApplyTemplate(false);
+  };
 
   const ProfileView=()=>{
     const [pendingHrsDay,setPendingHrsDay]=useState(hoursFor(todayKey()));
@@ -2432,6 +2513,57 @@ export default function App(){
       <DesktopRightPanel/>
       {showProfile&&<ProfileView/>}
       {trialExpired&&!subscribed&&<PaywallView/>}
+
+
+      {/* Apply Template modal */}
+      {showApplyTemplate&&(
+        <div className="overlay" onClick={()=>setShowApplyTemplate(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">📋 Apply Template</div>
+            {templates.length===0?(
+              <p style={{fontSize:".88rem",color:"var(--mu)",textAlign:"center",padding:"20px 0",lineHeight:1.7}}>No templates yet.<br/>Build a client's task list, then tap "Save as Template" to reuse it for future clients.</p>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16,maxHeight:"50vh",overflowY:"auto"}}>
+                {templates.map(tpl=>(
+                  <div key={tpl.id} onClick={()=>applyTemplate(activeFolder,tpl.id)} style={{
+                    background:"var(--s)",border:"1px solid var(--b)",borderRadius:12,
+                    padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:12,
+                  }}>
+                    <span style={{fontSize:"1.3rem"}}>{tpl.icon}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:".92rem",color:"var(--tx)"}}>{tpl.name}</div>
+                      <div style={{fontSize:".72rem",color:"var(--mu)"}}>{tpl.tasks.length} task{tpl.tasks.length!==1?"s":""}</div>
+                    </div>
+                    <button onClick={e=>{e.stopPropagation();deleteTemplate(tpl.id);}} style={{background:"none",border:"none",color:"var(--mu)",fontSize:"1rem",cursor:"pointer",padding:"4px 8px"}}>🗑</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="modal-btns"><button className="btn-c" onClick={()=>setShowApplyTemplate(false)}>Close</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* Save as Template modal */}
+      {showSaveTemplate&&(
+        <div className="overlay" onClick={()=>setShowSaveTemplate(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">💾 Save as Template</div>
+            <p style={{fontSize:".85rem",color:"var(--mu)",marginBottom:18,lineHeight:1.6}}>
+              Saves this client's task list as a reusable template. Dates and tracked time won't be copied — just the task names and repeat schedules.
+            </p>
+            <div className="modal-lbl">Template name</div>
+            <input className="modal-in" value={templateNameInput} autoFocus
+              onChange={e=>setTemplateNameInput(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&saveAsTemplate(activeFolder,templateNameInput)}
+              placeholder="e.g. Website Build, Meta Ads Setup"/>
+            <div className="modal-btns">
+              <button className="btn-c" onClick={()=>{setShowSaveTemplate(false);setTemplateNameInput("");}}>Cancel</button>
+              <button className="btn-ok" onClick={()=>saveAsTemplate(activeFolder,templateNameInput)} disabled={!templateNameInput.trim()}>Save Template</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation modal */}
       {deleteConfirm&&(
