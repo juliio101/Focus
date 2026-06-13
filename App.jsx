@@ -199,6 +199,7 @@ export default function App(){
   const [showApplyTemplate,setShowApplyTemplate]=useState(false);
   const [showSaveTemplate,setShowSaveTemplate]=useState(false);
   const [templateNameInput,setTemplateNameInput]=useState("");
+  const [templateTaskInputs,setTemplateTaskInputs]=useState([""]);
   const [showPaywall,setShowPaywall]=useState(false);
   const [checkoutLoading,setCheckoutLoading]=useState(false);
   const [deleteConfirm,setDeleteConfirm]=useState(null); // {type:'folder'|'task', id, name, folderId}
@@ -1965,8 +1966,7 @@ export default function App(){
 
         {/* Workflow Templates */}
         <div style={{display:"flex",gap:8,marginTop:16,marginBottom:8,flexWrap:"wrap"}}>
-          <button className="ghost-btn" style={{fontSize:".78rem",padding:"8px 14px"}} onClick={()=>setShowApplyTemplate(true)}>📋 Apply Template</button>
-          {ft.length>0&&<button className="ghost-btn" style={{fontSize:".78rem",padding:"8px 14px"}} onClick={()=>setShowSaveTemplate(true)}>💾 Save as Template</button>}
+          <button className="ghost-btn" style={{fontSize:".78rem",padding:"8px 14px"}} onClick={()=>setShowApplyTemplate(true)}>📋 Add from Template</button>
         </div>
 
         <AddRow dk={dk} fid={activeFolder} placeholder={`Add task to ${folder.name}...`}/>
@@ -2162,18 +2162,12 @@ export default function App(){
 
 
   // ── Workflow Templates ────────────────────────────────────────────────────
-  const saveAsTemplate=(folderId,name)=>{
+  const createTemplate=(name,taskTexts)=>{
     const nm=name.trim();if(!nm)return;
-    const ft=tasks.filter(t=>t.folderId===folderId);
-    if(ft.length===0)return;
-    const templateTasks=ft.map(t=>({
-      text:t.text,
-      recurring:!!t.recurring,
-      recurringDays:t.recurring?(t.recurringDays??[]):undefined,
-    }));
-    const newTemplate={id:Date.now(),name:nm,icon:"📋",tasks:templateTasks};
+    const validTasks=taskTexts.map(t=>t.trim()).filter(Boolean);
+    if(validTasks.length===0)return;
+    const newTemplate={id:Date.now(),name:nm,icon:"📋",tasks:validTasks.map(text=>({text,recurring:false}))};
     setTemplates(p=>[...p,newTemplate]);
-    setShowSaveTemplate(false);setTemplateNameInput("");
   };
 
   const deleteTemplate=id=>{
@@ -2519,11 +2513,11 @@ export default function App(){
       {showApplyTemplate&&(
         <div className="overlay" onClick={()=>setShowApplyTemplate(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()}>
-            <div className="modal-title">📋 Apply Template</div>
+            <div className="modal-title">📋 Add from Template</div>
             {templates.length===0?(
-              <p style={{fontSize:".88rem",color:"var(--mu)",textAlign:"center",padding:"20px 0",lineHeight:1.7}}>No templates yet.<br/>Build a client's task list, then tap "Save as Template" to reuse it for future clients.</p>
+              <p style={{fontSize:".88rem",color:"var(--mu)",textAlign:"center",padding:"10px 0 20px",lineHeight:1.7}}>No templates yet. Create one with your repeatable task list — e.g. "Website Build" or "Meta Ads Setup".</p>
             ):(
-              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16,maxHeight:"50vh",overflowY:"auto"}}>
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16,maxHeight:"45vh",overflowY:"auto"}}>
                 {templates.map(tpl=>(
                   <div key={tpl.id} onClick={()=>applyTemplate(activeFolder,tpl.id)} style={{
                     background:"var(--s)",border:"1px solid var(--b)",borderRadius:12,
@@ -2539,27 +2533,63 @@ export default function App(){
                 ))}
               </div>
             )}
-            <div className="modal-btns"><button className="btn-c" onClick={()=>setShowApplyTemplate(false)}>Close</button></div>
+            <div className="modal-btns">
+              <button className="btn-c" onClick={()=>setShowApplyTemplate(false)}>Close</button>
+              <button className="btn-ok" onClick={()=>{setShowApplyTemplate(false);setTemplateTaskInputs([""]);setTemplateNameInput("");setShowSaveTemplate(true);}}>+ Create Template</button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Save as Template modal */}
+      {/* Create Template modal */}
       {showSaveTemplate&&(
         <div className="overlay" onClick={()=>setShowSaveTemplate(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()}>
-            <div className="modal-title">💾 Save as Template</div>
-            <p style={{fontSize:".85rem",color:"var(--mu)",marginBottom:18,lineHeight:1.6}}>
-              Saves this client's task list as a reusable template. Dates and tracked time won't be copied — just the task names and repeat schedules.
+            <div className="modal-title">📋 Create Template</div>
+            <p style={{fontSize:".85rem",color:"var(--mu)",marginBottom:16,lineHeight:1.6}}>
+              Build a reusable task list. You can apply it to any client in one tap.
             </p>
             <div className="modal-lbl">Template name</div>
             <input className="modal-in" value={templateNameInput} autoFocus
               onChange={e=>setTemplateNameInput(e.target.value)}
-              onKeyDown={e=>e.key==="Enter"&&saveAsTemplate(activeFolder,templateNameInput)}
               placeholder="e.g. Website Build, Meta Ads Setup"/>
+
+            <div className="modal-lbl">Tasks</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12,maxHeight:"32vh",overflowY:"auto"}}>
+              {templateTaskInputs.map((val,i)=>(
+                <div key={i} style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <span style={{fontSize:".78rem",color:"var(--mu)",width:18,flexShrink:0,textAlign:"right"}}>{i+1}.</span>
+                  <input className="modal-in" style={{marginBottom:0,flex:1}} value={val}
+                    placeholder={`Step ${i+1}`}
+                    onChange={e=>{
+                      const next=[...templateTaskInputs];next[i]=e.target.value;setTemplateTaskInputs(next);
+                    }}
+                    onKeyDown={e=>{
+                      if(e.key==="Enter"){
+                        e.preventDefault();
+                        if(i===templateTaskInputs.length-1)setTemplateTaskInputs([...templateTaskInputs,""]);
+                      }
+                    }}
+                  />
+                  {templateTaskInputs.length>1&&(
+                    <button onClick={()=>setTemplateTaskInputs(templateTaskInputs.filter((_,idx)=>idx!==i))} style={{background:"none",border:"none",color:"var(--mu)",fontSize:"1.1rem",cursor:"pointer",padding:"4px 6px",flexShrink:0}}>×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button className="ghost-btn" style={{width:"100%",marginBottom:16,fontSize:".82rem"}} onClick={()=>setTemplateTaskInputs([...templateTaskInputs,""])}>+ Add step</button>
+
             <div className="modal-btns">
-              <button className="btn-c" onClick={()=>{setShowSaveTemplate(false);setTemplateNameInput("");}}>Cancel</button>
-              <button className="btn-ok" onClick={()=>saveAsTemplate(activeFolder,templateNameInput)} disabled={!templateNameInput.trim()}>Save Template</button>
+              <button className="btn-c" onClick={()=>setShowSaveTemplate(false)}>Cancel</button>
+              <button className="btn-ok"
+                onClick={()=>{
+                  createTemplate(templateNameInput,templateTaskInputs);
+                  setShowSaveTemplate(false);
+                  setTemplateNameInput("");setTemplateTaskInputs([""]);
+                  setShowApplyTemplate(true);
+                }}
+                disabled={!templateNameInput.trim()||templateTaskInputs.every(t=>!t.trim())}
+              >Save Template</button>
             </div>
           </div>
         </div>
