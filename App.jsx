@@ -1259,22 +1259,24 @@ export default function App(){
 
 
   const DesktopSidebar=()=>{
-    const activeFolders=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect);
-    const isActive=v=>(v==="today"&&(view==="home"||view==="today"))||(v==="tasks"&&(view==="all"))||(v==="money"&&view==="money")||(v==="insights"&&view==="reports");
+    const activeFolders=folders.filter(f=>!f.archived&&!f.paused&&!f.prospect)
+      .sort((a,b)=>lastActivityDays(a.id)-lastActivityDays(b.id))
+      .slice(0,5);
+    const isActive=v=>(v==="today"&&(view==="home"||view==="today"))||(v==="tasks"&&(view==="all"))||(v==="clients"&&(view==="clients"||(view==="folder")))||(v==="money"&&view==="money")||(v==="insights"&&view==="reports");
     return(
       <div className="desktop-sidebar">
         <div className="ds-top">
           <div className="logo" style={{fontSize:"1rem",padding:"18px 16px 14px",borderBottom:"1px solid var(--b)",display:"block"}}>effingFocus<em>.</em></div>
         </div>
         <nav className="ds-nav">
-          {[["today","⏱","Today"],["tasks","📋","Tasks"],["money","💰","Money"],["insights","📈","Insights"]].map(([v,ic,lbl])=>(
+          {[["today","⏱","Today"],["tasks","📋","Tasks"],["clients","👥","Clients"],["money","💰","Money"],["insights","📈","Insights"]].map(([v,ic,lbl])=>(
             <div key={v} className={`ds-nav-item${isActive(v)?" active":""}`} onClick={()=>{if(v==="today")goHome();else if(v==="tasks")setView("all");else if(v==="insights")setView("reports");else setView(v);}}>
               <span className="ds-nav-icon">{ic}</span><span>{lbl}</span>
               {isActive(v)&&<div className="ds-nav-dot"/>}
             </div>
           ))}
         </nav>
-        <div className="ds-section-lbl">Clients</div>
+        <div className="ds-section-lbl">Recent Clients</div>
         <div className="ds-client-list">
           {activeFolders.map(f=>(
             <div key={f.id} className={`ds-client-item${activeFolder===f.id&&view==="folder"?" active":""}`} onClick={()=>goFolder(f.id)}>
@@ -2532,6 +2534,7 @@ export default function App(){
         <div className="tab-bar">
           <button className={`tab-btn${(view==="home"||view==="today"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}><span className="tab-icon">⏱</span><span className="tab-lbl">Today</span><div className="tab-dot"/></button>
           <button className={`tab-btn${view==="all"?" active":""}`} onClick={()=>setView("all")}><span className="tab-icon">📋</span><span className="tab-lbl">Tasks</span><div className="tab-dot"/></button>
+          <button className={`tab-btn${view==="clients"?" active":""}`} onClick={()=>setView("clients")}><span className="tab-icon">👥</span><span className="tab-lbl">Clients</span><div className="tab-dot"/></button>
           <button className={`tab-btn${view==="money"?" active":""}`} onClick={()=>setView("money")}><span className="tab-icon">💰</span><span className="tab-lbl">Money</span><div className="tab-dot"/></button>
           <button className={`tab-btn${(view==="reports"||view==="insights")?" active":""}`} onClick={()=>setView("reports")}><span className="tab-icon">📈</span><span className="tab-lbl">Insights</span><div className="tab-dot"/></button>
         </div>
