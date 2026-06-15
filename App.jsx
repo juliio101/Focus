@@ -390,7 +390,7 @@ export default function App(){
     setDeleteConfirm({type:"task",id,name:t?.text||"this task"});
   };
   const confirmDeleteTask=id=>{setTasks(p=>p.filter(t=>t.id!==id));setDeleteConfirm(null);if(activeTask?.id===id)setActiveTask(null);};
-  const uncompleteTask=()=>{if(!activeTask)return;const dk=activeTaskDk;setTasks(prev=>prev.map(t=>{if(t.id!==activeTask.id)return t;if(!t.recurring)return{...t,done:false};return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==dateForDK(dk))};}));goBack();};
+  const uncompleteTask=()=>{if(!activeTask)return;const dk=activeTaskDk;setTasks(prev=>prev.map(t=>{if(t.id!==activeTask.id)return t;if(!t.recurring)return{...t,done:false,completedDate:null};return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==dateForDK(dk))};}));goBack();};
   const deleteActiveTask=()=>{if(!activeTask)return;setTasks(p=>p.filter(t=>t.id!==activeTask.id));goBack();};
   const saveEditTask=()=>{
     const txt=editTaskText.trim();if(!txt)return;
@@ -441,7 +441,7 @@ export default function App(){
         if(t.id!==activeTask.id)return t;
         let ts=t.timerSeconds??0;const log={...(t.timeLog??{})};
         if(t.timerRunning&&t.timerStartedAt){const el=Math.floor((now-t.timerStartedAt)/1000);const date=dStr(new Date(t.timerStartedAt));log[date]=(log[date]??0)+el;ts+=el;}
-        if(!t.recurring)return{...t,done:true,timerRunning:false,timerStartedAt:null,timerSeconds:ts,timeLog:log};
+        if(!t.recurring)return{...t,done:true,completedDate:dStr(),timerRunning:false,timerStartedAt:null,timerSeconds:ts,timeLog:log};
         return{...t,doneOn:[...(t.doneOn??[]),dateForDK(dk)],timerRunning:false,timerStartedAt:null,timerSeconds:ts,timeLog:log};
       });
       if(remindDays){const f=new Date();f.setDate(f.getDate()+remindDays);f.setHours(0,0,0,0);next=[...next,{id:Date.now(),text:activeTask.text,folderId:activeTask.folderId,recurring:false,day:DAY_KEYS[(f.getDay()+6)%7],startDate:dStr(f),done:false,timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{},isReminder:true}];}
@@ -1324,67 +1324,81 @@ export default function App(){
 
   const calcBossScore=()=>{
     try{
-    let score=20;
-    const tips=[];
     const todayStr=dStr();
-    const todayDk=todayKey();
-    const todayDate=dateForDK(todayDk);
     const activeClientIds=new Set(folders.filter(f=>!f.archived&&!f.paused&&!f.prospect).map(f=>f.id));
-
-    // 1. Hours tracked today — the BIGGEST factor (+0 to +45)
-    //    +0 to +35 for reaching the daily goal, +0 to +10 bonus for overtime (up to 2x goal)
-    const todaySecs=tasks.reduce((s,t)=>s+(t.timeLog?.[todayStr]??0),0);
-    const todayHrs=todaySecs/3600;
-    const dailyGoalHrs=hoursFor(todayDk)||8;
-    const todayPct=Math.min(1,todayHrs/dailyGoalHrs);
-    const basePoints=Math.round(todayPct*35);
-    const overPct=todayHrs>dailyGoalHrs?Math.min(1,(todayHrs-dailyGoalHrs)/dailyGoalHrs):0;
-    const overtimeBonus=Math.round(overPct*10);
-    score+=basePoints+overtimeBonus;
-    if(todayPct===0)tips.push("No time tracked today. Start the timer.");
-    else if(todayPct<0.5)tips.push(`${Math.round(todayPct*100)}% of your daily goal done. Keep pushing.`);
-
-    // 2. Tasks completed today (+10 each, max +15)
-    const doneNR=tasks.filter(t=>!t.recurring&&t.done&&activeClientIds.has(t.folderId)).length;
-    const doneRec=tasks.filter(t=>t.recurring&&(t.doneOn??[]).includes(todayDate)&&activeClientIds.has(t.folderId)).length;
-    const doneTodayCount=doneNR+doneRec;
-    score+=Math.min(15,doneTodayCount*10);
-    if(doneTodayCount>0&&!tips.length)tips.push(`${doneTodayCount} task${doneTodayCount>1?"s":""} done today. Nice work.`);
-
-    // 3. Calls made today (+5 each, max +10)
     const allCalls=[...(calls.client??[]),...(calls.outreach??[])];
-    const todayCalls=allCalls.filter(c=>c.date===todayStr).length;
-    score+=Math.min(10,todayCalls*5);
-    if(todayCalls>0&&!tips.length)tips.push(`${todayCalls} call${todayCalls>1?"s":""} logged today.`);
 
-    // 4. Active days this week (+2 each, max +10)
-    let activeDays=0;
-    for(let i=0;i<7;i++){
-      const d=dStr(new Date(Date.now()-i*86400000));
-      if(tasks.some(t=>(t.timeLog?.[d]??0)>0))activeDays++;
-    }
-    score+=Math.min(10,activeDays*2);
-
-    // Positive tip for overtime — only surfaces if nothing else is flagged
-    if(overtimeBonus>0&&!tips.length)tips.push("You're putting in extra hours today. That counts.");
-
-    // 5. Overdue tasks (-12 each, max -24)
+    // ── Deductions — current state, applied equally to both windows ─────────
     const overdueTasks=tasks.filter(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<todayStr&&activeClientIds.has(t.folderId));
-    score-=Math.min(24,overdueTasks.length*12);
-    if(overdueTasks.length>0)tips.push(`${overdueTasks.length} overdue task${overdueTasks.length>1?"s":""} pulling your score down.`);
-
-    // 6. Neglected clients (-8 each, max -16)
     const neglected=[...activeClientIds].map(id=>folders.find(f=>f.id===id)).filter(f=>f&&lastActivityDays(f.id)>=7);
-    score-=Math.min(16,neglected.length*8);
-    if(neglected.length>0&&!tips.length)tips.push(`${neglected.length} client${neglected.length>1?"s haven't":"hasn't"} heard from you in 7+ days.`);
-
-    // 7. Pending payments (-5 each, max -10)
     const mk=monthKey();
     const pendingPay=[...activeClientIds].map(id=>folders.find(f=>f.id===id)).filter(f=>f&&(f.monthlyValue||0)>0&&!(f.subCollected??{})[mk]);
-    score-=Math.min(10,pendingPay.length*5);
+    const deductions=Math.min(24,overdueTasks.length*12)+Math.min(16,neglected.length*8)+Math.min(10,pendingPay.length*5);
+
+    // ── Rolling 7-day window — offset 0 = today...6 days ago, offset 1 = yesterday...7 days ago ─
+    const computeWindow=startOffset=>{
+      let hoursProgressTotal=0,bonusHrsTotal=0,taskCount=0,callCount=0,activeDaysCount=0;
+      for(let i=startOffset;i<startOffset+7;i++){
+        const d=new Date(Date.now()-i*86400000);
+        const dateStr=dStr(d);
+        const dayKey=DAY_KEYS[(d.getDay()+6)%7];
+        const goalHrs=dayHours[dayKey]??8;
+        const actualSecs=tasks.reduce((s,t)=>s+(t.timeLog?.[dateStr]??0),0);
+        const actualHrs=actualSecs/3600;
+
+        if(goalHrs>0){
+          hoursProgressTotal+=Math.min(1,actualHrs/goalHrs);
+          if(actualHrs>goalHrs)bonusHrsTotal+=(actualHrs-goalHrs);
+        }else if(actualHrs>0){
+          bonusHrsTotal+=actualHrs; // worked on a rest day — pure bonus
+        }
+
+        if(actualHrs>0)activeDaysCount++;
+
+        const doneRec=tasks.filter(t=>t.recurring&&(t.doneOn??[]).includes(dateStr)&&activeClientIds.has(t.folderId)).length;
+        const doneNR=tasks.filter(t=>!t.recurring&&t.completedDate===dateStr&&activeClientIds.has(t.folderId)).length;
+        taskCount+=doneRec+doneNR;
+
+        callCount+=allCalls.filter(c=>c.date===dateStr).length;
+      }
+
+      let s=15; // base
+      s+=Math.round((hoursProgressTotal/7)*40); // up to +40 — hours vs goal, averaged over the week
+      s+=Math.min(10,Math.round(bonusHrsTotal)); // +1 per hour of overtime/rest-day work, max +10
+      s+=Math.min(15,taskCount*3); // up to +15
+      s+=Math.min(10,callCount*2); // up to +10
+      s+=Math.min(10,activeDaysCount*2); // up to +10
+      s-=deductions;
+      return Math.max(0,Math.min(100,Math.round(s)));
+    };
+
+    const score=computeWindow(0);
+    const yesterdayScore=computeWindow(1);
+    const delta=score-yesterdayScore;
+
+    // ── Tips — based on today specifically, then deductions ─────────────────
+    const tips=[];
+    const todayKeyDk=DAY_KEYS[(new Date().getDay()+6)%7];
+    const todayGoalHrs=dayHours[todayKeyDk]??8;
+    const todaySecs=tasks.reduce((s,t)=>s+(t.timeLog?.[todayStr]??0),0);
+    const todayHrs=todaySecs/3600;
+    if(todayGoalHrs>0){
+      if(todayHrs===0)tips.push("No time tracked today. Start the timer.");
+      else if(todayHrs<todayGoalHrs*0.5)tips.push(`${Math.round((todayHrs/todayGoalHrs)*100)}% of today's goal done. Keep pushing.`);
+      else if(todayHrs>todayGoalHrs)tips.push("You're putting in extra hours today. That counts.");
+    }else if(todayHrs>0){
+      tips.push("Working on your day off? That's bonus points.");
+    }
+
+    if(overdueTasks.length>0)tips.push(`${overdueTasks.length} overdue task${overdueTasks.length>1?"s":""} pulling your score down.`);
+    if(neglected.length>0&&!tips.length)tips.push(`${neglected.length} client${neglected.length>1?"s haven't":"hasn't"} heard from you in 7+ days.`);
     if(pendingPay.length>0&&!tips.length)tips.push(`${pendingPay.length} payment${pendingPay.length>1?"s":""} pending this month.`);
 
-    score=Math.max(0,Math.min(100,Math.round(score)));
+    if(!tips.length){
+      if(delta>0)tips.push(`Trending up — your score is +${delta} from yesterday.`);
+      else if(delta<0)tips.push(`Trending down — your score is ${delta} from yesterday.`);
+    }
+
     let band,color,emoji;
     if(score>=85){band="Excellent";color="#34d399";emoji="🟢";}
     else if(score>=65){band="Good";color="#a3e635";emoji="🟡";}
@@ -1392,8 +1406,8 @@ export default function App(){
     else if(score>=25){band="At Risk";color="#fb923c";emoji="🟠";}
     else{band="Critical";color="#ef4444";emoji="🔴";}
     const tip=tips.length>0?tips[0]:"Your boss is impressed. Keep it up.";
-    return{score,band,color,emoji,tip};
-    }catch(e){console.error("Boss score error:",e);return{score:50,band:"Fair",color:"#fbbf24",emoji:"🟡",tip:"Tracking your progress..."};}
+    return{score,band,color,emoji,tip,delta};
+    }catch(e){console.error("Boss score error:",e);return{score:50,band:"Fair",color:"#fbbf24",emoji:"🟡",tip:"Tracking your progress...",delta:0};}
   };
 
   const DesktopRightPanel=()=>{
@@ -1417,11 +1431,18 @@ export default function App(){
       <div className="desktop-right">
         <div className="dr-section">
           {(()=>{
-            let score=50,band="Fair",color="#fbbf24",tip="Tracking your progress...";
-            try{const r=calcBossScore();score=r.score;band=r.band;color=r.color;tip=r.tip;}catch(e){}
+            let score=50,band="Fair",color="#fbbf24",tip="Tracking your progress...",delta=0;
+            try{const r=calcBossScore();score=r.score;band=r.band;color=r.color;tip=r.tip;delta=r.delta??0;}catch(e){}
             return(
               <>
-                <div className="dr-label" style={{marginBottom:14}}>Boss Score</div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+                  <div className="dr-label" style={{marginBottom:0}}>Boss Score</div>
+                  {delta!==0&&(
+                    <div style={{display:"flex",alignItems:"center",gap:3,background:`${delta>0?"#34d399":"#ef4444"}15`,borderRadius:99,padding:"3px 9px"}}>
+                      <span style={{fontSize:".68rem",fontWeight:800,color:delta>0?"#34d399":"#ef4444"}}>{delta>0?"▲":"▼"} {Math.abs(delta)}</span>
+                    </div>
+                  )}
+                </div>
                 <div style={{textAlign:"center",marginBottom:10}}>
                   <div style={{fontFamily:"'DM Mono',monospace",fontSize:"3.8rem",fontWeight:700,color:color,letterSpacing:"-3px",lineHeight:1,marginBottom:8}}>{score}</div>
                   <div style={{display:"inline-flex",alignItems:"center",gap:6,background:`${color}15`,border:`1px solid ${color}30`,borderRadius:99,padding:"4px 14px"}}>
@@ -1688,8 +1709,8 @@ export default function App(){
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
           {/* Time Hero + Boss Score side by side */}
           {(()=>{
-            let score=50,band="Fair",color="#fbbf24",tip="Tracking your progress...";
-            try{const r=calcBossScore();score=r.score;band=r.band;color=r.color;tip=r.tip;}catch(e){}
+            let score=50,band="Fair",color="#fbbf24",tip="Tracking your progress...",delta=0;
+            try{const r=calcBossScore();score=r.score;band=r.band;color=r.color;tip=r.tip;delta=r.delta??0;}catch(e){}
             return(
               <>
                 <div style={{display:"flex",gap:10,marginBottom:10}}>
@@ -1700,10 +1721,15 @@ export default function App(){
                     flex:1,minHeight:140,
                     background:`linear-gradient(135deg,${color}28,${color}14)`,
                     border:`1px solid ${color}40`,
-                    borderRadius:"var(--r2)",padding:"16px 12px",
+                    borderRadius:"var(--r2)",padding:"16px 12px",position:"relative",
                     display:"flex",flexDirection:"column",
                     alignItems:"center",justifyContent:"center",textAlign:"center",gap:8,
                   }}>
+                    {delta!==0&&(
+                      <div style={{position:"absolute",top:10,right:10,display:"flex",alignItems:"center",gap:2,background:"rgba(0,0,0,.3)",borderRadius:99,padding:"2px 8px"}}>
+                        <span style={{fontSize:".62rem",fontWeight:800,color:delta>0?"#34d399":"#ef4444"}}>{delta>0?"▲":"▼"} {Math.abs(delta)}</span>
+                      </div>
+                    )}
                     <div style={{fontSize:".58rem",fontWeight:700,color:`${color}cc`,textTransform:"uppercase",letterSpacing:".14em"}}>Boss Score</div>
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:"2.6rem",fontWeight:700,color:"#fff",letterSpacing:"-2px",lineHeight:1}}>{score}</div>
                     <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"rgba(0,0,0,.25)",borderRadius:99,padding:"4px 11px"}}>
@@ -2637,20 +2663,19 @@ export default function App(){
         </div>
       )}
 
-      {/* Trial countdown banner */}
-      {trialStartDate&&!trialExpired&&trialDaysLeft<=5&&(
-        <div style={{position:"fixed",top:"calc(var(--safe-top) + 0px)",left:0,right:0,
-          background:trialDaysLeft<=2?"rgba(239,68,68,.95)":"rgba(251,146,60,.95)",
-          backdropFilter:"blur(10px)",zIndex:180,
-          padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",
-          boxShadow:"0 2px 12px rgba(0,0,0,.3)"
+      {/* Trial countdown — small subtle pill, last day only */}
+      {trialStartDate&&!trialExpired&&trialDaysLeft<=1&&(
+        <div onClick={()=>setShowProfile(true)} style={{
+          position:"fixed",top:"calc(var(--safe-top) + 10px)",right:12,
+          background:"rgba(239,68,68,.12)",border:"1px solid rgba(239,68,68,.3)",
+          borderRadius:99,zIndex:180,cursor:"pointer",
+          padding:"6px 12px",display:"flex",alignItems:"center",gap:6,
+          backdropFilter:"blur(10px)",
         }}>
-          <span style={{fontSize:".82rem",color:"#fff",fontWeight:700}}>
-            {trialDaysLeft===0?"Your trial has expired":"⏰ "+trialDaysLeft+" day"+(trialDaysLeft!==1?"s":"")+" left on your free trial"}
+          <span style={{fontSize:".7rem",color:"#ef4444",fontWeight:700}}>
+            {trialDaysLeft===0?"Trial ends today":"1 day left"}
           </span>
-          <button onClick={()=>setShowProfile(true)} style={{background:"rgba(255,255,255,.25)",border:"1px solid rgba(255,255,255,.4)",color:"#fff",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:".78rem",fontWeight:700,whiteSpace:"nowrap"}}>
-            Upgrade →
-          </button>
+          <span style={{fontSize:".7rem",color:"#ef4444",opacity:.7}}>→</span>
         </div>
       )}
 
