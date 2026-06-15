@@ -1324,33 +1324,37 @@ export default function App(){
 
   const calcBossScore=()=>{
     try{
-    let score=30;
+    let score=20;
     const tips=[];
     const todayStr=dStr();
     const todayDk=todayKey();
     const todayDate=dateForDK(todayDk);
     const activeClientIds=new Set(folders.filter(f=>!f.archived&&!f.paused&&!f.prospect).map(f=>f.id));
 
-    // 1. Hours tracked today (+0 to +30) — timeLog keyed by dStr()
+    // 1. Hours tracked today — the BIGGEST factor (+0 to +45)
+    //    +0 to +35 for reaching the daily goal, +0 to +10 bonus for overtime (up to 2x goal)
     const todaySecs=tasks.reduce((s,t)=>s+(t.timeLog?.[todayStr]??0),0);
     const todayHrs=todaySecs/3600;
     const dailyGoalHrs=hoursFor(todayDk)||8;
     const todayPct=Math.min(1,todayHrs/dailyGoalHrs);
-    score+=Math.round(todayPct*30);
+    const basePoints=Math.round(todayPct*35);
+    const overPct=todayHrs>dailyGoalHrs?Math.min(1,(todayHrs-dailyGoalHrs)/dailyGoalHrs):0;
+    const overtimeBonus=Math.round(overPct*10);
+    score+=basePoints+overtimeBonus;
     if(todayPct===0)tips.push("No time tracked today. Start the timer.");
     else if(todayPct<0.5)tips.push(`${Math.round(todayPct*100)}% of your daily goal done. Keep pushing.`);
 
-    // 2. Tasks completed today (+10 each, max +20)
+    // 2. Tasks completed today (+10 each, max +15)
     const doneNR=tasks.filter(t=>!t.recurring&&t.done&&activeClientIds.has(t.folderId)).length;
     const doneRec=tasks.filter(t=>t.recurring&&(t.doneOn??[]).includes(todayDate)&&activeClientIds.has(t.folderId)).length;
     const doneTodayCount=doneNR+doneRec;
-    score+=Math.min(20,doneTodayCount*10);
+    score+=Math.min(15,doneTodayCount*10);
     if(doneTodayCount>0&&!tips.length)tips.push(`${doneTodayCount} task${doneTodayCount>1?"s":""} done today. Nice work.`);
 
-    // 3. Calls made today (+8 each, max +16)
+    // 3. Calls made today (+5 each, max +10)
     const allCalls=[...(calls.client??[]),...(calls.outreach??[])];
     const todayCalls=allCalls.filter(c=>c.date===todayStr).length;
-    score+=Math.min(16,todayCalls*8);
+    score+=Math.min(10,todayCalls*5);
     if(todayCalls>0&&!tips.length)tips.push(`${todayCalls} call${todayCalls>1?"s":""} logged today.`);
 
     // 4. Active days this week (+2 each, max +10)
@@ -1360,6 +1364,9 @@ export default function App(){
       if(tasks.some(t=>(t.timeLog?.[d]??0)>0))activeDays++;
     }
     score+=Math.min(10,activeDays*2);
+
+    // Positive tip for overtime — only surfaces if nothing else is flagged
+    if(overtimeBonus>0&&!tips.length)tips.push("You're putting in extra hours today. That counts.");
 
     // 5. Overdue tasks (-12 each, max -24)
     const overdueTasks=tasks.filter(t=>!t.done&&!t.recurring&&t.dueDate&&t.dueDate<todayStr&&activeClientIds.has(t.folderId));
