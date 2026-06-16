@@ -202,6 +202,7 @@ export default function App(){
   const [templateTaskInputs,setTemplateTaskInputs]=useState([""]);
   const [showPaywall,setShowPaywall]=useState(false);
   const [checkoutLoading,setCheckoutLoading]=useState(false);
+  const [selectedPlan,setSelectedPlan]=useState("monthly");
   const [deleteConfirm,setDeleteConfirm]=useState(null); // {type:'folder'|'task', id, name, folderId}
   const [isExampleData,setIsExampleData]=useState(false);
   const [trialStartDate,setTrialStartDate]=useState(null);
@@ -2192,10 +2193,11 @@ export default function App(){
         <p style={{fontSize:".95rem",color:"var(--mu)",lineHeight:1.7,marginBottom:32}}>Your data is safe. Upgrade to keep your clients, time tracking, Boss Score, and everything you built during your trial.</p>
 
         {/* Monthly plan */}
-        <div onClick={()=>startCheckout("monthly")} style={{
-          background:"var(--s)",border:"2px solid #6366f1",borderRadius:16,
+        <div onClick={()=>setSelectedPlan("monthly")} style={{
+          background:selectedPlan==="monthly"?"var(--s)":"transparent",
+          border:`2px solid ${selectedPlan==="monthly"?"#6366f1":"var(--b2)"}`,borderRadius:16,
           padding:"20px 24px",marginBottom:12,cursor:"pointer",
-          transition:"transform .15s",
+          transition:"all .15s",
         }}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
             <span style={{fontWeight:700,fontSize:"1rem",color:"var(--tx)"}}>Monthly</span>
@@ -2205,9 +2207,11 @@ export default function App(){
         </div>
 
         {/* Yearly plan */}
-        <div onClick={()=>startCheckout("yearly")} style={{
-          background:"rgba(99,102,241,.08)",border:"2px solid rgba(99,102,241,.3)",borderRadius:16,
+        <div onClick={()=>setSelectedPlan("yearly")} style={{
+          background:selectedPlan==="yearly"?"rgba(99,102,241,.12)":"transparent",
+          border:`2px solid ${selectedPlan==="yearly"?"#6366f1":"var(--b2)"}`,borderRadius:16,
           padding:"20px 24px",marginBottom:24,cursor:"pointer",position:"relative",overflow:"hidden",
+          transition:"all .15s",
         }}>
           <div style={{position:"absolute",top:10,right:10,background:"#6366f1",color:"#fff",fontSize:".65rem",fontWeight:700,borderRadius:99,padding:"3px 10px"}}>SAVE 31%</div>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
@@ -2217,12 +2221,12 @@ export default function App(){
           <div style={{fontSize:".8rem",color:"var(--mu)",textAlign:"left"}}>$8.25/month — best value.</div>
         </div>
 
-        <button onClick={()=>startCheckout("monthly")} disabled={checkoutLoading} style={{
+        <button onClick={()=>startCheckout(selectedPlan)} disabled={checkoutLoading} style={{
           width:"100%",background:"#6366f1",color:"#fff",border:"none",
           borderRadius:12,padding:"16px",cursor:"pointer",
           fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:"1rem",
           marginBottom:12,opacity:checkoutLoading?.7:1,
-        }}>{checkoutLoading?"Opening payment page...":"Upgrade now →"}</button>
+        }}>{checkoutLoading?"Opening payment page...":`Upgrade — ${selectedPlan==="yearly"?"$99/yr":"$12/mo"} →`}</button>
 
         <p style={{fontSize:".75rem",color:"var(--mu)"}}>Secure payment via Stripe · Your data is never deleted</p>
       </div>
