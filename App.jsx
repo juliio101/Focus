@@ -1916,7 +1916,9 @@ export default function App(){
     const mk=monthKey();
     const subCollected=(folder.subCollected??{})[mk]||false;
     const monthPayments=(folder.payments??[]).filter(p=>p.month===mk);
-    const monthSecs=ft.reduce((s,t)=>s+Object.values(t.timeLog??{}).reduce((a,b)=>a+b,0),0);
+    const taskSecs=ft.reduce((s,t)=>s+Object.values(t.timeLog??{}).reduce((a,b)=>a+b,0),0);
+    const clientCallSecs=(calls.client??[]).filter(c=>c.folderId===folder.id).reduce((s,c)=>s+c.duration*60,0);
+    const monthSecs=taskSecs+clientCallSecs;
     const monthHrs=fmtHrs(monthSecs/3600);
     const totalCollected=(folder.monthlyValue&&subCollected?folder.monthlyValue:0)+(monthPayments.filter(p=>p.status==="collected").reduce((s,p)=>s+(p.amount||0),0));
     const totalPending=(folder.monthlyValue&&!subCollected?folder.monthlyValue:0)+(monthPayments.filter(p=>p.status!=="collected").reduce((s,p)=>s+(p.amount||0),0));
