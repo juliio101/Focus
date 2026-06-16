@@ -209,20 +209,38 @@ export default function App(){
   const [pendingClientGoal,setPendingClientGoal]=useState(5);
   const [pendingOutreachGoal,setPendingOutreachGoal]=useState(20);
 
-  useEffect(()=>{const hasRunning=tasks.some(t=>t.timerRunning);if(!hasRunning&&!isLocked)return;const iv=setInterval(()=>setTick(t=>t+1),1000);return()=>clearInterval(iv);},[tasks,isLocked]);
+  // Global tick removed — title/lock effects are now self-contained (see below). Live timer displays self-tick locally via useLiveSeconds.
   useEffect(()=>{if(activeTask){const u=tasks.find(t=>t.id===activeTask.id);if(u)setActiveTask(u);}},[tasks]);
+  const tasksRef=useRef(tasks);
+  useEffect(()=>{tasksRef.current=tasks;},[tasks]);
   useEffect(()=>{
-    const running=tasks.find(t=>t.timerRunning);
-    if(running&&running.timerStartedAt){
-      const secs=Math.floor((Date.now()-running.timerStartedAt)/1000);
-      const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60),s=secs%60;
-      const time=h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-      document.title=`${time} · effingFocus`;
-    }else{
-      document.title="effingFocus";
-    }
-  },[tick,tasks]);
-  useEffect(()=>{if(!isLocked||!lockEndTime||lockDone)return;if(Date.now()>=lockEndTime){setLockDone(true);playWin();setConfetti(true);if(user)setDoc(doc(db,"users",user.uid),{activeLock:null},{merge:true}).catch(()=>{});}},[tick,isLocked,lockEndTime,lockDone]);
+    const updateTitle=()=>{
+      const running=tasksRef.current.find(t=>t.timerRunning);
+      if(running&&running.timerStartedAt){
+        const secs=Math.floor((Date.now()-running.timerStartedAt)/1000);
+        const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60),s=secs%60;
+        const time=h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+        document.title=`${time} · effingFocus`;
+      }else{
+        document.title="effingFocus";
+      }
+    };
+    updateTitle();
+    const iv=setInterval(updateTitle,1000);
+    return()=>clearInterval(iv);
+  },[]);
+  useEffect(()=>{
+    if(!isLocked||!lockEndTime||lockDone)return;
+    const checkExpiry=()=>{
+      if(Date.now()>=lockEndTime){
+        setLockDone(true);playWin();setConfetti(true);
+        if(user)setDoc(doc(db,"users",user.uid),{activeLock:null},{merge:true}).catch(()=>{});
+      }
+    };
+    checkExpiry();
+    const iv=setInterval(checkExpiry,1000);
+    return()=>clearInterval(iv);
+  },[isLocked,lockEndTime,lockDone,user]);
   useEffect(()=>{const unsub=onAuthStateChanged(auth,u=>{setUser(u);setAuthLoading(false);});return unsub;},[]);
 
   useEffect(()=>{
@@ -576,6 +594,7 @@ export default function App(){
   };
 
   const TaskRow=({task,dk,color,from})=>{
+    const [,bump]=useState(0);useEffect(()=>{if(!task.timerRunning)return;const iv=setInterval(()=>bump(x=>x+1),1000);return()=>clearInterval(iv);},[task.timerRunning]);
     const done=isDone(task,dk),secs=getLiveSecs(task),isRunning=task.timerRunning;
     const today=dStr();
     const alertColor=task.alert==="red"?"#ef4444":task.alert==="yellow"?"#fbbf24":null;
@@ -691,6 +710,7 @@ export default function App(){
   };
 
   const RingsCard=({dk})=>{
+    const [,bump]=useState(0);useEffect(()=>{if(!tasks.some(t=>t.timerRunning))return;const iv=setInterval(()=>bump(x=>x+1),1000);return()=>clearInterval(iv);},[tasks]);
     const hp=hoursPct(dk),wp=weekPct(),st=secsTracked(dk);
     const hasTimeData=weekSecsTotal()>0;
     return(
@@ -719,6 +739,7 @@ export default function App(){
 
 
   const TimeHeroCard=({dk})=>{
+    const [,bump]=useState(0);useEffect(()=>{if(!tasks.some(t=>t.timerRunning))return;const iv=setInterval(()=>bump(x=>x+1),1000);return()=>clearInterval(iv);},[tasks]);
     const st=secsTracked(dk),pct=hoursPct(dk);
     const isRunning=tasks.some(t=>t.timerRunning);
     const r=36,circ=2*Math.PI*r,offset=circ*(1-Math.min(pct,100)/100);
@@ -807,6 +828,7 @@ export default function App(){
   };
 
   const RunningTimerBanner=()=>{
+    const [,bump]=useState(0);useEffect(()=>{if(!tasks.some(t=>t.timerRunning))return;const iv=setInterval(()=>bump(x=>x+1),1000);return()=>clearInterval(iv);},[tasks]);
     const running=tasks.find(t=>t.timerRunning);
     if(!running)return null;
     const folder=folders.find(f=>f.id===running.folderId);
@@ -2019,6 +2041,14 @@ export default function App(){
   };
 
   const TaskDetailView=()=>{
+    const [,bump]=useState(0);
+    useEffect(()=>{
+      if(!activeTask)return;
+      const t=tasks.find(x=>x.id===activeTask.id);
+      if(!t||!t.timerRunning)return;
+      const iv=setInterval(()=>bump(x=>x+1),1000);
+      return()=>clearInterval(iv);
+    },[activeTask,tasks]);
     if(!activeTask)return null;
     const task=tasks.find(t=>t.id===activeTask.id)??activeTask;
     const dk=activeTaskDk,done=isDone(task,dk),secs=getLiveSecs(task),isRunning=task.timerRunning;
