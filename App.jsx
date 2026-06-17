@@ -227,6 +227,7 @@ export default function App(){
   const [pinStep,setPinStep]=useState(1);
   const [pinError,setPinError]=useState("");
   const [obStep,setObStep]=useState(0);
+  const [tourStep,setTourStep]=useState(0);
   const [obFolderName,setObFolderName]=useState("");
   const [obFolderColor,setObFolderColor]=useState(COLORS[1]);
   const [obFolderIcon,setObFolderIcon]=useState("💼");
@@ -347,7 +348,7 @@ export default function App(){
           if(window.fbq)window.fbq('track','StartTrial');
           setFolders(fresh.folders);setTasks(fresh.tasks);setCalls(fresh.calls);setExpenses([]);setComplDates([]);setBest(0);setDayHours({});
           setTrialStartDate(trialStart);setIsExampleData(true);
-          setUserPin(null);setIsLocked(false);setObStep(1);
+          setUserPin(null);setIsLocked(false);setTourStep(1);
           setSyncStatus("success");return;
         }
         setSyncStatus("success");
@@ -1383,7 +1384,7 @@ export default function App(){
         </div>
         <nav className="ds-nav">
           {[["today","⏱","Today"],["tasks","📋","Tasks"],["clients","👥","Clients"],["money","💰","Money"],["insights","📈","Insights"]].map(([v,ic,lbl])=>(
-            <div key={v} className={`ds-nav-item${isActive(v)?" active":""}`} onClick={()=>{if(v==="today")goHome();else if(v==="tasks")setView("all");else if(v==="insights")setView("reports");else setView(v);}}>
+            <div key={v} data-tour={v==="clients"?"clients-nav":undefined} className={`ds-nav-item${isActive(v)?" active":""}`} onClick={()=>{if(v==="today")goHome();else if(v==="tasks")setView("all");else if(v==="insights")setView("reports");else setView(v);}}>
               <span className="ds-nav-icon">{ic}</span><span>{lbl}</span>
               {isActive(v)&&<div className="ds-nav-dot"/>}
             </div>
@@ -1544,7 +1545,7 @@ export default function App(){
     }).filter(p=>p.priority>0).sort((a,b)=>b.priority-a.priority)[0];
     return(
       <div className="desktop-right">
-        <div className="dr-section">
+        <div className="dr-section" data-tour="boss-score">
           {(()=>{
             let score=50,band="Fair",color="#fbbf24",tip="Tracking your progress...",delta=0;
             try{const r=calcBossScore();score=r.score;band=r.band;color=r.color;tip=r.tip;delta=r.delta??0;}catch(e){}
@@ -1703,7 +1704,7 @@ export default function App(){
               fontSize:".78rem",fontWeight:600,fontFamily:"'Inter',sans-serif",
             }}>{l}</button>
           ))}
-          <button className="ghost-btn" style={{marginLeft:"auto",padding:"7px 14px",fontSize:".82rem"}} onClick={()=>setShowFolderModal(true)}>+ New Client</button>
+          <button data-tour="add-client" className="ghost-btn" style={{marginLeft:"auto",padding:"7px 14px",fontSize:".82rem"}} onClick={()=>setShowFolderModal(true)}>+ New Client</button>
         </div>
 
         {/* Client list */}
@@ -1718,7 +1719,7 @@ export default function App(){
           const statusColor=f.archived?"#444":f.paused?"#a78bfa":f.prospect?"#60a5fa":isPending?"#fbbf24":"#34d399";
           const statusLabel=f.archived?"Archived":f.paused?"Paused":f.prospect?"Pipeline":isPending?"Pending":"Active";
           return(
-            <div key={f.id} onClick={()=>goFolder(f.id)} style={{
+            <div key={f.id} data-tour={f.id===filtered[0]?.id?"client-attention":undefined} onClick={()=>goFolder(f.id)} style={{
               background:"var(--s)",border:"1px solid var(--b)",
               borderLeft:`3px solid ${f.color}`,
               borderRadius:"var(--r2)",padding:"16px 16px",
@@ -1849,7 +1850,7 @@ export default function App(){
                   <div style={{flex:"0 0 57%"}}>
                     <TimeHeroCard dk={dk}/>
                   </div>
-                  <div style={{
+                  <div data-tour="boss-score" style={{
                     flex:1,minHeight:140,
                     background:`linear-gradient(135deg,${color}28,${color}14)`,
                     border:`1px solid ${color}40`,
@@ -2371,6 +2372,74 @@ export default function App(){
     setShowApplyTemplate(false);
   };
 
+
+  // ── Live product tour — replaces the old slideshow onboarding ───────────────
+  const TOUR_STEPS=[
+    {target:"boss-score",view:"home",title:"Your Boss Score",body:"This is your Boss Score. It's built from your hours, tasks, clients, and calls — and updates every day automatically."},
+    {target:"clients-nav",view:"home",title:"Your clients",body:"Tap here any time to see your full client list."},
+    {target:"add-client",view:"clients",title:"Add a client",body:"Add a new client here — give them a name, color, and a monthly value if they're on retainer."},
+    {target:"client-attention",view:"clients",title:"Who needs attention",body:"Each client shows a status color. Green means active, orange or red means it's time to check in or chase a payment."},
+  ];
+
+  const TourOverlay=()=>{
+    const step=TOUR_STEPS[tourStep-1];
+    const [rect,setRect]=useState(null);
+
+    useEffect(()=>{
+      if(step?.view)setView(step.view);
+    },[tourStep]);
+
+    useEffect(()=>{
+      if(!step)return;
+      setRect(null);
+      let raf,tries=0;
+      const measure=()=>{
+        tries++;
+        const els=document.querySelectorAll(`[data-tour="${step.target}"]`);
+        let found=null;
+        els.forEach(el=>{const r=el.getBoundingClientRect();if(r.width>0&&r.height>0)found=r;});
+        if(found)setRect({top:found.top,left:found.left,width:found.width,height:found.height});
+        else if(tries<60)raf=requestAnimationFrame(measure);
+      };
+      raf=requestAnimationFrame(measure);
+      return()=>raf&&cancelAnimationFrame(raf);
+    },[tourStep]);
+
+    if(!step)return null;
+
+    const skip=()=>setTourStep(0);
+    const next=()=>tourStep>=TOUR_STEPS.length?setTourStep(0):setTourStep(tourStep+1);
+    const pad=8;
+    const cardW=280;
+    const spaceBelow=rect?window.innerHeight-(rect.top+rect.height+pad*2):0;
+    const placeBelow=rect&&spaceBelow>170;
+    const cardTop=rect?(placeBelow?rect.top+rect.height+pad*2+12:Math.max(16,rect.top-pad-12-160)):0;
+    const cardLeft=rect?Math.min(Math.max(16,rect.left),window.innerWidth-cardW-16):0;
+
+    return(<>
+      {rect&&<div style={{
+        position:"fixed",top:rect.top-pad,left:rect.left-pad,
+        width:rect.width+pad*2,height:rect.height+pad*2,
+        borderRadius:14,border:"2px solid #6366f1",
+        boxShadow:"0 0 0 9999px rgba(0,0,0,.72)",
+        zIndex:300,pointerEvents:"none",transition:"all .25s ease",
+      }}/>}
+      {rect&&<div style={{
+        position:"fixed",top:cardTop,left:cardLeft,width:cardW,maxWidth:"calc(100vw - 32px)",
+        zIndex:301,background:"var(--s)",border:"1px solid var(--b2)",borderRadius:16,
+        padding:"18px 20px",boxShadow:"0 8px 30px rgba(0,0,0,.5)",
+      }}>
+        <div style={{fontSize:".68rem",fontWeight:700,color:"#6366f1",marginBottom:6,letterSpacing:".05em"}}>STEP {tourStep} OF {TOUR_STEPS.length}</div>
+        <div style={{fontSize:"1rem",fontWeight:800,color:"var(--tx)",marginBottom:8}}>{step.title}</div>
+        <div style={{fontSize:".85rem",color:"var(--tx2)",lineHeight:1.6,marginBottom:16}}>{step.body}</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <button onClick={skip} style={{background:"none",border:"none",color:"var(--mu)",fontSize:".8rem",cursor:"pointer",padding:"6px 0"}}>Skip tour</button>
+          <button onClick={next} style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:10,padding:"9px 18px",fontWeight:700,fontSize:".85rem",cursor:"pointer"}}>{tourStep>=TOUR_STEPS.length?"Done":"Next →"}</button>
+        </div>
+      </div>}
+    </>);
+  };
+
   const ProfileView=()=>{
     const [pendingHrsDay,setPendingHrsDay]=useState(hoursFor(todayKey()));
     const [pendingWeekHrs,setPendingWeekHrs]=useState(weeklyGoal);
@@ -2725,7 +2794,7 @@ export default function App(){
         <div className="tab-bar">
           <button className={`tab-btn${(view==="home"||view==="today"||view==="day"||view==="folder")?" active":""}`} onClick={goHome}><span className="tab-icon">⏱</span><span className="tab-lbl">Today</span><div className="tab-dot"/></button>
           <button className={`tab-btn${view==="all"?" active":""}`} onClick={()=>setView("all")}><span className="tab-icon">📋</span><span className="tab-lbl">Tasks</span><div className="tab-dot"/></button>
-          <button className={`tab-btn${view==="clients"?" active":""}`} onClick={()=>setView("clients")}><span className="tab-icon">👥</span><span className="tab-lbl">Clients</span><div className="tab-dot"/></button>
+          <button data-tour="clients-nav" className={`tab-btn${view==="clients"?" active":""}`} onClick={()=>setView("clients")}><span className="tab-icon">👥</span><span className="tab-lbl">Clients</span><div className="tab-dot"/></button>
           <button className={`tab-btn${view==="money"?" active":""}`} onClick={()=>setView("money")}><span className="tab-icon">💰</span><span className="tab-lbl">Money</span><div className="tab-dot"/></button>
           <button className={`tab-btn${(view==="reports"||view==="insights")?" active":""}`} onClick={()=>setView("reports")}><span className="tab-icon">📈</span><span className="tab-lbl">Insights</span><div className="tab-dot"/></button>
         </div>
@@ -2875,6 +2944,7 @@ export default function App(){
 
       {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
       {obStep>0&&<OnboardingFlow/>}
+      {tourStep>0&&<TourOverlay/>}
       {isLocked&&<LockScreen/>}
       {showLockModal&&!isLocked&&(<div className="overlay" onClick={()=>setShowLockModal(false)}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modal-title">🔒 Lock In</div><div style={{fontSize:".82rem",color:"var(--mu)",marginBottom:18,lineHeight:1.6}}>Lock yourself in on <strong style={{color:"var(--tx)"}}>{activeTask?.text}</strong>. You'll need your PIN to exit early.</div><div className="modal-lbl">How long?</div><div className="lock-dur-grid">{LOCK_DURS.map(d=><div key={d} className={`lock-dur-opt${lockDuration===d?" sel":""}`} onClick={()=>setLockDuration(d)}>{d}<span style={{fontSize:".6rem",display:"block",fontWeight:500,marginTop:2}}>min</span></div>)}</div><div className="modal-btns"><button className="btn-c" onClick={()=>setShowLockModal(false)}>Cancel</button><button className="btn-ok" onClick={activateLock}>Lock In</button></div></div></div>)}
       {showPinSetModal&&(<div className="overlay"><div className="modal" style={{maxWidth:320}}><div className="modal-title" style={{textAlign:"center"}}>{pinStep===1?"Set your PIN":"Confirm your PIN"}</div><div style={{fontSize:".8rem",color:"var(--mu)",textAlign:"center",marginBottom:20}}>{pinStep===1?"Choose a 4-digit PIN to unlock early.":"Enter the same PIN again."}</div><PinNumpad currentPin={pinStep===1?pinInput:pinConfirm}/><button className="btn-c" style={{width:"100%",marginTop:12,textAlign:"center"}} onClick={()=>{setShowPinSetModal(false);setPinInput("");setPinStep(1);}}>Cancel</button></div></div>)}
