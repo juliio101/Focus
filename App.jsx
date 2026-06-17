@@ -90,6 +90,53 @@ const INIT_TASKS=[
   {id:4,text:"Prepare strategy document",folderId:2,recurring:false,done:false,timerSeconds:5400,timerRunning:false,timerStartedAt:null,timeLog:{}},
   {id:5,text:"Monthly check-in call",folderId:3,recurring:true,recurringDays:["mon"],doneOn:[],timerSeconds:2700,timerRunning:false,timerStartedAt:null,timeLog:{}},
 ];
+
+// ── Generates fresh example data with today's dates baked in ────────────────
+// Why: the static INIT_FOLDERS/INIT_TASKS above are used for safety-check
+// identity comparisons elsewhere and must stay untouched. This function
+// builds a realistic, dated COPY for actual new signups — with positive
+// signals (a completed task, logged hours, a logged call, collected
+// retainers) so a brand-new account's Boss Score reflects a fair "Good"
+// day instead of stacking every deduction at once.
+const buildFreshExampleData=()=>{
+  const dAgo=n=>dStr(new Date(Date.now()-n*86400000));
+  const today=dAgo(0);
+  const dueSoon=dStr(new Date(Date.now()+2*86400000));
+  const mk=monthKey();
+  // Most recent real activity is yesterday — keeps "neglected" check happy
+  // and leaves today open/empty so the new user has a clean day to start on.
+  const lastActiveDate=dAgo(1);
+
+  const folders=INIT_FOLDERS.map(f=>({
+    ...f,
+    payments:[],
+    subCollected:{[mk]:true},
+    createdDate:dAgo(6),
+  }));
+
+  // Represents "what a solid week already looks like" — today is left empty
+  // on purpose so the new user has their own first real session to add to.
+  const tasks=[
+    {id:1,text:"Send weekly progress report",folderId:1,recurring:true,recurringDays:["fri"],doneOn:[dAgo(3)],timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{[dAgo(3)]:23400}},
+    {id:2,text:"Review campaign performance",folderId:1,recurring:false,done:true,completedDate:dAgo(1),timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{[dAgo(1)]:25200}},
+    {id:3,text:"Follow up on invoice",folderId:2,recurring:false,done:false,timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{},dueDate:dueSoon},
+    {id:4,text:"Prepare strategy document",folderId:2,recurring:false,done:true,completedDate:dAgo(2),timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{[dAgo(2)]:28800,[dAgo(4)]:25200}},
+    {id:5,text:"Monthly check-in call",folderId:3,recurring:true,recurringDays:["mon"],doneOn:[dAgo(5)],timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{[dAgo(5)]:23400}},
+  ];
+
+  const calls={
+    client:[
+      {id:Date.now(),folderId:1,date:dAgo(1),duration:20},
+      {id:Date.now()+1,folderId:2,date:dAgo(3),duration:15},
+      {id:Date.now()+2,folderId:3,date:dAgo(5),duration:25},
+    ],
+    outreach:[],
+    clientGoal:5,
+    outreachGoal:20,
+  };
+
+  return{folders,tasks,calls};
+};
 // ← EXAMPLE DATA ABOVE. Replace with your own clients.
 const EXAMPLE_DATA_BANNER=true;
 const INIT_TASKS_OLD=[
@@ -295,9 +342,10 @@ export default function App(){
           }
         }else{
           const trialStart=new Date().toISOString();
-          await setDoc(ref,{folders:INIT_FOLDERS,tasks:INIT_TASKS,expenses:[],completedDates:[],bestStreak:0,dayHours:{},trialStartDate:trialStart,isExampleData:true},{merge:true});
+          const fresh=buildFreshExampleData();
+          await setDoc(ref,{folders:fresh.folders,tasks:fresh.tasks,calls:fresh.calls,expenses:[],completedDates:[],bestStreak:0,dayHours:{},trialStartDate:trialStart,isExampleData:true},{merge:true});
           if(window.fbq)window.fbq('track','StartTrial');
-          setFolders(INIT_FOLDERS);setTasks(INIT_TASKS);setExpenses([]);setComplDates([]);setBest(0);setDayHours({});
+          setFolders(fresh.folders);setTasks(fresh.tasks);setCalls(fresh.calls);setExpenses([]);setComplDates([]);setBest(0);setDayHours({});
           setTrialStartDate(trialStart);setIsExampleData(true);
           setUserPin(null);setIsLocked(false);setObStep(1);
           setSyncStatus("success");return;
@@ -377,6 +425,22 @@ export default function App(){
     tasks.forEach(t=>{Object.entries(t.timeLog??{}).forEach(([date,s])=>{const d=new Date(date+"T00:00:00");const diff=Math.round((new Date()-d)/86400000);if(diff>=7&&diff<14)total+=s;});});
     total+=(calls.client??[]).filter(c=>{const diff=Math.round((new Date()-new Date(c.date+"T00:00:00"))/86400000);return diff>=7&&diff<14;}).reduce((s,c)=>s+c.duration*60,0);
     total+=(calls.outreach??[]).filter(c=>{const diff=Math.round((new Date()-new Date(c.date+"T00:00:00"))/86400000);return diff>=7&&diff<14;}).reduce((s,c)=>s+c.duration*60,0);
+    return total;
+  };
+  // Calendar-week version of last week (Mon-Sun of the previous week) — for the
+  // "vs last week" comparison, matching weekSecsTotal()'s Monday-start logic.
+  const lastCalendarWeekSecs=()=>{
+    const thisMon=new Date();thisMon.setHours(0,0,0,0);thisMon.setDate(thisMon.getDate()-todayIdx());
+    const lastMon=new Date(thisMon);lastMon.setDate(thisMon.getDate()-7);
+    let total=0;
+    tasks.forEach(t=>{Object.entries(t.timeLog??{}).forEach(([date,s])=>{
+      const d=new Date(date+"T00:00:00");
+      if(d>=lastMon&&d<thisMon)total+=s;
+    });});
+    [...(calls.client??[]),...(calls.outreach??[])].forEach(c=>{
+      const d=new Date(c.date+"T00:00:00");
+      if(d>=lastMon&&d<thisMon)total+=c.duration*60;
+    });
     return total;
   };
   const hWeek=()=>thisWeekSecs()/3600;
@@ -515,7 +579,7 @@ export default function App(){
   const handlePinDel=()=>{if(showPinSetModal){if(pinStep===2)setPinConfirm(p=>p.slice(0,-1));else setPinInput(p=>p.slice(0,-1));}else if(showPinUnlock)setPinInput(p=>p.slice(0,-1));};
   const dismissLockDone=()=>{setIsLocked(false);setLockDone(false);setLockEndTime(null);setLockedTaskId(null);setLockedTaskDk(null);};
 
-  const createFolder=()=>{const n=nfName.trim();if(!n)return;setFolders(p=>[...p,{id:Date.now(),name:n,color:nfColor,icon:nfIcon,monthlyValue:parseFloat(nfValue)||0,payments:[],subCollected:{},prospect:nfProspect,archived:false,paused:false}]);setNfName("");setNfColor(COLORS[0]);setNfIcon(ICON_OPTIONS[0]);setNfValue("");setNfProspect(false);setShowFolderModal(false);};
+  const createFolder=()=>{const n=nfName.trim();if(!n)return;setFolders(p=>[...p,{id:Date.now(),name:n,color:nfColor,icon:nfIcon,monthlyValue:parseFloat(nfValue)||0,payments:[],subCollected:{},prospect:nfProspect,archived:false,paused:false,createdDate:dStr()}]);setNfName("");setNfColor(COLORS[0]);setNfIcon(ICON_OPTIONS[0]);setNfValue("");setNfProspect(false);setShowFolderModal(false);};
   const convertToClient=fid=>{setFolders(p=>p.map(f=>f.id===fid?{...f,prospect:false}:f));goHome();};
   const toggleSubCollected=fid=>{const mk=monthKey();setFolders(p=>p.map(f=>{if(f.id!==fid)return f;const sc={...(f.subCollected??{})};sc[mk]=!sc[mk];return{...f,subCollected:sc};}));};
   const addPayment=()=>{const amt=parseFloat(paymentAmount);if(!amt||!paymentFolder)return;setFolders(p=>p.map(f=>{if(f.id!==paymentFolder)return f;const pay={id:Date.now(),amount:amt,note:paymentNote.trim()||"One-time payment",status:"sent",month:monthKey()};return{...f,payments:[...(f.payments??[]),pay]};}));setPaymentAmount("");setPaymentNote("");setShowPaymentModal(false);};
@@ -551,8 +615,13 @@ export default function App(){
     // Check calls linked to this folder
     const folderCalls=(calls.client??[]).filter(c=>c.folderId===fid);
     folderCalls.forEach(c=>{if(!latest||c.date>latest)latest=c.date;});
-    // If truly no data ever — flag as 999 days (always show)
-    if(!latest)return 999;
+    // If truly no activity yet — base it on how long the client has existed,
+    // not a hardcoded "always neglected" value. New clients get a fair grace period.
+    if(!latest){
+      const folder=folders.find(fo=>fo.id===fid);
+      if(folder?.createdDate)return Math.floor((new Date()-new Date(folder.createdDate+'T00:00:00'))/86400000);
+      return 999;
+    }
     return Math.floor((new Date()-new Date(latest+'T00:00:00'))/86400000);
   };
   const resetSnoozeOnActivity=fid=>{if(folderSnooze[fid])clearSnooze(fid);};
@@ -1525,9 +1594,25 @@ export default function App(){
         </div>
         <div className="dr-section">
           <div className="dr-label">This Week</div>
-          {[["Hours worked",fmtHrs(hWeek()),"#a78bfa"],["Goal",`${weeklyGoal} hrs`,"var(--mu)"],["Progress",`${Math.round(Math.min(100,hWeek()/weeklyGoal*100))}%`,"#a78bfa"]].map(([k,v,c])=>(
-            <div key={k} className="dr-stat-row"><span className="dr-stat-k">{k}</span><span className="dr-stat-v" style={{color:c}}>{v}</span></div>
-          ))}
+          {(()=>{
+            const curSecs=weekSecsTotal(),curHrs=curSecs/3600;
+            const prevHrs=lastCalendarWeekSecs()/3600;
+            const delta=curHrs-prevHrs;
+            return(
+              <>
+                {[["Hours worked",fmtHrs(curHrs),"#a78bfa"],["Goal",`${weeklyGoal} hrs`,"var(--mu)"],["Progress",`${Math.round(Math.min(100,curHrs/weeklyGoal*100))}%`,"#a78bfa"]].map(([k,v,c])=>(
+                  <div key={k} className="dr-stat-row"><span className="dr-stat-k">{k}</span><span className="dr-stat-v" style={{color:c}}>{v}</span></div>
+                ))}
+                <div className="dr-stat-row" style={{borderTop:"1px solid var(--b)",paddingTop:8,marginTop:4}}>
+                  <span className="dr-stat-k">vs last week</span>
+                  <span className="dr-stat-v" style={{color:delta>=0?"#34d399":"#ef4444",display:"flex",alignItems:"center",gap:3}}>
+                    {prevHrs===0&&curHrs===0?"—":<>{delta>=0?"▲":"▼"} {fmtHrs(Math.abs(delta))}</>}
+                  </span>
+                </div>
+                <div style={{fontSize:".68rem",color:"var(--mu)",marginTop:4}}>Last week: {fmtHrs(prevHrs)}</div>
+              </>
+            );
+          })()}
         </div>
       </div>
     );
