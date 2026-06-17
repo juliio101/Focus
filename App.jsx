@@ -207,6 +207,9 @@ export default function App(){
   const [isExampleData,setIsExampleData]=useState(false);
   const [trialStartDate,setTrialStartDate]=useState(null);
   const [notifPermission,setNotifPermission]=useState(typeof Notification!=="undefined"?Notification.permission:"denied");
+  const [deferredInstallPrompt,setDeferredInstallPrompt]=useState(null);
+  const [isStandalone,setIsStandalone]=useState(false);
+  const [isIOS,setIsIOS]=useState(false);
   const [pendingClientGoal,setPendingClientGoal]=useState(5);
   const [pendingOutreachGoal,setPendingOutreachGoal]=useState(20);
 
@@ -214,6 +217,24 @@ export default function App(){
   useEffect(()=>{if(activeTask){const u=tasks.find(t=>t.id===activeTask.id);if(u)setActiveTask(u);}},[tasks]);
   const tasksRef=useRef(tasks);
   useEffect(()=>{tasksRef.current=tasks;},[tasks]);
+
+  // ── PWA install detection ─────────────────────────────────────────────────
+  useEffect(()=>{
+    const standalone=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;
+    setIsStandalone(standalone);
+    setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream);
+    const handler=e=>{e.preventDefault();setDeferredInstallPrompt(e);};
+    window.addEventListener("beforeinstallprompt",handler);
+    return()=>window.removeEventListener("beforeinstallprompt",handler);
+  },[]);
+
+  const triggerInstall=async()=>{
+    if(deferredInstallPrompt){
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      setDeferredInstallPrompt(null);
+    }
+  };
   useEffect(()=>{
     const updateTitle=()=>{
       const running=tasksRef.current.find(t=>t.timerRunning);
@@ -2538,7 +2559,54 @@ export default function App(){
         </div>
       </div>
       <div style={{fontSize:".78rem",color:"var(--mu)",textAlign:"center",marginBottom:16}}>No credit card required now. Cancel anytime.</div>
-      <button className="ob-primary" onClick={finishOnboarding}>Start my free trial →</button>
+      <button className="ob-primary" onClick={()=>isStandalone?finishOnboarding():setObStep(7)}>Continue</button>
+    </div>);
+    // ── Step 7 — PWA install prompt ──────────────────────────────────────
+    if(obStep===7)return(<div className="ob-overlay">
+      <Dots/>
+      <div className="ob-emoji">📲</div>
+      <div className="ob-title">Add it to your<span style={{color:"var(--ac)"}}>home screen.</span></div>
+      <div className="ob-sub">One tap away beats a buried browser tab. Most people who do this use the app daily.</div>
+      <div className="ob-card">
+        {isIOS?(
+          <>
+            <div className="ob-card-label">On iPhone/iPad</div>
+            <div style={{display:"flex",flexDirection:"column",gap:14}}>
+              {[
+                ["1","Tap the Share button","at the bottom of Safari"],
+                ["2","Scroll down and tap","\"Add to Home Screen\""],
+                ["3","Tap \"Add\"","top right corner"],
+              ].map(([num,desc,sub])=>(
+                <div key={num} style={{display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{width:32,height:32,borderRadius:"50%",background:"rgba(99,102,241,.12)",border:"1px solid rgba(99,102,241,.3)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <span style={{fontSize:".82rem",fontWeight:700,color:"#6366f1"}}>{num}</span>
+                  </div>
+                  <div>
+                    <div style={{fontSize:".85rem",color:"var(--tx)",fontWeight:600}}>{desc}</div>
+                    <div style={{fontSize:".74rem",color:"var(--mu)"}}>{sub}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ):deferredInstallPrompt?(
+          <>
+            <div className="ob-card-label">One tap install</div>
+            <p style={{fontSize:".85rem",color:"var(--tx2)",lineHeight:1.6,marginBottom:4}}>Tap below and confirm — effingFocus installs like a native app, no app store needed.</p>
+          </>
+        ):(
+          <>
+            <div className="ob-card-label">On this browser</div>
+            <p style={{fontSize:".85rem",color:"var(--tx2)",lineHeight:1.6}}>Look for an <strong>install icon</strong> in your address bar, or open your browser menu and select <strong>"Install app"</strong> or <strong>"Add to Home Screen."</strong></p>
+          </>
+        )}
+      </div>
+      {deferredInstallPrompt&&!isIOS?(
+        <button className="ob-primary" onClick={async()=>{await triggerInstall();finishOnboarding();}}>Install effingFocus →</button>
+      ):(
+        <button className="ob-primary" onClick={finishOnboarding}>Got it — start focusing →</button>
+      )}
+      <button onClick={finishOnboarding} style={{background:"none",border:"none",color:"var(--mu)",fontSize:".82rem",marginTop:14,cursor:"pointer",textAlign:"center",width:"100%"}}>Skip for now</button>
     </div>);
     return null;
   };
