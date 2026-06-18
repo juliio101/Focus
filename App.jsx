@@ -1454,7 +1454,9 @@ export default function App(){
         const dateStr=dStr(d);
         const dayKey=DAY_KEYS[(d.getDay()+6)%7];
         const goalHrs=dayHours[dayKey]??8;
-        const actualSecs=tasks.reduce((s,t)=>s+(t.timeLog?.[dateStr]??0),0);
+        const taskSecs=tasks.reduce((s,t)=>s+(t.timeLog?.[dateStr]??0),0);
+        const callSecs=allCalls.filter(c=>c.date===dateStr).reduce((s,c)=>s+(c.duration||0)*60,0);
+        const actualSecs=taskSecs+callSecs;
         const actualHrs=actualSecs/3600;
 
         if(goalHrs>0){
@@ -1491,7 +1493,9 @@ export default function App(){
     const tips=[];
     const todayKeyDk=DAY_KEYS[(new Date().getDay()+6)%7];
     const todayGoalHrs=dayHours[todayKeyDk]??8;
-    const todaySecs=tasks.reduce((s,t)=>s+(t.timeLog?.[todayStr]??0),0);
+    const todayTaskSecs=tasks.reduce((s,t)=>s+(t.timeLog?.[todayStr]??0),0);
+    const todayCallSecs=allCalls.filter(c=>c.date===todayStr).reduce((s,c)=>s+(c.duration||0)*60,0);
+    const todaySecs=todayTaskSecs+todayCallSecs;
     const todayHrs=todaySecs/3600;
     if(todayGoalHrs>0){
       if(todayHrs===0)tips.push("No time tracked today. Start the timer.");
