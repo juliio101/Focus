@@ -1428,11 +1428,6 @@ export default function App(){
             <span style={{fontSize:".7rem",color:"var(--mu)"}}>⚙️</span>
           </div>
         </div>
-        <div className="ds-bottom">
-          {user?.photoURL&&<img src={user.photoURL} className="avatar" alt=""/>}
-          <div style={{flex:1,minWidth:0}}><div style={{fontSize:".82rem",fontWeight:700,color:"var(--tx2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.displayName?.split(" ")[0]}</div><div style={{fontSize:".7rem",color:"var(--mu)"}}>Pro</div></div>
-          <button className="signout-btn" onClick={async()=>{const running=tasks.find(t=>t.timerRunning);if(running){pauseTimer(running.id);await new Promise(r=>setTimeout(r,400));}signOut(auth);}}>Out</button>
-        </div>
       </div>
     );
   };
@@ -2294,6 +2289,9 @@ export default function App(){
 
   const PaywallView=()=>(
     <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:300,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px",overflowY:"auto"}}>
+      {!trialExpired&&(
+        <button onClick={()=>setShowPaywall(false)} style={{position:"absolute",top:"calc(var(--safe-top) + 16px)",left:16,background:"none",border:"none",color:"var(--mu)",fontSize:"1.4rem",cursor:"pointer",padding:8,lineHeight:1}}>←</button>
+      )}
       <div style={{maxWidth:420,width:"100%",textAlign:"center"}}>
         <div style={{fontSize:"3rem",marginBottom:16}}>🔒</div>
         <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"1.8rem",color:"var(--tx)",letterSpacing:"-.5px",marginBottom:8,lineHeight:1.2}}>Your free trial has ended.</h1>
@@ -2411,9 +2409,13 @@ export default function App(){
     const next=()=>tourStep>=TOUR_STEPS.length?setTourStep(0):setTourStep(tourStep+1);
     const pad=8;
     const cardW=280;
+    const estCardH=210; // generous estimate; card also has its own scroll safety net below
     const spaceBelow=rect?window.innerHeight-(rect.top+rect.height+pad*2):0;
-    const placeBelow=rect&&spaceBelow>170;
-    const cardTop=rect?(placeBelow?rect.top+rect.height+pad*2+12:Math.max(16,rect.top-pad-12-160)):0;
+    const placeBelow=rect&&spaceBelow>(estCardH+16);
+    let cardTop=rect?(placeBelow?rect.top+rect.height+pad*2+12:Math.max(16,rect.top-pad-12-estCardH)):0;
+    // Hard clamp — card can never start at a position that pushes it past the bottom edge
+    if(rect)cardTop=Math.min(cardTop,window.innerHeight-estCardH-16);
+    if(rect)cardTop=Math.max(16,cardTop);
     const cardLeft=rect?Math.min(Math.max(16,rect.left),window.innerWidth-cardW-16):0;
 
     return(<>
@@ -2426,6 +2428,7 @@ export default function App(){
       }}/>}
       {rect&&<div style={{
         position:"fixed",top:cardTop,left:cardLeft,width:cardW,maxWidth:"calc(100vw - 32px)",
+        maxHeight:"calc(100vh - 32px)",overflowY:"auto",
         zIndex:301,background:"var(--s)",border:"1px solid var(--b2)",borderRadius:16,
         padding:"18px 20px",boxShadow:"0 8px 30px rgba(0,0,0,.5)",
       }}>
@@ -2598,7 +2601,7 @@ export default function App(){
             </div>
             {!subscribed&&(
               <div style={{padding:"10px 0"}}>
-                <button onClick={()=>{setShowProfile(false);startCheckout("monthly");}} style={{width:"100%",background:"#6366f1",color:"#fff",border:"none",borderRadius:10,padding:"12px",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:".9rem"}}>Upgrade to Pro →</button>
+                <button onClick={()=>{setShowProfile(false);setShowPaywall(true);}} style={{width:"100%",background:"#6366f1",color:"#fff",border:"none",borderRadius:10,padding:"12px",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:".9rem"}}>Upgrade to Pro →</button>
               </div>
             )}
             {subscribed&&(
@@ -2802,7 +2805,7 @@ export default function App(){
       </div>
       <DesktopRightPanel/>
       {showProfile&&<ProfileView/>}
-      {trialExpired&&!subscribed&&<PaywallView/>}
+      {(trialExpired||showPaywall)&&!subscribed&&<PaywallView/>}
 
 
       {/* Apply Template modal */}
