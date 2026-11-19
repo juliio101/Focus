@@ -73,18 +73,37 @@ function getBoardGroups({ tasks, folders, days, dateForDay, tasksForDay, isDone 
   const clients = new Map(folders.map(folder => [folder.id, { id: folder.id, name: folder.name, items: [] }]));
   const other = { id: null, name: "No client", items: [] };
   for (const item of items.values()) (clients.get(item.task.folderId) ?? other).items.push(item);
-  return [...clients.values(), other].filter(group => group.items.length);
+  return other.items.length ? [...clients.values(), other] : [...clients.values()];
 }
 
-export default function TaskBoard({ model, selectedKey, onOpen, onClose, getDailyTime, running }) {
+function AddClientTask({ client, onAdd, onCancel }) {
+  const [title, setTitle] = useState("");
+  return (
+    <form className="task-board-add-form" onSubmit={event => {
+      event.preventDefault();
+      const text = title.trim();
+      if (text) onAdd(text);
+    }} onKeyDown={event => { if (event.key === "Escape") onCancel(); }}>
+      <input autoFocus required aria-label={`Task name for ${client}`} placeholder="Task name" value={title}
+        onChange={event => setTitle(event.target.value)}/>
+      <button type="submit" className="task-board-add-submit" disabled={!title.trim()}>Add task</button>
+      <button type="button" className="task-board-all-clients" onClick={onCancel}>Cancel</button>
+    </form>
+  );
+}
+
+export default function TaskBoard({ model, selectedKey, onOpen, onClose, onAddTask, getDailyTime, running }) {
   const [scope, setScope] = useState("today");
   const [focusedClient, setFocusedClient] = useState(undefined);
   const [clientSearch, setClientSearch] = useState("");
+  const [addingFor, setAddingFor] = useState(null);
+  const addTrigger = useRef(null);
   const allGroups = getBoardGroups(model, model.today(), scope);
   const groups = focusedClient === undefined ? allGroups : allGroups.filter(group => group.id === focusedClient);
   const searchTerm = clientSearch.trim().toLocaleLowerCase();
-  const visibleGroups = searchTerm ? groups.filter(group => group.name.toLocaleLowerCase().includes(searchTerm)) : groups;
   const items = groups.flatMap(group => group.items);
+  const visibleGroups = groups.filter(group => searchTerm ? group.name.toLocaleLowerCase().includes(searchTerm) :
+    group.items.length || focusedClient !== undefined || !items.length || group.id === addingFor);
   const completed = items.filter(item => item.done).length;
   const taskPercent = items.length ? completed / items.length * 100 : 0;
   const searchClients = value => {
@@ -99,6 +118,10 @@ export default function TaskBoard({ model, selectedKey, onOpen, onClose, getDail
     }
     setFocusedClient(group.id);
     if (selectedKey && !group.items.some(({task, day}) => taskCardKey(task, day) === selectedKey)) onClose();
+  };
+  const closeAddTask = () => {
+    setAddingFor(null);
+    addTrigger.current?.focus();
   };
 
   return (
@@ -126,8 +149,17 @@ export default function TaskBoard({ model, selectedKey, onOpen, onClose, getDail
           <div className="task-board-client-heading">
             <h2><button type="button" className="task-board-client-name" aria-pressed={focusedClient === group.id}
               onClick={() => toggleClient(group)}>{group.name}</button></h2>
+            {group.id !== null && <button type="button" className="task-board-add-trigger" aria-label={`Add task for ${group.name}`}
+              aria-expanded={addingFor === group.id} onClick={event => {
+                addTrigger.current = event.currentTarget;
+                setAddingFor(current => current === group.id ? null : group.id);
+              }}>+</button>}
             <span>{group.items.filter(item => item.done).length} of {group.items.length} done</span>
           </div>
+          {group.id !== null && addingFor === group.id && <AddClientTask client={group.name} onCancel={closeAddTask} onAdd={text => {
+            onAddTask(group.id, text);
+            closeAddTask();
+          }}/>}
           <div className="task-card-grid">
             {group.items.map(({task, day, date, done}) => {
               const key = taskCardKey(task, day);

@@ -879,7 +879,24 @@ input,textarea{user-select:text}
   color:var(--tx);background:var(--s);cursor:pointer;font-size:.78rem;
 }
 .task-board-all-clients:hover{border-color:var(--ac);color:var(--ac)}
-.task-board-client-name:focus-visible,.task-board-all-clients:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.task-board-add-trigger{
+  display:inline-grid;place-items:center;width:26px;height:26px;flex:none;
+  border:1px solid var(--b2);border-radius:6px;background:var(--s);color:var(--ac);
+  font-size:1.05rem;line-height:1;cursor:pointer;
+}
+.task-board-add-trigger:hover,.task-board-add-trigger[aria-expanded="true"]{border-color:var(--ac)}
+.task-board-add-form{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.task-board-add-form input{
+  width:clamp(140px,55%,320px);min-height:34px;padding:5px 8px;
+  border:1px solid var(--b2);border-radius:8px;background:var(--s);color:var(--tx);font-size:16px;
+}
+.task-board-add-submit{
+  min-height:34px;padding:5px 9px;border:0;border-radius:8px;
+  color:#141414;background:var(--ac);cursor:pointer;font-size:.78rem;font-weight:700;
+}
+.task-board-add-submit:disabled{opacity:.5;cursor:default}
+.task-board-client-name:focus-visible,.task-board-all-clients:focus-visible,.task-board-add-trigger:focus-visible,
+.task-board-add-form input:focus-visible,.task-board-add-submit:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 .task-board-client-heading span,.task-board-card-status,.task-board-empty{color:var(--tx2);font-size:.83rem}
 .task-board-client-heading span{white-space:nowrap}
 .task-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}

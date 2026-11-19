@@ -17,6 +17,7 @@ const LOCK_DURS=[5,10,15,20,25,30];
 const todayIdx=()=>(new Date().getDay()+6)%7;
 const todayKey=()=>DAY_KEYS[todayIdx()];
 const dateForDK=dk=>{const n=new Date();n.setHours(0,0,0,0);const d=new Date(n);d.setDate(n.getDate()+DAY_KEYS.indexOf(dk)-todayIdx());return dStr(d);};
+const taskBase=(text,folderId)=>({id:Date.now(),text,folderId,timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{}});
 const calcStreak=(dates=[],dh={})=>{
   const s=new Set(dates);
   const isWorkDay=d=>(dh[DAY_KEYS[(d.getDay()+6)%7]]??8)>0;
@@ -797,7 +798,7 @@ export default function App(){
     const inputRef=useRef(null);
     const startOpts=Array.from({length:8},(_,i)=>{const d=new Date();d.setDate(d.getDate()+i);d.setHours(0,0,0,0);return{value:dStr(d),label:i===0?"Today":i===1?"Tomorrow":DAYS[(d.getDay()+6)%7]};});
     const dueOpts=[{value:null,label:"No deadline"},{value:taskStartDate,label:"Same day"},...[1,3,7,14,30].map(days=>{const d=new Date(taskStartDate);d.setDate(d.getDate()+days);return{value:dStr(d),label:days===1?"+1 day":days===7?"+1 week":days===14?"+2 weeks":days===30?"+1 month":`+${days}d`};})];
-    const submit=()=>{const t=text.trim();if(!t)return;const base={id:Date.now(),text:t,folderId:fid??folders[0]?.id??null,timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{},startDate:taskStartDate,dueDate:taskDueDate||null};setTasks(p=>[...p,taskRecur?{...base,recurring:true,recurringDays:taskRecDays.length?taskRecDays:[dk??todayKey()],doneOn:[],startDate:undefined,dueDate:undefined}:{...base,recurring:false,done:false}]);setText("");setShowDates(false);setTaskRecur(false);setTaskRecDays([]);inputRef.current?.focus();};
+    const submit=()=>{const t=text.trim();if(!t)return;const base=taskBase(t,fid??folders[0]?.id??null);setTasks(p=>[...p,taskRecur?{...base,recurring:true,recurringDays:taskRecDays.length?taskRecDays:[dk??todayKey()],doneOn:[],startDate:undefined,dueDate:undefined}:{...base,recurring:false,done:false,startDate:taskStartDate,dueDate:taskDueDate||null}]);setText("");setShowDates(false);setTaskRecur(false);setTaskRecDays([]);inputRef.current?.focus();};
     return(
       <div className="add-area">
         <div className="add-row">
@@ -2863,6 +2864,10 @@ export default function App(){
       {view==="task"&&<TaskDetailView/>}
       {view==="all"&&<TaskBoard model={{tasks,folders,days:DAY_KEYS,dateForDay:dateForDK,today:todayKey,tasksForDay,isDone}}
         selectedKey={drawerTask?taskCardKey(drawerTask,activeTaskDk):null} onOpen={openBoardTask} onClose={closeBoardTask} running={Boolean(runningTask)}
+        onAddTask={(folderId,text)=>{
+          const task={...taskBase(text,folderId),id:crypto.randomUUID(),recurring:false,done:false,startDate:dStr(),dueDate:null};
+          setTasks(previous=>[...previous,task]);
+        }}
         getDailyTime={()=>{const day=todayKey();return {seconds:secsTracked(day),goal:hoursFor(day)};}}/>}
       {view==="clients"&&<ClientsView/>}
       {view==="money"&&<MoneyView/>}
