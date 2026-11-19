@@ -848,7 +848,7 @@ input,textarea{user-select:text}
   container-type:inline-size;
 }
 .task-board-header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
-.task-board-heading{display:flex;align-items:center;gap:12px}
+.task-board-heading{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
 .task-board h1,.task-board h2,.task-drawer-header h2{
   font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;line-height:1.15;letter-spacing:-.035em;
 }
@@ -866,6 +866,17 @@ input,textarea{user-select:text}
 .task-board-client{margin-bottom:15px}
 .task-board-client-heading{display:flex;align-items:baseline;gap:9px;margin-bottom:6px}
 .task-board-client-heading h2{font-size:1.1rem;overflow-wrap:anywhere}
+.task-board-client-name{
+  font:inherit;letter-spacing:inherit;color:inherit;text-align:left;overflow-wrap:inherit;
+  background:none;border:0;cursor:pointer;padding:3px 0;
+}
+.task-board-client-name:hover,.task-board-client-name[aria-pressed="true"]{color:var(--ac)}
+.task-board-all-clients{
+  min-height:34px;padding:5px 9px;border:1px solid var(--b2);border-radius:8px;
+  color:var(--tx);background:var(--s);cursor:pointer;font-size:.78rem;
+}
+.task-board-all-clients:hover{border-color:var(--ac);color:var(--ac)}
+.task-board-client-name:focus-visible,.task-board-all-clients:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 .task-board-client-heading span,.task-board-card-status,.task-board-empty{color:var(--tx2);font-size:.83rem}
 .task-board-client-heading span{white-space:nowrap}
 .task-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}

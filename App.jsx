@@ -2862,7 +2862,7 @@ export default function App(){
       {view==="folder"&&<FolderView/>}
       {view==="task"&&<TaskDetailView/>}
       {view==="all"&&<TaskBoard model={{tasks,folders,days:DAY_KEYS,dateForDay:dateForDK,today:todayKey,tasksForDay,isDone}}
-        selectedKey={drawerTask?taskCardKey(drawerTask,activeTaskDk):null} onOpen={openBoardTask} running={Boolean(runningTask)}
+        selectedKey={drawerTask?taskCardKey(drawerTask,activeTaskDk):null} onOpen={openBoardTask} onClose={closeBoardTask} running={Boolean(runningTask)}
         getDailyTime={()=>{const day=todayKey();return {seconds:secsTracked(day),goal:hoursFor(day)};}}/>}
       {view==="clients"&&<ClientsView/>}
       {view==="money"&&<MoneyView/>}
