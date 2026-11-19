@@ -1,26 +1,53 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { localDateKey } from "./taskTimer.js";
 
-export const taskCardKey = (task, day) => task.recurring ? `${task.id}-${day}` : String(task.id);
+export const taskCardKey = (task, date) => task.recurring ? `${task.id}-${date}` : String(task.id);
+export const taskStepsForDate = (task, date) => (task.steps ?? []).filter(step => !step.occurrenceDate || step.occurrenceDate === date);
 
 export function stepIsDone(task, step, date) {
-  return task.recurring ? (step.doneOn ?? []).includes(date) : Boolean(step.done);
+  return task.recurring && !step.occurrenceDate ? (step.doneOn ?? []).includes(date) : Boolean(step.done);
+}
+
+export function setTaskStepDone(task, step, date, done = true) {
+  if (!task.recurring || step.occurrenceDate) return { ...step, done };
+  if (stepIsDone(task, step, date) === done) return step;
+  const dates = step.doneOn ?? [];
+  return { ...step, doneOn: done ? [...dates, date] : dates.filter(value => value !== date) };
+}
+
+export function scheduleTaskFollowUp(task, date, remindAt, id) {
+  const occurrence = task.recurring ? { occurrenceDate: date } : {};
+  const currentSteps = taskStepsForDate(task, date);
+  const current = currentSteps.find(step => step.remindAt && !stepIsDone(task, step, date)) ??
+    currentSteps.find(step => !stepIsDone(task, step, date));
+  const steps = (task.steps ?? []).map(step => step === current ? setTaskStepDone(task, step, date) : step);
+  if (!currentSteps.length) steps.push({ id: `${id}-initial`, text: "Initial work", done: true, ...occurrence });
+  steps.push({ id, text: "Follow-up", done: false, remindAt, ...occurrence });
+  return { ...task, steps };
 }
 
 function taskProgress(task, date, done) {
-  const steps = task.steps ?? [];
+  const steps = taskStepsForDate(task, date);
   const total = steps.length;
   const completed = done ? total : steps.filter(step => stepIsDone(task, step, date)).length;
   return {
     percent: done ? 100 : total ? completed / total * 100 : 0,
-    label: done ? "Done" : total ? `${completed} of ${total} ${total === 1 ? "step" : "steps"}` : "To do",
+    total,
+    completed,
+    label: done && !steps.some(step => step.remindAt) ? "Done" :
+      total ? `${completed} of ${total} ${total === 1 ? "step" : "steps"}` : "To do",
   };
 }
 
-function ProgressBar({ value, label }) {
+function ProgressBar({ value, label, total, completed }) {
+  const segmented = total > 1;
   return (
-    <div className="task-progress-track" role="progressbar" aria-label={label} aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
-      <div className="task-progress-fill" style={{ width: `${value}%` }}/>
-    </div>
+    <span className={`task-progress-track${segmented ? " segmented" : ""}`}
+      role={label ? "progressbar" : undefined} aria-label={label} aria-valuenow={label ? value : undefined}
+      aria-valuemin={label ? 0 : undefined} aria-valuemax={label ? 100 : undefined} aria-hidden={label ? undefined : true}>
+      {segmented ? Array.from({length:total}, (_, index) => <span key={index} className={index < completed ? "filled" : ""}/>) :
+        <span className="task-progress-fill" style={{ width: `${value}%` }}/>}
+    </span>
   );
 }
 
@@ -49,11 +76,58 @@ function DailyProgress({ getDailyTime, running }) {
   return <BoardMetric label="Daily progress" value={percent} detail={`${worked} worked / ${goal}h goal`}/>;
 }
 
+const dayForDate = (days, date) => days[(new Date(`${date}T12:00:00`).getDay() + 6) % 7];
+const pendingFollowUps = task => (task.steps ?? []).filter(step => step.remindAt && !stepIsDone(task, step, step.occurrenceDate));
+
+function BoardReminders({ model, onOpen }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const refresh = () => setNow(Date.now());
+    const clock = setInterval(refresh, 1000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearInterval(clock);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
+  const today = localDateKey(new Date(now));
+  const reminders = new Map();
+  for (const task of model.tasks) {
+    const day = dayForDate(model.days, today);
+    if (!model.isDone(task, day, today) && (task.dueDate === today || (task.isReminder && task.startDate === today))) {
+      reminders.set(taskCardKey(task, today), { task, date: today, remindAt: null });
+    }
+    for (const step of pendingFollowUps(task)) {
+      if (localDateKey(new Date(step.remindAt)) !== today) continue;
+      const date = step.occurrenceDate ?? today;
+      const key = taskCardKey(task, date);
+      const earlier = reminders.get(key)?.remindAt;
+      if (model.isDone(task, dayForDate(model.days, date), date) || (earlier && earlier <= step.remindAt)) continue;
+      reminders.set(key, { task, date, remindAt: step.remindAt });
+    }
+  }
+  const sorted = [...reminders].sort(([, a], [, b]) => (a.remindAt ?? 0) - (b.remindAt ?? 0));
+
+  return (
+    <section className="task-board-reminders" aria-label="Today's reminders">
+      {sorted.length ? sorted.map(([key, {task, date, remindAt}]) => {
+        const due = remindAt === null || now >= remindAt;
+        const status = remindAt === null ? "Due today" : due ? "Due now" :
+          new Date(remindAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        return <button type="button" key={key} className={`task-board-reminder${due ? " due" : ""}`}
+          onClick={() => onOpen(task, dayForDate(model.days, date), date)} title={`${task.text} · ${status}`}>
+          <span className="task-board-reminder-name">{task.text}</span><strong>{status}</strong>
+        </button>;
+      }) : <span className="task-board-reminders-empty">No reminders today</span>}
+    </section>
+  );
+}
+
 function getBoardGroups({ tasks, folders, days, dateForDay, tasksForDay, isDone }, today, scope) {
   const todayDate = dateForDay(today);
   const items = new Map();
-  const add = (task, day) => {
-    items.set(taskCardKey(task, day), { task, day, date: dateForDay(day), done: Boolean(isDone(task, day)) });
+  const add = (task, day, date = dateForDay(day)) => {
+    items.set(taskCardKey(task, date), { task, day, date, done: Boolean(isDone(task, day, date)) });
   };
 
   for (const day of scope === "today" ? [today] : days) {
@@ -63,7 +137,16 @@ function getBoardGroups({ tasks, folders, days, dateForDay, tasksForDay, isDone 
     }
   }
   for (const task of tasks) {
-    if (task.recurring || items.has(taskCardKey(task, today))) continue;
+    if (task.recurring) {
+      const through = scope === "today" ? todayDate : dateForDay(days[days.length - 1]);
+      for (const {occurrenceDate, remindAt} of pendingFollowUps(task)) {
+        if (!occurrenceDate || items.has(taskCardKey(task, occurrenceDate)) || localDateKey(new Date(remindAt)) > through) continue;
+        const day = dayForDate(days, occurrenceDate);
+        if (!isDone(task, day, occurrenceDate)) add(task, day, occurrenceDate);
+      }
+      continue;
+    }
+    if (items.has(taskCardKey(task, todayDate))) continue;
     const startDate = task.startDate || task.scheduledDate || (days.includes(task.day) ? dateForDay(task.day) : null);
     if ((!task.done && (!startDate || startDate <= todayDate)) || (task.done && task.completedDate === todayDate)) {
       add(task, today);
@@ -117,7 +200,7 @@ export default function TaskBoard({ model, selectedKey, onOpen, onClose, onAddTa
       return;
     }
     setFocusedClient(group.id);
-    if (selectedKey && !group.items.some(({task, day}) => taskCardKey(task, day) === selectedKey)) onClose();
+    if (selectedKey && !group.items.some(({task, date}) => taskCardKey(task, date) === selectedKey)) onClose();
   };
   const closeAddTask = () => {
     setAddingFor(null);
@@ -129,6 +212,11 @@ export default function TaskBoard({ model, selectedKey, onOpen, onClose, onAddTa
       <header className="task-board-header">
         <div className="task-board-heading">
           <h1>Tasks</h1>
+          <BoardReminders model={model} onOpen={(task, day, date) => {
+            setClientSearch("");
+            if (focusedClient !== undefined && focusedClient !== (task.folderId ?? null)) setFocusedClient(undefined);
+            onOpen(task, day, date);
+          }}/>
           <select aria-label="Task date range" value={scope} onChange={event => setScope(event.target.value)}>
             <option value="today">Today</option>
             <option value="week">This week</option>
@@ -162,12 +250,12 @@ export default function TaskBoard({ model, selectedKey, onOpen, onClose, onAddTa
           }}/>}
           <div className="task-card-grid">
             {group.items.map(({task, day, date, done}) => {
-              const key = taskCardKey(task, day);
-              const { percent, label } = taskProgress(task, date, done);
+              const key = taskCardKey(task, date);
+              const { percent, label, total, completed } = taskProgress(task, date, done);
               const selected = selectedKey === key;
               return (
                 <button type="button" className={`task-board-card${selected ? " selected" : ""}`} key={key}
-                  aria-expanded={selected} onClick={() => onOpen(task, day)}>
+                  aria-expanded={selected} onClick={() => onOpen(task, day, date)}>
                   <span className="task-board-card-top">
                     <strong title={task.text}>{task.text}</strong>
                     <span className={`task-board-check${done ? " done" : ""}`} aria-hidden="true">{done ? "✓" : ""}</span>
@@ -175,7 +263,7 @@ export default function TaskBoard({ model, selectedKey, onOpen, onClose, onAddTa
                   <span className="task-board-card-status">
                     {label}{scope === "week" && task.recurring && ` · ${day.toUpperCase()}`}
                   </span>
-                  <span className="task-progress-track" aria-hidden="true"><span className="task-progress-fill" style={{ width: `${percent}%` }}/></span>
+                  <ProgressBar value={percent} total={total} completed={completed}/>
                 </button>
               );
             })}
@@ -188,9 +276,9 @@ export default function TaskBoard({ model, selectedKey, onOpen, onClose, onAddTa
 
 export function TaskSteps({ task, date, done, onAdd, onToggle, onRemove }) {
   const [text, setText] = useState("");
-  const { percent, label } = taskProgress(task, date, done);
+  const { percent, label, total, completed } = taskProgress(task, date, done);
   const inputId = useId();
-  const steps = task.steps ?? [];
+  const steps = taskStepsForDate(task, date);
   const submit = event => {
     event.preventDefault();
     const name = text.trim();
@@ -204,12 +292,13 @@ export function TaskSteps({ task, date, done, onAdd, onToggle, onRemove }) {
       {steps.length > 0 && (
         <>
           <div className="task-steps-count">{done ? "All steps complete" : `${label} done`}</div>
-          <ProgressBar value={percent} label="Checklist progress"/>
+          <ProgressBar value={percent} label="Checklist progress" total={total} completed={completed}/>
           <ul className="task-steps-list">
             {steps.map(step => (
               <li key={step.id}>
                 <label><input type="checkbox" checked={done || stepIsDone(task, step, date)} disabled={done}
-                  onChange={() => onToggle(step.id)}/><span>{step.text}</span></label>
+                  onChange={() => onToggle(step.id)}/><span>{step.text}{step.remindAt &&
+                    <small className="task-step-reminder-time"> · {new Date(step.remindAt).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</small>}</span></label>
                 {!done && <button type="button" className="task-step-remove" aria-label={`Remove step: ${step.text}`} onClick={() => onRemove(step.id)}>×</button>}
               </li>
             ))}

@@ -327,7 +327,7 @@ input,textarea{user-select:text}
 .action-btn.remind:active{background:var(--s2)}
 .remind-section{background:var(--s);border:1px solid var(--b);border-radius:14px;padding:16px}
 .remind-title{font-size:.7rem;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px}
-.remind-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:10px}
+.remind-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-bottom:10px}
 .remind-opt{
   background:var(--bg);border:1px solid var(--b2);border-radius:9px;
   padding:12px 6px;cursor:pointer;
@@ -335,6 +335,11 @@ input,textarea{user-select:text}
   text-align:center;min-height:44px;
 }
 .remind-opt:active{border-color:var(--ac);color:var(--ac)}
+.remind-custom{display:flex;align-items:flex-end;flex-wrap:wrap;gap:6px}
+.remind-custom label{display:grid;gap:4px;min-width:0;color:var(--tx2);font-size:.78rem}
+.remind-custom input{max-width:100%;padding:7px;border:1px solid var(--b2);border-radius:6px;background:var(--bg);color:var(--tx);color-scheme:dark}
+.remind-custom .btn-ok{padding:7px 10px}
+.remind-back{margin-top:9px;padding:4px;background:none;border:0;color:var(--tx2);cursor:pointer}
 
 /* ── ADD AREA ── */
 .add-area{margin-top:14px}
@@ -849,6 +854,21 @@ input,textarea{user-select:text}
 }
 .task-board-header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
 .task-board-heading{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.task-board-reminders{
+  display:flex;align-items:center;gap:5px;max-width:min(34vw,245px);max-height:68px;
+  overflow:auto;scrollbar-width:thin;
+}
+.task-board-reminder{
+  flex:0 0 auto;display:flex;align-items:center;gap:5px;max-width:190px;
+  padding:5px 6px;border:1px solid var(--b2);border-radius:6px;
+  color:var(--tx2);background:var(--s);cursor:pointer;font-size:.72rem;
+}
+.task-board-reminder-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task-board-reminder strong{flex:none}
+.task-board-reminder:hover,.task-board-reminder:focus-visible{color:var(--tx);border-color:var(--ac)}
+.task-board-reminder.due{color:var(--ac);border-color:var(--ac);animation:task-due-pulse 2.2s ease-in-out infinite}
+.task-board-reminders-empty,.task-step-reminder-time{color:var(--tx2);font-size:.72rem}
+@keyframes task-due-pulse{0%,100%{background:var(--s)}50%{background:rgba(200,255,87,.18)}}
 .task-board h1,.task-board h2,.task-drawer-header h2{
   font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;line-height:1.15;letter-spacing:-.035em;
 }
@@ -866,6 +886,9 @@ input,textarea{user-select:text}
 .task-board-metric-detail{color:var(--tx2);font-size:.78rem;margin-top:6px}
 .task-progress-track{display:block;width:100%;height:7px;overflow:hidden;border-radius:20px;background:var(--b3)}
 .task-progress-fill{display:block;height:100%;border-radius:inherit;background:var(--ac);transition:width .18s ease}
+.task-progress-track.segmented{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;background:none}
+.task-progress-track.segmented>span{min-width:0;background:var(--b3);border-radius:2px}
+.task-progress-track.segmented>.filled{background:var(--ac)}
 .task-board-client{margin-bottom:15px}
 .task-board-client-heading{display:flex;align-items:baseline;gap:9px;margin-bottom:6px}
 .task-board-client-heading h2{font-size:1.1rem;overflow-wrap:anywhere}
@@ -972,4 +995,5 @@ input,textarea{user-select:text}
 }
 @media(prefers-reduced-motion:reduce){
   .task-progress-fill,.task-board-card{transition:none}
+  .task-board-reminder.due{animation:none}
 }

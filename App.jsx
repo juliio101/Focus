@@ -4,7 +4,7 @@ import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase.js";
 import { CHECK_IN_MINUTES, liveTaskSeconds, localDateKey as dStr, resolveTimerCheckIn, stopTaskTimer, timerDeadline } from "./taskTimer.js";
-import TaskBoard, { stepIsDone, taskCardKey, TaskDrawer, TaskSteps } from "./TaskBoard.jsx";
+import TaskBoard, { scheduleTaskFollowUp, setTaskStepDone, stepIsDone, taskCardKey, taskStepsForDate, TaskDrawer, TaskSteps } from "./TaskBoard.jsx";
 
 const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_KEYS=["mon","tue","wed","thu","fri","sat","sun"];
@@ -12,6 +12,7 @@ const COLORS=["#c8ff57","#60a5fa","#fb923c","#c084fc","#f472b6","#34d399","#fbbf
 const ICON_OPTIONS=["👤","👥","🏢","💼","🤝","🏆","⭐","💡","🎯","🔑","🏠","🛒","🍕","☕","🚗","✈️","🌍","❤️","⚡","🔥","💰","📊","📋","📱","💻","🎨","🎵","🏋️","🧘","🌿","🐶","🦁","🌈","🎪","🎮","📚","🏗️","⚕️","🌟","🎁"];
 const HR_PRESET=[4,6,7,8,9,10,12];
 const REMIND_OPTS=[1,3,7,14,30];
+const REMIND_MINUTES=[5,10,20,30,60];
 const LOCK_DURS=[5,10,15,20,25,30];
 
 const todayIdx=()=>(new Date().getDay()+6)%7;
@@ -82,6 +83,38 @@ function TimerCheckIn({task,onResolve}){
         </div>
       </div>
     </dialog>
+  );
+}
+
+function ReminderPicker({onSchedule,onCancel}){
+  const [custom,setCustom]=useState("");
+  const [invalid,setInvalid]=useState(false);
+  return (
+    <div className="remind-section">
+      <div className="remind-title">Remind me in</div>
+      <div className="remind-grid">
+        {REMIND_MINUTES.map(minutes=><button type="button" key={minutes} className="remind-opt"
+          onClick={()=>onSchedule(Date.now()+minutes*60_000)}>{minutes===60?"1h":`${minutes}m`}</button>)}
+        {REMIND_OPTS.map(days=><button type="button" key={`day-${days}`} className="remind-opt" onClick={()=>{
+          const date=new Date();
+          date.setDate(date.getDate()+days);
+          onSchedule(date.getTime());
+        }}>{`${days}d`}</button>)}
+      </div>
+      <form className="remind-custom" onSubmit={event=>{
+        event.preventDefault();
+        const at=new Date(custom).getTime();
+        if(!Number.isFinite(at)||at<=Date.now()){setInvalid(true);return;}
+        onSchedule(at);
+      }}>
+        <label>Custom date and time
+          <input type="datetime-local" value={custom} required onChange={event=>{setCustom(event.target.value);setInvalid(false);}}/>
+        </label>
+        <button type="submit" className="btn-ok">Set reminder</button>
+      </form>
+      {invalid&&<p role="alert">Choose a future date and time.</p>}
+      <button type="button" className="remind-back" onClick={onCancel}>Back</button>
+    </div>
   );
 }
 
@@ -202,6 +235,7 @@ export default function App(){
   const [activeFolder,setActiveFolder]=useState(null);
   const [activeTask,setActiveTask]=useState(null);
   const [activeTaskDk,setActiveTaskDk]=useState(null);
+  const [boardTaskDate,setBoardTaskDate]=useState(null);
   const [boardDrawerOpen,setBoardDrawerOpen]=useState(false);
   const [prevView,setPrevView]=useState("home");
   const [showFolderModal,setShowFolderModal]=useState(false);
@@ -448,7 +482,8 @@ export default function App(){
     saveData();
   },[user?.uid,syncStatus,folders,tasks,calls,expenses,dayHours,weeklyGoal,folderSnooze,complDates]);
 
-  const isDone=(task,dk)=>task.recurring?(task.doneOn??[]).includes(dateForDK(dk)):task.done;
+  const isDone=(task,dk,date=dateForDK(dk))=>task.recurring?(task.doneOn??[]).includes(date):task.done;
+  const selectedTaskDate=view==="all"&&boardDrawerOpen&&boardTaskDate?boardTaskDate:dateForDK(activeTaskDk);
   const sortByAlert=arr=>[...arr].sort((a,b)=>{const al={red:2,yellow:1};return(al[b.alert]??0)-(al[a.alert]??0);});
   const tasksForDay=dk=>{
     const td=dateForDK(dk);const seen=new Set();
@@ -557,7 +592,7 @@ export default function App(){
     setDeleteConfirm({type:"task",id,name:t?.text||"this task"});
   };
   const confirmDeleteTask=id=>{setTasks(p=>p.filter(t=>t.id!==id));setDeleteConfirm(null);if(activeTask?.id===id)setActiveTask(null);};
-  const uncompleteTask=()=>{if(!activeTask)return;const dk=activeTaskDk;setTasks(prev=>prev.map(t=>{if(t.id!==activeTask.id)return t;if(!t.recurring)return{...t,done:false,completedDate:null};return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==dateForDK(dk))};}));if(view!=="all")goBack();};
+  const uncompleteTask=()=>{if(!activeTask)return;setTasks(prev=>prev.map(t=>{if(t.id!==activeTask.id)return t;if(!t.recurring)return{...t,done:false,completedDate:null};return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==selectedTaskDate)};}));if(view!=="all")goBack();};
   const deleteActiveTask=()=>{if(!activeTask)return;setTasks(p=>p.filter(t=>t.id!==activeTask.id));goBack();};
   const updateTaskSteps=(taskId,update)=>{
     setTasks(previous=>previous.map(task=>task.id===taskId?{...task,steps:update(task.steps??[],task)}:task));
@@ -566,15 +601,9 @@ export default function App(){
     const id=crypto.randomUUID();
     updateTaskSteps(taskId,steps=>[...steps,{id,text,done:false}]);
   };
-  const toggleTaskStep=(taskId,stepId,day)=>{
-    const date=dateForDK(day);
-    updateTaskSteps(taskId,(steps,task)=>steps.map(step=>{
-      if(step.id!==stepId)return step;
-      const done=stepIsDone(task,step,date);
-      if(!task.recurring)return {...step,done:!done};
-      const dates=step.doneOn??[];
-      return {...step,doneOn:done?dates.filter(value=>value!==date):[...dates,date]};
-    }));
+  const toggleTaskStep=(taskId,stepId,date)=>{
+    updateTaskSteps(taskId,(steps,task)=>steps.map(step=>step.id===stepId
+      ?setTaskStepDone(task,step,date,!stepIsDone(task,step,date)):step));
   };
   const saveEditTask=()=>{
     const txt=editTaskText.trim();if(!txt)return;
@@ -617,17 +646,24 @@ export default function App(){
     setShowEditTime(false);
   };
 
-  const completeTask=(remindDays=null)=>{
+  const completeTask=(remindAt=null)=>{
     if(!activeTask)return;
-    const dk=activeTaskDk;const now=Date.now();playCheck();
+    const dk=activeTaskDk;const date=selectedTaskDate;const now=Date.now();
+    if(remindAt!==null&&remindAt<=now)return;
+    const followUpId=remindAt!==null?crypto.randomUUID():null;
+    playCheck();
     setTasks(prev=>{
-      let next=prev.map(t=>{
-        if(t.id!==activeTask.id)return t;
+      const next=prev.map(t=>{
+        if(t.id!==activeTask.id||isDone(t,dk,date))return t;
         const stopped={...stopTaskTimer(t,now),timerCheckIn:null};
-        if(!t.recurring)return{...stopped,done:true,completedDate:dStr()};
-        return{...stopped,doneOn:[...(t.doneOn??[]),dateForDK(dk)]};
+        if(followUpId)return scheduleTaskFollowUp(stopped,date,remindAt,followUpId);
+        const reminderSteps=new Set(taskStepsForDate(t,date).filter(step=>step.remindAt));
+        const completed=reminderSteps.size?{...stopped,steps:t.steps.map(step=>reminderSteps.has(step)
+          ?setTaskStepDone(t,step,date):step)}:stopped;
+        if(!t.recurring)return{...completed,done:true,completedDate:dStr()};
+        return{...completed,doneOn:[...(t.doneOn??[]),date]};
       });
-      if(remindDays){const f=new Date();f.setDate(f.getDate()+remindDays);f.setHours(0,0,0,0);next=[...next,{id:Date.now(),text:activeTask.text,folderId:activeTask.folderId,recurring:false,day:DAY_KEYS[(f.getDay()+6)%7],startDate:dStr(f),done:false,timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{},isReminder:true}];}
+      if(followUpId||date!==dateForDK(dk))return next;
       const dayT=next.filter(t=>(!t.recurring&&(t.day===dk||t.startDate===dateForDK(dk)))||(t.recurring&&t.recurringDays?.includes(dk)));
       const allDone=dayT.length>0&&dayT.every(t=>!t.recurring?t.done:(t.doneOn??[]).includes(dateForDK(dk)));
       if(allDone){
@@ -733,8 +769,8 @@ export default function App(){
   const isExpensePaid=(exp)=>(exp.paid??{})[monthKey()]||false;
 
   const goHome=()=>setView("home");
-  const openBoardTask=(task,day)=>{
-    setActiveTask(task);setActiveTaskDk(day);setShowRemind(false);setBoardDrawerOpen(true);
+  const openBoardTask=(task,day,date)=>{
+    setActiveTask(task);setActiveTaskDk(day);setBoardTaskDate(date);setShowRemind(false);setBoardDrawerOpen(true);
   };
   const closeBoardTask=()=>{
     setBoardDrawerOpen(false);setShowRemind(false);setActiveTask(null);
@@ -2242,7 +2278,7 @@ export default function App(){
     },[activeTask,tasks]);
     if(!activeTask)return null;
     const task=tasks.find(t=>t.id===activeTask.id)??activeTask;
-    const dk=activeTaskDk,done=isDone(task,dk),secs=getLiveSecs(task),isRunning=task.timerRunning;
+    const dk=activeTaskDk,done=isDone(task,dk,selectedTaskDate),secs=getLiveSecs(task),isRunning=task.timerRunning;
     const folder=folders.find(f=>f.id===task.folderId);
     const trackedDay=inBoard?todayKey():dk;
     const totalSecsToday=secsTracked(trackedDay);const todayStr=dStr();
@@ -2278,8 +2314,8 @@ export default function App(){
           </div>
         </div>
         <SessionStats task={task}/>
-        {!done&&!showRemind&&(<div className="complete-actions"><button className="action-btn complete" onClick={()=>completeTask(null)}>✓ Mark Complete</button><button className="action-btn remind" onClick={()=>setShowRemind(true)}>⏰ Complete & Remind</button></div>)}
-        {!done&&showRemind&&(<div className="remind-section"><div className="remind-title">Remind me in</div><div className="remind-grid">{REMIND_OPTS.map(d=><button key={d} className="remind-opt" onClick={()=>completeTask(d)}>{d===1?"Tomorrow":`${d}d`}</button>)}</div><div style={{textAlign:"center"}}><button style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".8rem"}} onClick={()=>setShowRemind(false)}>Back</button></div></div>)}
+        {!done&&!showRemind&&(<div className="complete-actions"><button className="action-btn complete" onClick={()=>completeTask()}>✓ Mark Complete</button><button className="action-btn remind" onClick={()=>setShowRemind(true)}>⏰ Complete for now</button></div>)}
+        {!done&&showRemind&&<ReminderPicker onSchedule={completeTask} onCancel={()=>setShowRemind(false)}/>}
       </div>
     );
   };
@@ -2863,7 +2899,7 @@ export default function App(){
       {view==="folder"&&<FolderView/>}
       {view==="task"&&<TaskDetailView/>}
       {view==="all"&&<TaskBoard model={{tasks,folders,days:DAY_KEYS,dateForDay:dateForDK,today:todayKey,tasksForDay,isDone}}
-        selectedKey={drawerTask?taskCardKey(drawerTask,activeTaskDk):null} onOpen={openBoardTask} onClose={closeBoardTask} running={Boolean(runningTask)}
+        selectedKey={drawerTask?taskCardKey(drawerTask,selectedTaskDate):null} onOpen={openBoardTask} onClose={closeBoardTask} running={Boolean(runningTask)}
         onAddTask={(folderId,text)=>{
           const task={...taskBase(text,folderId),id:crypto.randomUUID(),recurring:false,done:false,startDate:dStr(),dueDate:null};
           setTasks(previous=>[...previous,task]);
@@ -2885,8 +2921,8 @@ export default function App(){
       {view!=="all"&&<DesktopRightPanel/>}
       {drawerTask&&(
         <TaskDrawer title={drawerTask.text} client={folders.find(folder=>folder.id===drawerTask.folderId)?.name??"No client"} onClose={closeBoardTask}>
-          <TaskSteps key={taskCardKey(drawerTask,activeTaskDk)} task={drawerTask} date={dateForDK(activeTaskDk)} done={Boolean(isDone(drawerTask,activeTaskDk))}
-            onAdd={text=>addTaskStep(drawerTask.id,text)} onToggle={stepId=>toggleTaskStep(drawerTask.id,stepId,activeTaskDk)}
+          <TaskSteps key={taskCardKey(drawerTask,selectedTaskDate)} task={drawerTask} date={selectedTaskDate} done={Boolean(isDone(drawerTask,activeTaskDk,selectedTaskDate))}
+            onAdd={text=>addTaskStep(drawerTask.id,text)} onToggle={stepId=>toggleTaskStep(drawerTask.id,stepId,selectedTaskDate)}
             onRemove={stepId=>updateTaskSteps(drawerTask.id,steps=>steps.filter(step=>step.id!==stepId))}/>
           <TaskDetailView inBoard/>
         </TaskDrawer>
