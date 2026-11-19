@@ -3,6 +3,8 @@ import "./App.css";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase.js";
+import { CHECK_IN_MINUTES, liveTaskSeconds, localDateKey as dStr, resolveTimerCheckIn, stopTaskTimer, timerDeadline } from "./taskTimer.js";
+import TaskBoard, { stepIsDone, taskCardKey, TaskDrawer, TaskSteps } from "./TaskBoard.jsx";
 
 const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_KEYS=["mon","tue","wed","thu","fri","sat","sun"];
@@ -12,7 +14,6 @@ const HR_PRESET=[4,6,7,8,9,10,12];
 const REMIND_OPTS=[1,3,7,14,30];
 const LOCK_DURS=[5,10,15,20,25,30];
 
-const dStr=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const todayIdx=()=>(new Date().getDay()+6)%7;
 const todayKey=()=>DAY_KEYS[todayIdx()];
 const dateForDK=dk=>{const n=new Date();n.setHours(0,0,0,0);const d=new Date(n);d.setDate(n.getDate()+DAY_KEYS.indexOf(dk)-todayIdx());return dStr(d);};
@@ -38,7 +39,11 @@ const calcStreak=(dates=[],dh={})=>{
 };
 const fmtTimer=secs=>{const s=Math.floor(Math.max(0,secs)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h>0?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;};
 const fmtHrs=h=>{if(h<=0||h<1/60)return"—";if(h<1)return`${Math.round(h*60)} min`;return h===Math.floor(h)?`${h} hrs`:`${h.toFixed(1)} hrs`;};
-const getLiveSecs=t=>{const logTotal=Object.values(t.timeLog??{}).reduce((s,v)=>s+v,0);const legacy=t.timeLog?0:(t.timerSeconds??0);const base=logTotal+legacy;if(!t.timerRunning||!t.timerStartedAt)return base;return base+(Date.now()-t.timerStartedAt)/1000;};
+const getLiveSecs=t=>{
+  const logTotal=Object.values(t.timeLog??{}).reduce((sum,seconds)=>sum+seconds,0);
+  const legacy=t.timeLog?(t.legacyTimerSeconds??0):(t.timerSeconds??0);
+  return logTotal+legacy+liveTaskSeconds(t);
+};
 const monthKey=()=>{const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}`;};
 
 let _ac=null;
@@ -47,6 +52,37 @@ const tone=(f,v=0.1,d=0.08)=>{try{const c=getAC(),o=c.createOscillator(),g=c.cre
 const playCheck=()=>tone(880,0.1,0.07);
 const playStart=()=>{tone(440,0.08,0.06);setTimeout(()=>tone(660,0.08,0.06),80);};
 const playWin=()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.1,0.2),i*100));
+
+function TimerCheckIn({task,onResolve}){
+  const dialogRef=useRef(null);
+  const [minutes,setMinutes]=useState(0);
+  useEffect(()=>{
+    const dialog=dialogRef.current;
+    dialog.showModal();
+    return()=>dialog.close();
+  },[]);
+
+  return(
+    <dialog ref={dialogRef} className="timer-check-in" aria-labelledby="check-in-title"
+      aria-describedby="check-in-description" onCancel={event=>event.preventDefault()}>
+      <div className="modal">
+        <h2 className="modal-title" id="check-in-title">Still working?</h2>
+        <p id="check-in-description">Your timer for <strong>{task.text}</strong> paused after {CHECK_IN_MINUTES} minutes. Subtract any time you spent away, then choose whether to continue.</p>
+        <label className="modal-lbl" htmlFor="check-in-minutes">Time to subtract</label>
+        <select className="modal-in" id="check-in-minutes" value={minutes} onChange={event=>setMinutes(Number(event.target.value))}>
+          <option value={0}>Keep all time</option>
+          {Array.from({length:CHECK_IN_MINUTES},(_,index)=>index+1).map(value=>(
+            <option key={value} value={value}>{value} {value===1?"minute":"minutes"}</option>
+          ))}
+        </select>
+        <div className="modal-btns">
+          <button className="btn-c" onClick={()=>onResolve(minutes,false)}>Stay paused</button>
+          <button className="btn-ok" onClick={()=>onResolve(minutes,true)}>Continue</button>
+        </div>
+      </div>
+    </dialog>
+  );
+}
 
 function Confetti({onDone}){
   useEffect(()=>{const t=setTimeout(onDone,2400);return()=>clearTimeout(t);},[]);
@@ -165,6 +201,7 @@ export default function App(){
   const [activeFolder,setActiveFolder]=useState(null);
   const [activeTask,setActiveTask]=useState(null);
   const [activeTaskDk,setActiveTaskDk]=useState(null);
+  const [boardDrawerOpen,setBoardDrawerOpen]=useState(false);
   const [prevView,setPrevView]=useState("home");
   const [showFolderModal,setShowFolderModal]=useState(false);
   const [showHoursModal,setShowHoursModal]=useState(false);
@@ -263,8 +300,11 @@ export default function App(){
 
   // Global tick removed — title/lock effects are now self-contained (see below). Live timer displays self-tick locally via useLiveSeconds.
   useEffect(()=>{if(activeTask){const u=tasks.find(t=>t.id===activeTask.id);if(u)setActiveTask(u);}},[tasks]);
-  const tasksRef=useRef(tasks);
-  useEffect(()=>{tasksRef.current=tasks;},[tasks]);
+  useEffect(()=>{if(view!=="all")setBoardDrawerOpen(false);},[view]);
+  const runningTask=tasks.find(t=>t.timerRunning);
+  const runningStartedAt=runningTask?.timerStartedAt;
+  const checkInTask=tasks.find(t=>t.timerCheckIn);
+  const checkInStartedAt=checkInTask?.timerCheckIn.startedAt;
 
   // ── PWA install detection ─────────────────────────────────────────────────
   useEffect(()=>{
@@ -284,21 +324,50 @@ export default function App(){
     }
   };
   useEffect(()=>{
+    if(!user||syncStatus!=="success"||runningStartedAt==null)return;
+    const deadline=timerDeadline(runningStartedAt);
+    let timeout;
+    const checkDeadline=()=>{
+      clearTimeout(timeout);
+      const now=Date.now();
+      if(now<deadline){
+        timeout=setTimeout(checkDeadline,deadline-now);
+        return;
+      }
+      setTasks(current=>current.map(task=>task.timerRunning&&task.timerStartedAt!=null&&now>=timerDeadline(task.timerStartedAt)
+        ?stopTaskTimer(task,now):task));
+    };
+    checkDeadline();
+    document.addEventListener("visibilitychange",checkDeadline);
+    window.addEventListener("focus",checkDeadline);
+    window.addEventListener("pageshow",checkDeadline);
+    return()=>{
+      clearTimeout(timeout);
+      document.removeEventListener("visibilitychange",checkDeadline);
+      window.removeEventListener("focus",checkDeadline);
+      window.removeEventListener("pageshow",checkDeadline);
+    };
+  },[user,syncStatus,runningStartedAt]);
+
+  useEffect(()=>{
+    if(!user||syncStatus!=="success"||(checkInStartedAt==null&&runningStartedAt==null)){
+      document.title="effingFocus";
+      return;
+    }
+    let showCheckIn=true;
     const updateTitle=()=>{
-      const running=tasksRef.current.find(t=>t.timerRunning);
-      if(running&&running.timerStartedAt){
-        const secs=Math.floor((Date.now()-running.timerStartedAt)/1000);
-        const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60),s=secs%60;
-        const time=h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-        document.title=`${time} · effingFocus`;
+      if(checkInStartedAt!=null){
+        document.title=showCheckIn?"⏸ Still working? · effingFocus":"Timer paused · effingFocus";
+        showCheckIn=!showCheckIn;
       }else{
-        document.title="effingFocus";
+        const seconds=liveTaskSeconds({timerRunning:true,timerStartedAt:runningStartedAt});
+        document.title=`${fmtTimer(seconds)} · effingFocus`;
       }
     };
     updateTitle();
-    const iv=setInterval(updateTitle,1000);
-    return()=>clearInterval(iv);
-  },[]);
+    const interval=setInterval(updateTitle,1000);
+    return()=>clearInterval(interval);
+  },[user,syncStatus,checkInStartedAt,runningStartedAt]);
   useEffect(()=>{
     if(!isLocked||!lockEndTime||lockDone)return;
     const checkExpiry=()=>{
@@ -396,12 +465,16 @@ export default function App(){
   const hoursFor=dk=>dayHours[dk]??8;
   const secsTracked=dk=>{
     const date=dateForDK(dk);
+    const dayStart=new Date(`${date}T00:00:00`);
+    const dayEnd=new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate()+1);
     // Use ALL tasks — a task created any day can have time logged on any day
     const taskSecs=tasks.reduce((s,t)=>{
       const log=t.timeLog??{};const dayVal=log[date]??0;
       if(t.timerRunning&&t.timerStartedAt){
-        const startDate=dStr(new Date(t.timerStartedAt));
-        if(startDate===date)return s+dayVal+(Date.now()-t.timerStartedAt)/1000;
+        const start=Math.max(t.timerStartedAt,dayStart.getTime());
+        const end=Math.min(t.timerStartedAt+liveTaskSeconds(t)*1000,dayEnd.getTime());
+        return s+dayVal+Math.max(0,end-start)/1000;
       }
       return s+dayVal;
     },0);
@@ -460,34 +533,22 @@ export default function App(){
 
   const startTimer=taskId=>{
     const now=Date.now();playStart();
-    setTasks(prev=>prev.map(t=>{
-      if(t.id===taskId)return{...t,timerRunning:true,timerStartedAt:now};
-      if(t.timerRunning&&t.timerStartedAt){const el=Math.floor((now-t.timerStartedAt)/1000);const date=dStr(new Date(t.timerStartedAt));const log={...(t.timeLog??{})};log[date]=(log[date]??0)+el;return{...t,timerRunning:false,timerStartedAt:null,timerSeconds:(t.timerSeconds??0)+el,timeLog:log};}
-      return t;
-    }));
+    setTasks(prev=>{
+      if(prev.some(t=>t.timerCheckIn||t.id===taskId&&t.timerRunning))return prev;
+      const stopped=prev.map(t=>stopTaskTimer(t,now));
+      if(stopped.some(t=>t.timerCheckIn))return stopped;
+      return stopped.map(t=>t.id===taskId?{...t,timerRunning:true,timerStartedAt:now}:t);
+    });
   };
   const pauseTimer=taskId=>{
     const now=Date.now();
-    setTasks(prev=>prev.map(t=>{
-      if(t.id!==taskId)return t;
-      if(!t.timerStartedAt)return{...t,timerRunning:false};
-      const log={...(t.timeLog??{})};
-      const startDateStr=dStr(new Date(t.timerStartedAt));
-      const endDateStr=dStr(new Date(now));
-      if(startDateStr===endDateStr){
-        const el=Math.floor((now-t.timerStartedAt)/1000);
-        log[startDateStr]=(log[startDateStr]??0)+el;
-      }else{
-        // Timer crossed midnight — split time across days
-        const midnight=new Date(now);midnight.setHours(0,0,0,0);
-        const yesterdaySecs=Math.floor((midnight.getTime()-t.timerStartedAt)/1000);
-        const todaySecs=Math.floor((now-midnight.getTime())/1000);
-        if(yesterdaySecs>0)log[startDateStr]=(log[startDateStr]??0)+yesterdaySecs;
-        if(todaySecs>0)log[endDateStr]=(log[endDateStr]??0)+todaySecs;
-      }
-      const el=Math.floor((now-t.timerStartedAt)/1000);
-      return{...t,timerRunning:false,timerStartedAt:null,timerSeconds:(t.timerSeconds??0)+el,timeLog:log};
-    }));
+    setTasks(prev=>prev.map(t=>t.id===taskId?stopTaskTimer(t,now):t));
+  };
+  const answerCheckIn=(minutes,resume)=>{
+    const resumeAt=resume?Date.now():null;
+    if(resume)playStart();
+    setTasks(prev=>prev.map(t=>t.id===checkInTask.id
+      ?resolveTimerCheckIn(t,checkInStartedAt,minutes,resumeAt):t));
   };
   const deleteTask=(e,id)=>{
     e.stopPropagation();
@@ -495,8 +556,25 @@ export default function App(){
     setDeleteConfirm({type:"task",id,name:t?.text||"this task"});
   };
   const confirmDeleteTask=id=>{setTasks(p=>p.filter(t=>t.id!==id));setDeleteConfirm(null);if(activeTask?.id===id)setActiveTask(null);};
-  const uncompleteTask=()=>{if(!activeTask)return;const dk=activeTaskDk;setTasks(prev=>prev.map(t=>{if(t.id!==activeTask.id)return t;if(!t.recurring)return{...t,done:false,completedDate:null};return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==dateForDK(dk))};}));goBack();};
+  const uncompleteTask=()=>{if(!activeTask)return;const dk=activeTaskDk;setTasks(prev=>prev.map(t=>{if(t.id!==activeTask.id)return t;if(!t.recurring)return{...t,done:false,completedDate:null};return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==dateForDK(dk))};}));if(view!=="all")goBack();};
   const deleteActiveTask=()=>{if(!activeTask)return;setTasks(p=>p.filter(t=>t.id!==activeTask.id));goBack();};
+  const updateTaskSteps=(taskId,update)=>{
+    setTasks(previous=>previous.map(task=>task.id===taskId?{...task,steps:update(task.steps??[],task)}:task));
+  };
+  const addTaskStep=(taskId,text)=>{
+    const id=crypto.randomUUID();
+    updateTaskSteps(taskId,steps=>[...steps,{id,text,done:false}]);
+  };
+  const toggleTaskStep=(taskId,stepId,day)=>{
+    const date=dateForDK(day);
+    updateTaskSteps(taskId,(steps,task)=>steps.map(step=>{
+      if(step.id!==stepId)return step;
+      const done=stepIsDone(task,step,date);
+      if(!task.recurring)return {...step,done:!done};
+      const dates=step.doneOn??[];
+      return {...step,doneOn:done?dates.filter(value=>value!==date):[...dates,date]};
+    }));
+  };
   const saveEditTask=()=>{
     const txt=editTaskText.trim();if(!txt)return;
     setTasks(p=>p.map(t=>t.id===activeTask.id?{
@@ -532,7 +610,7 @@ export default function App(){
       if(t.id!==activeTask.id)return t;
       const log={...(t.timeLog??{})};
       log[date]=secs;
-      const totalLogged=Object.values(log).reduce((s,v)=>s+v,0);
+      const totalLogged=Object.values(log).reduce((s,v)=>s+v,t.legacyTimerSeconds??0);
       return{...t,timeLog:log,timerSeconds:totalLogged};
     }));
     setShowEditTime(false);
@@ -544,10 +622,9 @@ export default function App(){
     setTasks(prev=>{
       let next=prev.map(t=>{
         if(t.id!==activeTask.id)return t;
-        let ts=t.timerSeconds??0;const log={...(t.timeLog??{})};
-        if(t.timerRunning&&t.timerStartedAt){const el=Math.floor((now-t.timerStartedAt)/1000);const date=dStr(new Date(t.timerStartedAt));log[date]=(log[date]??0)+el;ts+=el;}
-        if(!t.recurring)return{...t,done:true,completedDate:dStr(),timerRunning:false,timerStartedAt:null,timerSeconds:ts,timeLog:log};
-        return{...t,doneOn:[...(t.doneOn??[]),dateForDK(dk)],timerRunning:false,timerStartedAt:null,timerSeconds:ts,timeLog:log};
+        const stopped={...stopTaskTimer(t,now),timerCheckIn:null};
+        if(!t.recurring)return{...stopped,done:true,completedDate:dStr()};
+        return{...stopped,doneOn:[...(t.doneOn??[]),dateForDK(dk)]};
       });
       if(remindDays){const f=new Date();f.setDate(f.getDate()+remindDays);f.setHours(0,0,0,0);next=[...next,{id:Date.now(),text:activeTask.text,folderId:activeTask.folderId,recurring:false,day:DAY_KEYS[(f.getDay()+6)%7],startDate:dStr(f),done:false,timerSeconds:0,timerRunning:false,timerStartedAt:null,timeLog:{},isReminder:true}];}
       const dayT=next.filter(t=>(!t.recurring&&(t.day===dk||t.startDate===dateForDK(dk)))||(t.recurring&&t.recurringDays?.includes(dk)));
@@ -563,7 +640,7 @@ export default function App(){
       }
       return next;
     });
-    setShowRemind(false);goBack();
+    setShowRemind(false);if(view!=="all")goBack();
   };
 
   const openLockFlow=()=>{if(!userPin){setPinStep(1);setPinInput("");setPinConfirm("");setPinError("");setShowPinSetModal(true);}else setShowLockModal(true);};
@@ -655,11 +732,17 @@ export default function App(){
   const isExpensePaid=(exp)=>(exp.paid??{})[monthKey()]||false;
 
   const goHome=()=>setView("home");
+  const openBoardTask=(task,day)=>{
+    setActiveTask(task);setActiveTaskDk(day);setShowRemind(false);setBoardDrawerOpen(true);
+  };
+  const closeBoardTask=()=>{
+    setBoardDrawerOpen(false);setShowRemind(false);setActiveTask(null);
+  };
   const goDay=dk=>{setActiveDay(dk);setView("day");setTaskStartDate(dateForDK(dk));setTaskDueDate(null);};
   const goFolder=fid=>{setActiveFolder(fid);setView("folder");setTaskStartDate(dStr());setTaskDueDate(null);};
   const goTask=(task,dk,from)=>{
     const now=Date.now();
-    setTasks(prev=>prev.map(t=>{if(!t.timerRunning||t.id===task.id)return t;const el=Math.floor((now-t.timerStartedAt)/1000);const date=dStr(new Date(t.timerStartedAt));const log={...(t.timeLog??{})};log[date]=(log[date]??0)+el;return{...t,timerRunning:false,timerStartedAt:null,timerSeconds:(t.timerSeconds??0)+el,timeLog:log};}));
+    setTasks(prev=>prev.map(t=>t.id===task.id?t:stopTaskTimer(t,now)));
     setActiveTask(task);setActiveTaskDk(dk);setPrevView(from??view);setShowRemind(false);setView("task");
   };
   const goBack=()=>{if(prevView==="day")setView("day");else if(prevView==="folder")setView("folder");else if(prevView==="all")setView("all");else setView("home");};
@@ -1154,7 +1237,7 @@ export default function App(){
     const accountLongest=allSessions.length?Math.max(...allSessions):0;
     const totalSessions=allSessions.length;
     // Current live session on THIS task
-    const liveSecs=task.timerRunning&&task.timerStartedAt?(Date.now()-task.timerStartedAt)/1000:0;
+    const liveSecs=liveTaskSeconds(task);
     const isBelow=task.timerRunning&&accountAvg>0&&liveSecs<accountAvg*.7;
     const isBeat=task.timerRunning&&accountAvg>0&&liveSecs>accountLongest;
     if(totalSessions===0&&!task.timerRunning)return null;
@@ -2147,7 +2230,7 @@ export default function App(){
     );
   };
 
-  const TaskDetailView=()=>{
+  const TaskDetailView=({inBoard=false})=>{
     const [,bump]=useState(0);
     useEffect(()=>{
       if(!activeTask)return;
@@ -2160,13 +2243,14 @@ export default function App(){
     const task=tasks.find(t=>t.id===activeTask.id)??activeTask;
     const dk=activeTaskDk,done=isDone(task,dk),secs=getLiveSecs(task),isRunning=task.timerRunning;
     const folder=folders.find(f=>f.id===task.folderId);
-    const totalSecsToday=secsTracked(dk);const todayStr=dStr();
+    const trackedDay=inBoard?todayKey():dk;
+    const totalSecsToday=secsTracked(trackedDay);const todayStr=dStr();
     let dueInfo=null;
     if(task.dueDate){const diff=Math.round((new Date(task.dueDate)-new Date(todayStr))/86400000);const col=diff<0?"#ef4444":diff===0?"#fb923c":diff===1?"#fbbf24":"var(--mu)";const lbl=diff<0?`Overdue ${Math.abs(diff)}d`:diff===0?"Due today":diff===1?"Due tomorrow":`Due in ${diff}d`;dueInfo=<span className="date-pill" style={{color:col,borderColor:col+"40"}}>⏰ {lbl}</span>;}
     return(
-      <div className="task-detail">
-        {folder&&<div className="detail-folder" style={{color:folder.color}}>{folder.icon} {folder.name}</div>}
-        <div className={`detail-name${done?" done":""}`}>{task.text}</div>
+      <div className={`task-detail${inBoard?" task-detail-in-board":""}`}>
+        {!inBoard&&folder&&<div className="detail-folder" style={{color:folder.color}}>{folder.icon} {folder.name}</div>}
+        {!inBoard&&<div className={`detail-name${done?" done":""}`}>{task.text}</div>}
         <div className="detail-date-pills">
           {task.startDate&&<span className="date-pill">📅 {task.startDate===todayStr?"Starts today":task.startDate}</span>}
           {dueInfo}
@@ -2175,10 +2259,11 @@ export default function App(){
           <button className="detail-action-btn" onClick={()=>{setEditTaskText(task.text);setShowEditTask(true);}}>✏️ Edit</button>
           {done&&<button className="detail-action-btn warn" onClick={uncompleteTask}>↩ Uncomplete</button>}
           {!done&&<AlertBtn task={task}/>}
-          <button className="detail-action-btn danger" onClick={deleteActiveTask}>🗑 Delete</button>
+          <button className="detail-action-btn danger" onClick={inBoard?()=>setDeleteConfirm({type:"task",id:task.id,name:task.text}):deleteActiveTask}>🗑 Delete</button>
         </div>
         {done&&<div className="done-badge">✓ Completed</div>}
         <div className={`timer-card${isRunning?" running":""}`}>
+          {inBoard&&<div className="task-drawer-timer-label">Time tracked</div>}
           <div className="timer-digits">{fmtTimer(secs)}</div>
           <div className="timer-status-lbl">{isRunning?"Working on this task…":"Timer paused"}</div>
           {!done&&(<div className="timer-btn-wrap">{isRunning?<button className="timer-btn pause" onClick={()=>pauseTimer(task.id)}>Pause</button>:<button className="timer-btn start" onClick={()=>startTimer(task.id)}>▶ Start Working</button>}<button className="lock-btn" onClick={openLockFlow}>🔒 Lock In</button></div>)}
@@ -2188,7 +2273,7 @@ export default function App(){
               <div className="t-stat-lbl">This task ✏️</div>
             </div>
             <div className="t-stat"><div className="t-stat-val">{fmtTimer(totalSecsToday)}</div><div className="t-stat-lbl">Today total</div></div>
-            <div className="t-stat"><div className="t-stat-val">{fmtHrs(hoursLeft(dk))}</div><div className="t-stat-lbl">Budget left</div></div>
+            <div className="t-stat"><div className="t-stat-val">{fmtHrs(hoursLeft(trackedDay))}</div><div className="t-stat-lbl">Budget left</div></div>
           </div>
         </div>
         <SessionStats task={task}/>
@@ -2197,28 +2282,6 @@ export default function App(){
       </div>
     );
   };
-
-  const AllTasksView=()=>{
-    const [sortBy,setSortBy]=useState("date");const [filter,setFilter]=useState("all");const today=dStr();
-    const allItems=[];
-    DAY_KEYS.forEach(dk=>{tasksForDay(dk).forEach(task=>{const done=isDone(task,dk);if(filter==="pending"&&done)return;if(filter==="done"&&!done)return;allItems.push({task,dk,date:dateForDK(dk),done,folder:folders.find(f=>f.id===task.folderId)});});});
-    if(sortBy==="date")allItems.sort((a,b)=>{const aT=a.date===today?0:a.date>today?1:2,bT=b.date===today?0:b.date>today?1:2;return aT!==bT?aT-bT:a.date.localeCompare(b.date);});
-    else allItems.sort((a,b)=>(a.folder?.name??"").localeCompare(b.folder?.name??"")||a.date.localeCompare(b.date));
-    const groups=[];
-    if(sortBy==="date"){DAY_KEYS.forEach(dk=>{const items=allItems.filter(i=>i.dk===dk);if(!items.length)return;const date=dateForDK(dk),isToday=date===today,isPast=date<today;groups.push({key:dk,label:DAYS[DAY_KEYS.indexOf(dk)],date,isToday,isPast,items});});groups.sort((a,b)=>{const aT=a.isToday?0:!a.isPast?1:2,bT=b.isToday?0:!b.isPast?1:2;return aT!==bT?aT-bT:a.date.localeCompare(b.date);});}
-    else{const fm={};allItems.forEach(i=>{const k=i.folder?.id??"none";if(!fm[k])fm[k]={key:k,label:i.folder?.name??"No folder",color:i.folder?.color??"#555",icon:i.folder?.icon??"📋",items:[]};fm[k].items.push(i);});Object.values(fm).forEach(g=>groups.push(g));}
-    const totalPending=DAY_KEYS.flatMap(dk=>tasksForDay(dk).filter(t=>!isDone(t,dk))).length;
-    const totalDone=DAY_KEYS.flatMap(dk=>tasksForDay(dk).filter(t=>isDone(t,dk))).length;
-    return(
-      <div className="page">
-        <div className="all-hdr"><div><div className="page-title">All Tasks</div><div className="page-sub">{totalPending} pending · {totalDone} done</div></div><div className="sort-tabs"><button className={`sort-tab${sortBy==="date"?" active":""}`} onClick={()=>setSortBy("date")}>📅 Date</button><button className={`sort-tab${sortBy==="folder"?" active":""}`} onClick={()=>setSortBy("folder")}>📁 Folder</button></div></div>
-        <div className="filter-tabs">{[["all","All"],["pending","Pending"],["done","Done"]].map(([v,l])=><button key={v} className={`filter-tab${filter===v?" active":""}`} onClick={()=>setFilter(v)}>{l}</button>)}</div>
-        {groups.length===0&&<div className="empty">No tasks found</div>}
-        {sortBy==="date"?groups.map(g=>(<div className="day-section" key={g.key}><div className="day-section-hdr"><span className={`day-badge${g.isToday?" today":g.isPast?" past":" future"}`}>{g.isToday?"Today":g.label}</span><span style={{fontSize:".7rem",color:"var(--mu)"}}>{g.date}</span><span style={{marginLeft:"auto",fontSize:".72rem",color:"var(--mu)",fontWeight:600}}>{g.items.filter(i=>i.done).length}/{g.items.length}</span></div>{g.items.map((item,idx)=><TaskRow key={`${item.task.id}-${item.dk}-${idx}`} task={item.task} dk={item.dk} color={item.folder?.color??"var(--ac)"} from="all"/>)}</div>)):groups.map(g=>(<div className="day-section" key={g.key}><div className="day-section-hdr"><span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:".88rem",color:g.color}}>{g.icon} {g.label}</span><span style={{marginLeft:"auto",fontSize:".72rem",color:"var(--mu)",fontWeight:600}}>{g.items.filter(i=>i.done).length}/{g.items.length}</span></div>{g.items.map((item,idx)=><TaskRow key={`${item.task.id}-${item.dk}-${idx}`} task={item.task} dk={item.dk} color={g.color} from="all"/>)}</div>))}
-      </div>
-    );
-  };
-
 
   // ── Trial days remaining ──────────────────────────────────────────────────
   const trialDaysLeft=trialStartDate
@@ -2772,8 +2835,13 @@ export default function App(){
     return null;
   };
 
+  const drawerTask=view==="all"&&boardDrawerOpen?tasks.find(task=>task.id===activeTask?.id):null;
+
   return(
-    <div className="app">
+    <div className={`app${view==="all"?" task-board-layout":""}`}>
+      {syncStatus==="success"&&checkInTask&&(
+        <TimerCheckIn key={`${checkInTask.id}-${checkInStartedAt}`} task={checkInTask} onResolve={answerCheckIn}/>
+      )}
       <DesktopSidebar/>
       <div className="app-center">
       <div className="nav">
@@ -2793,7 +2861,9 @@ export default function App(){
       {view==="day"&&<DayView/>}
       {view==="folder"&&<FolderView/>}
       {view==="task"&&<TaskDetailView/>}
-      {view==="all"&&<AllTasksView/>}
+      {view==="all"&&<TaskBoard model={{tasks,folders,days:DAY_KEYS,dateForDay:dateForDK,today:todayKey,tasksForDay,isDone}}
+        selectedKey={drawerTask?taskCardKey(drawerTask,activeTaskDk):null} onOpen={openBoardTask} running={Boolean(runningTask)}
+        getDailyTime={()=>{const day=todayKey();return {seconds:secsTracked(day),goal:hoursFor(day)};}}/>}
       {view==="clients"&&<ClientsView/>}
       {view==="money"&&<MoneyView/>}
       {(view==="reports"||view==="insights")&&<ReportsView/>}
@@ -2807,7 +2877,15 @@ export default function App(){
         </div>
       )}
       </div>
-      <DesktopRightPanel/>
+      {view!=="all"&&<DesktopRightPanel/>}
+      {drawerTask&&(
+        <TaskDrawer title={drawerTask.text} client={folders.find(folder=>folder.id===drawerTask.folderId)?.name??"No client"} onClose={closeBoardTask}>
+          <TaskSteps key={taskCardKey(drawerTask,activeTaskDk)} task={drawerTask} date={dateForDK(activeTaskDk)} done={Boolean(isDone(drawerTask,activeTaskDk))}
+            onAdd={text=>addTaskStep(drawerTask.id,text)} onToggle={stepId=>toggleTaskStep(drawerTask.id,stepId,activeTaskDk)}
+            onRemove={stepId=>updateTaskSteps(drawerTask.id,steps=>steps.filter(step=>step.id!==stepId))}/>
+          <TaskDetailView inBoard/>
+        </TaskDrawer>
+      )}
       {showProfile&&<ProfileView/>}
       {(trialExpired||showPaywall)&&!subscribed&&<PaywallView/>}
 
