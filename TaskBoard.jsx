@@ -79,12 +79,20 @@ function getBoardGroups({ tasks, folders, days, dateForDay, tasksForDay, isDone 
 export default function TaskBoard({ model, selectedKey, onOpen, onClose, getDailyTime, running }) {
   const [scope, setScope] = useState("today");
   const [focusedClient, setFocusedClient] = useState(undefined);
+  const [clientSearch, setClientSearch] = useState("");
   const allGroups = getBoardGroups(model, model.today(), scope);
   const groups = focusedClient === undefined ? allGroups : allGroups.filter(group => group.id === focusedClient);
+  const searchTerm = clientSearch.trim().toLocaleLowerCase();
+  const visibleGroups = searchTerm ? groups.filter(group => group.name.toLocaleLowerCase().includes(searchTerm)) : groups;
   const items = groups.flatMap(group => group.items);
   const completed = items.filter(item => item.done).length;
   const taskPercent = items.length ? completed / items.length * 100 : 0;
+  const searchClients = value => {
+    setClientSearch(value);
+    if (value.trim()) setFocusedClient(undefined);
+  };
   const toggleClient = group => {
+    setClientSearch("");
     if (focusedClient === group.id) {
       setFocusedClient(undefined);
       return;
@@ -102,6 +110,8 @@ export default function TaskBoard({ model, selectedKey, onOpen, onClose, getDail
             <option value="today">Today</option>
             <option value="week">This week</option>
           </select>
+          <input type="search" className="task-board-search" aria-label="Search clients" placeholder="Search clients…"
+            value={clientSearch} onChange={event => searchClients(event.target.value)}/>
           {focusedClient !== undefined && <button type="button" className="task-board-all-clients" onClick={() => setFocusedClient(undefined)}>All clients</button>}
         </div>
         <div className="task-board-metrics">
@@ -109,8 +119,9 @@ export default function TaskBoard({ model, selectedKey, onOpen, onClose, getDail
           <BoardMetric label="Task progress" value={taskPercent} detail={`${completed} of ${items.length} ${items.length === 1 ? "task" : "tasks"} done`}/>
         </div>
       </header>
-      {!groups.length && <p className="task-board-empty">No tasks{focusedClient !== undefined ? " for the selected client" : ""} {scope === "today" ? "today" : "this week"}.</p>}
-      {groups.map(group => (
+      {!visibleGroups.length && <p className="task-board-empty" role="status">{searchTerm ? "No clients match your search." :
+        `No tasks${focusedClient !== undefined ? " for the selected client" : ""} ${scope === "today" ? "today" : "this week"}.`}</p>}
+      {visibleGroups.map(group => (
         <section className="task-board-client" key={group.id ?? "no-client"}>
           <div className="task-board-client-heading">
             <h2><button type="button" className="task-board-client-name" aria-pressed={focusedClient === group.id}

@@ -853,10 +853,13 @@ input,textarea{user-select:text}
   font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;line-height:1.15;letter-spacing:-.035em;
 }
 .task-board h1{font-size:clamp(1.85rem,3vw,2.75rem)}
-.task-board select,.task-step-form input{
+.task-board select,.task-board-search,.task-step-form input{
   background:var(--s);color:var(--tx);border:1px solid var(--b2);border-radius:10px;
   padding:9px 11px;color-scheme:dark;font-size:.85rem;
 }
+.task-board-search{width:158px;min-height:36px}
+.task-board-search::placeholder{color:var(--tx2)}
+.task-board-search:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 .task-board-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;flex:1;max-width:420px}
 .task-board-metric-label{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-bottom:5px;font-weight:700;font-size:.85rem}
 .task-board-metric-label strong{white-space:nowrap}
