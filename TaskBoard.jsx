@@ -114,7 +114,7 @@ export default function TaskBoard({ model, selectedKey, onOpen, getDailyTime, ru
                 <button type="button" className={`task-board-card${selected ? " selected" : ""}`} key={key}
                   aria-expanded={selected} onClick={() => onOpen(task, day)}>
                   <span className="task-board-card-top">
-                    <strong>{task.text}</strong>
+                    <strong title={task.text}>{task.text}</strong>
                     <span className={`task-board-check${done ? " done" : ""}`} aria-hidden="true">{done ? "✓" : ""}</span>
                   </span>
                   <span className="task-board-card-status">
