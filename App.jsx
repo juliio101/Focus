@@ -4,6 +4,7 @@ import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase.js";
 import { CHECK_IN_MINUTES, liveTaskSeconds, localDateKey as dStr, resolveTimerCheckIn, stopTaskTimer, timerDeadline } from "./taskTimer.js";
+import HomeDashboard from "./HomeDashboard.jsx";
 import TaskBoard, { scheduleTaskFollowUp, setTaskStepDone, stepIsDone, taskCardKey, taskStepsForDate, TaskDrawer, TaskSteps } from "./TaskBoard.jsx";
 
 const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
@@ -592,7 +593,7 @@ export default function App(){
     setDeleteConfirm({type:"task",id,name:t?.text||"this task"});
   };
   const confirmDeleteTask=id=>{setTasks(p=>p.filter(t=>t.id!==id));setDeleteConfirm(null);if(activeTask?.id===id)setActiveTask(null);};
-  const uncompleteTask=()=>{if(!activeTask)return;setTasks(prev=>prev.map(t=>{if(t.id!==activeTask.id)return t;if(!t.recurring)return{...t,done:false,completedDate:null};return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==selectedTaskDate)};}));if(view!=="all")goBack();};
+  const uncompleteTask=()=>{if(!activeTask)return;setTasks(prev=>prev.map(t=>{if(t.id!==activeTask.id)return t;if(!t.recurring)return{...t,done:false,completedDate:null,completedAt:null};const completedAtByDate={...t.completedAtByDate};delete completedAtByDate[selectedTaskDate];return{...t,doneOn:(t.doneOn??[]).filter(d=>d!==selectedTaskDate),completedAtByDate};}));if(view!=="all")goBack();};
   const deleteActiveTask=()=>{if(!activeTask)return;setTasks(p=>p.filter(t=>t.id!==activeTask.id));goBack();};
   const updateTaskSteps=(taskId,update)=>{
     setTasks(previous=>previous.map(task=>task.id===taskId?{...task,steps:update(task.steps??[],task)}:task));
@@ -660,8 +661,8 @@ export default function App(){
         const reminderSteps=new Set(taskStepsForDate(t,date).filter(step=>step.remindAt));
         const completed=reminderSteps.size?{...stopped,steps:t.steps.map(step=>reminderSteps.has(step)
           ?setTaskStepDone(t,step,date):step)}:stopped;
-        if(!t.recurring)return{...completed,done:true,completedDate:dStr()};
-        return{...completed,doneOn:[...(t.doneOn??[]),date]};
+        if(!t.recurring)return{...completed,done:true,completedDate:dStr(),completedAt:now};
+        return{...completed,doneOn:[...(t.doneOn??[]),date],completedAtByDate:{...t.completedAtByDate,[date]:now}};
       });
       if(followUpId||date!==dateForDK(dk))return next;
       const dayT=next.filter(t=>(!t.recurring&&(t.day===dk||t.startDate===dateForDK(dk)))||(t.recurring&&t.recurringDays?.includes(dk)));
@@ -777,9 +778,9 @@ export default function App(){
   };
   const goDay=dk=>{setActiveDay(dk);setView("day");setTaskStartDate(dateForDK(dk));setTaskDueDate(null);};
   const goFolder=fid=>{setActiveFolder(fid);setView("folder");setTaskStartDate(dStr());setTaskDueDate(null);};
-  const goTask=(task,dk,from)=>{
+  const goTask=(task,dk,from,keepTimer=false)=>{
     const now=Date.now();
-    setTasks(prev=>prev.map(t=>t.id===task.id?t:stopTaskTimer(t,now)));
+    if(!keepTimer)setTasks(prev=>prev.map(t=>t.id===task.id?t:stopTaskTimer(t,now)));
     setActiveTask(task);setActiveTaskDk(dk);setPrevView(from??view);setShowRemind(false);setView("task");
   };
   const goBack=()=>{if(prevView==="day")setView("day");else if(prevView==="folder")setView("folder");else if(prevView==="all")setView("all");else setView("home");};
@@ -950,30 +951,6 @@ export default function App(){
   };
 
 
-  const TimeHeroCard=({dk})=>{
-    const [,bump]=useState(0);useEffect(()=>{if(!tasks.some(t=>t.timerRunning))return;const iv=setInterval(()=>bump(x=>x+1),1000);return()=>clearInterval(iv);},[tasks]);
-    const st=secsTracked(dk),pct=hoursPct(dk);
-    const isRunning=tasks.some(t=>t.timerRunning);
-    const r=36,circ=2*Math.PI*r,offset=circ*(1-Math.min(pct,100)/100);
-    return(
-      <div className={`time-hero-card${isRunning?" running":""}`}>
-        <div className="time-hero-content">
-          <div className="time-hero-label">Time Tracked Today</div>
-          <div className="time-hero-timer" style={{color:isRunning?"var(--ac)":"var(--tx)"}}>{fmtTimer(st)}</div>
-          <div className="time-hero-sub">of {hoursFor(dk)} hr goal · <span style={{color:pct>=75?"var(--ac)":pct>=50?"#fb923c":"#ef4444"}}>{pct}%</span></div>
-          <div className="time-hero-bar"><div className="time-hero-bar-fill" style={{width:`${pct}%`,minWidth:st>0?"4px":"0"}}/></div>
-          {isRunning&&<div className="time-hero-running"><div className="running-dot"/><span>Timer running</span></div>}
-        </div>
-        <div className="time-hero-arc" onClick={()=>{setPendingWeekGoal(weeklyGoal);setShowWeekGoalModal(true);}}>
-          <svg width="90" height="90" style={{transform:"rotate(-90deg)",display:"block",flexShrink:0}}>
-            <circle cx="45" cy="45" r={r} fill="none" stroke="#1c1c1c" strokeWidth="8"/>
-            <circle cx="45" cy="45" r={r} fill="none" stroke={isRunning?"#c8ff57":"#2a2a2a"} strokeWidth="8" strokeLinecap="round" strokeDasharray={circ.toFixed(1)} strokeDashoffset={offset.toFixed(1)} style={{transition:"stroke-dashoffset .8s cubic-bezier(.34,1.56,.64,1)"}}/>
-          </svg>
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:800,fontSize:".88rem",color:isRunning?"var(--ac)":"var(--tx2)"}}>{pct}%</div>
-        </div>
-      </div>
-    );
-  };
   const DayMomentum=({dk})=>{
     if(dk!==todayKey())return null;
     const now=new Date(),hour=now.getHours()+now.getMinutes()/60;
@@ -1924,92 +1901,58 @@ export default function App(){
   };
 
   const HomeView=()=>{
-    const dk=todayKey();
-    const nowDate=new Date(),monthStr=`${nowDate.getFullYear()}-${String(nowDate.getMonth()+1).padStart(2,"0")}`,monthName=nowDate.toLocaleString("default",{month:"long"});
-    const tMonth=()=>{let c=0;tasks.forEach(t=>{if(!t.recurring&&t.done)c++;else if(t.recurring)c+=(t.doneOn??[]).filter(d=>d.startsWith(monthStr)).length;});return c;};
-    const weekDone=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).filter(t=>isDone(t,d)).length,0);
-    const weekTotal=DAY_KEYS.reduce((s,d)=>s+tasksForDay(d).length,0);
-    const enriched=[...folders].filter(f=>!f.archived&&!f.paused&&!f.prospect).map(f=>{const td=todayKey(),ft=folderTasks(f.id),tdTasks=tasksForDay(td).filter(t=>t.folderId===f.id);const doneToday=tdTasks.filter(t=>isDone(t,td)).length,todayCount=tdTasks.length;let wDue=0,wDone=0;DAY_KEYS.forEach(d=>{const df=tasksForDay(d).filter(t=>t.folderId===f.id);wDue+=df.length;wDone+=df.filter(t=>isDone(t,d)).length;});const totalSecs=ft.reduce((s,t)=>s+(t.timerSeconds??0),0);return{f,todayCount,doneToday,wDue,wDone,wPct:wDue>0?Math.round(wDone/wDue*100):0,totalSecs,hasToday:todayCount>0};});
-    const active=enriched.filter(e=>e.hasToday).sort((a,b)=>b.todayCount-a.todayCount);
-    const inactive=enriched.filter(e=>!e.hasToday);
-    const FRow=({e,dim})=>{const{f,todayCount,doneToday,wDue,wDone,wPct,totalSecs}=e;return(
-      <div className={`folder-row${dim?" dimmed":""}`} style={{"--fc":dim?"#555":f.color}} onClick={()=>goFolder(f.id)}>
-        <div className="folder-row-icon" style={{filter:dim?"grayscale(1)":"none"}}>{f.icon}</div>
-        <div className="folder-row-main"><div className="folder-row-name" style={{color:dim?"var(--mu)":"var(--tx)"}}>{f.name}</div><div className="folder-row-bar"><div className="folder-row-bar-f" style={{width:`${wPct}%`,background:dim?"#444":f.color}}/></div></div>
-        <div className="folder-row-stats">
-          <div className="f-stat"><span className="f-stat-val" style={{color:dim?"var(--mu)":todayCount>0?f.color:"var(--tx2)"}}>{dim?"—":`${doneToday}/${todayCount}`}</span><span className="f-stat-lbl">Today</span></div>
-          <div className="f-stat f-stat-week"><span className="f-stat-val" style={{color:dim?"var(--mu)":"var(--tx2)"}}>{wDone}/{wDue}</span><span className="f-stat-lbl">Week</span></div>
-          <div className="f-stat"><span className="f-stat-val" style={{color:dim?"var(--mu)":"var(--tx2)"}}>{totalSecs>0?fmtTimer(totalSecs):"—"}</span><span className="f-stat-lbl">Time</span></div>
-          {(f.monthlyValue||0)>0&&<div className="f-stat f-stat-week"><span className="f-stat-val" style={{color:"#34d399"}}>${(f.monthlyValue).toLocaleString()}</span><span className="f-stat-lbl">/mo</span></div>}
-        </div>
-        <button onClick={ev=>openRename(ev,f)} style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:".85rem",padding:"3px 6px",borderRadius:6,flexShrink:0}}>✏️</button>
-        <span className="folder-arr">›</span>
-      </div>
-    );};
-    const h=new Date().getHours();
-    const greeting=h<12?"Good morning":h<17?"Good afternoon":"Good evening";
-    const firstName=user?.displayName?.split(" ")[0]||"there";
-    const dateStr=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+    const dk=todayKey(),today=dStr(),month=monthKey();
+    const dayStats=DAY_KEYS.map((day,index)=>{
+      const date=dateForDK(day);
+      const scheduled=tasksForDay(day);
+      const completed=tasks.filter(task=>task.recurring?(task.doneOn??[]).includes(date):
+        task.done&&(task.completedDate ? task.completedDate===date : scheduled.includes(task)));
+      const pending=scheduled.filter(task=>!isDone(task,day));
+      if(day===dk){
+        const scheduledIds=new Set(scheduled.map(task=>task.id));
+        pending.push(...tasks.filter(task=>{
+          if(task.recurring||task.done||scheduledIds.has(task.id))return false;
+          const start=task.startDate||task.scheduledDate||(DAY_KEYS.includes(task.day)?dateForDK(task.day):null);
+          return !start||start<=date;
+        }));
+      }
+      return {label:DAYS[index],today:day===dk,completed:completed.length,total:completed.length+pending.length,
+        completedTasks:completed,onOpen:()=>goDay(day)};
+    });
+    const todayStats=dayStats[todayIdx()];
+    const clientNames=new Map(folders.map(folder=>[folder.id,folder.name]));
+    const activeClients=folders.filter(folder=>!folder.archived&&!folder.paused&&!folder.prospect);
+    const clients=activeClients.map(folder=>({health:clientHealth(folder)}));
+    const attention=activeClients.filter(client=>!isSnoozed(client.id)).flatMap(client=>{
+      const overdue=folderTasks(client.id).filter(task=>!task.recurring&&!task.done&&task.dueDate&&task.dueDate<today)
+        .sort((a,b)=>a.dueDate.localeCompare(b.dueDate))[0];
+      if(overdue)return [{client,reason:"Overdue task",action:"Open task",priority:3,urgent:true,onAction:()=>goTask(overdue,dk,"home",true)}];
+      const paymentPending=((client.monthlyValue||0)>0&&!client.subCollected?.[month])||
+        (client.payments??[]).some(payment=>payment.month===month&&payment.status!=="collected");
+      if(paymentPending)return [{client,reason:"Payment pending",action:"View payments",priority:2,onAction:()=>goFolder(client.id)}];
+      const days=lastActivityDays(client.id);
+      if(days>=chaseThreshold)return [{client,reason:days===999?"No activity recorded":`${days}d without activity`,
+        action:"Open client",priority:1,onAction:()=>goFolder(client.id)}];
+      return [];
+    }).sort((a,b)=>b.priority-a.priority);
+    const entries=todayStats.completedTasks.map(task=>({
+      task,client:clientNames.get(task.folderId),completedAt:task.recurring?task.completedAtByDate?.[today]:task.completedAt,
+      onOpen:()=>goTask(task,dk,"home",true),
+    })).sort((a,b)=>(b.completedAt??0)-(a.completedAt??0));
+    const hour=new Date().getHours();
+    const greeting=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening";
+    const firstName=user?.displayName?.trim().split(/\s+/)[0]||"there";
+    const dateLabel=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
     return(
       <div className="home-layout">
         <div className="home-main">
-          <div className="today-greeting">
-            <div className="today-date">{dateStr}</div>
-            <div className="today-title">{greeting}, {firstName}.</div>
-          </div>
+          <HomeDashboard greeting={`${greeting}, ${firstName}.`} dateLabel={dateLabel} boss={calcBossScore()}
+            clients={clients} attention={attention} completed={todayStats.completed} total={todayStats.total} week={dayStats}
+            entries={entries} readSeconds={()=>secsTracked(dk)} goal={hoursFor(dk)} running={tasks.some(task=>task.timerRunning)}
+            onClients={()=>setView("clients")} onAddClient={()=>setShowFolderModal(true)} onTasks={()=>setView("all")}
+            onInsights={()=>setView("reports")}/>
           <RunningTimerBanner/>
           {streak>0&&<div className="streak"><span style={{fontSize:"1.4rem"}}>🔥</span><div><div className="streak-num">{streak} day streak</div><div className="streak-lbl">Keep going</div></div>{bestStreak>streak&&<span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--mu)"}}>Best: {bestStreak}</span>}</div>}
-          {/* Time Hero + Boss Score side by side */}
-          {(()=>{
-            let score=50,band="Fair",color="#fbbf24",tip="Tracking your progress...",delta=0;
-            try{const r=calcBossScore();score=r.score;band=r.band;color=r.color;tip=r.tip;delta=r.delta??0;}catch(e){}
-            return(
-              <>
-                <div style={{display:"flex",gap:10,marginBottom:10}}>
-                  <div style={{flex:"0 0 57%"}}>
-                    <TimeHeroCard dk={dk}/>
-                  </div>
-                  <div data-tour="boss-score" style={{
-                    flex:1,minHeight:140,
-                    background:`linear-gradient(135deg,${color}28,${color}14)`,
-                    border:`1px solid ${color}40`,
-                    borderRadius:"var(--r2)",padding:"16px 12px",position:"relative",
-                    display:"flex",flexDirection:"column",
-                    alignItems:"center",justifyContent:"center",textAlign:"center",gap:8,
-                  }}>
-                    {delta!==0&&(
-                      <div style={{position:"absolute",top:10,right:10,display:"flex",alignItems:"center",gap:2,background:"rgba(0,0,0,.3)",borderRadius:99,padding:"2px 8px"}}>
-                        <span style={{fontSize:".62rem",fontWeight:800,color:delta>0?"#34d399":"#ef4444"}}>{delta>0?"▲":"▼"} {Math.abs(delta)}</span>
-                      </div>
-                    )}
-                    <div style={{fontSize:".58rem",fontWeight:700,color:`${color}cc`,textTransform:"uppercase",letterSpacing:".14em"}}>Boss Score</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:"2.6rem",fontWeight:700,color:"#fff",letterSpacing:"-2px",lineHeight:1}}>{score}</div>
-                    <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"rgba(0,0,0,.25)",borderRadius:99,padding:"4px 11px"}}>
-                      <div style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0}}/>
-                      <span style={{fontSize:".68rem",fontWeight:700,color:"#fff"}}>{band}</span>
-                    </div>
-                  </div>
-                </div>
-                <div style={{borderLeft:`3px solid ${color}`,background:`${color}08`,borderRadius:"0 var(--r) var(--r) 0",padding:"10px 14px",marginBottom:20}}>
-                  <div style={{fontSize:".78rem",color:"var(--tx2)",lineHeight:1.6,fontStyle:"italic"}}>"{tip}"</div>
-                  <div style={{fontSize:".66rem",color:"var(--mu)",marginTop:6,opacity:.8}}>Builds over your last 7 days — today's effort shows up more each day after.</div>
-                </div>
-              </>
-            );
-          })()}
-          <div className="week-section-hdr">
-            <div className="week-title">My Week</div>
-            <div className="week-sub">Tap a day to manage tasks</div>
-          </div>
-          <div className="day-grid">
-            {DAY_KEYS.map((d,i)=>{const dt=tasksForDay(d),pct=donePct(dt,d),isT=i===todayIdx();return(
-              <div key={d} className={`day-card${isT?" today":""}`} onClick={()=>goDay(d)}>
-                <div className="day-lbl">{DAYS[i]}</div>
-                <div className="day-bar"><div className="day-bar-f" style={{width:`${pct}%`,background:isT?"#c8ff57":pct===100?"#34d399":"#2a2a2a"}}/></div>
-                <div className="day-cnt">{dt.filter(t=>isDone(t,d)).length}/{dt.length}</div>
-              </div>
-            );})}
-          </div>
           <UrgentSection/>
           <ChaseThese/>
           <div className="sec-hdr" style={{marginTop:8}}>
@@ -2046,6 +1989,7 @@ export default function App(){
             </div>
           </div>}
           <CallsTracker/>
+          <WeekCompare/>
           {folders.some(f=>f.paused)&&(
             <div style={{marginTop:20}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
@@ -2087,34 +2031,6 @@ export default function App(){
               })}
             </div>
           )}
-        </div>
-        <div className="stats-col">
-          <div className="stat-card">
-            <div className="stat-title">Tasks Completed</div>
-            <div className="stat-big" style={{color:"#c8ff57"}}>{tMonth()}</div>
-            <div className="stat-desc">this month · {monthName}</div>
-            <div className="stat-div"/>
-            <div className="stat-row"><span className="stat-row-l">This week</span><span className="stat-row-v" style={{color:"#c8ff57"}}>{weekDone}</span></div>
-            <div className="stat-row"><span className="stat-row-l">Total tasks</span><span className="stat-row-v" style={{color:"var(--tx2)"}}>{weekTotal}</span></div>
-            <div className="stat-row"><span className="stat-row-l">Week progress</span><span className="stat-row-v" style={{color:"#a78bfa"}}>{weekTotal?Math.round(weekDone/weekTotal*100):0}%</span></div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-title">Time Tracked Today</div>
-            <div className="stat-big" style={{color:"#fb923c",fontFamily:"'DM Mono',monospace",fontSize:"2.2rem",letterSpacing:"-1px"}}>{fmtTimer(secsTracked(dk))}</div>
-            <div style={{marginTop:8,marginBottom:6}}><div style={{width:"100%",height:5,background:"var(--b2)",borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,background:"linear-gradient(90deg,#fb923c,#fbbf24)",width:`${Math.min(100,(secsTracked(dk)/3600/hoursFor(dk))*100)}%`,transition:"width .6s ease",minWidth:secsTracked(dk)>0?"4px":"0"}}/></div></div>
-            <div className="stat-desc">of {hoursFor(dk)} hr daily goal</div>
-            <div className="stat-div"/>
-            <div className="stat-row"><span className="stat-row-l">This week</span><span className="stat-row-v" style={{color:"#fb923c"}}>{fmtHrs(hWeek())}</span></div>
-            <div className="stat-row"><span className="stat-row-l">Daily goal</span><span className="stat-row-v" style={{color:"var(--tx2)"}}>{hoursFor(dk)} hrs</span></div>
-          </div>
-          {streak>0&&<div className="stat-card">
-            <div className="stat-title">🔥 Streak</div>
-            <div className="stat-big" style={{color:"#f97316"}}>{streak}</div>
-            <div className="stat-desc">days in a row</div>
-            <div className="stat-div"/>
-            <div className="stat-row"><span className="stat-row-l">Best ever</span><span className="stat-row-v" style={{color:"#f97316"}}>{bestStreak} days</span></div>
-          </div>}
-          <WeekCompare/>
         </div>
       </div>
     );
@@ -2918,7 +2834,7 @@ export default function App(){
         </div>
       )}
       </div>
-      {view!=="all"&&<DesktopRightPanel/>}
+      {!["all","home","today"].includes(view)&&<DesktopRightPanel/>}
       {drawerTask&&(
         <TaskDrawer title={drawerTask.text} client={folders.find(folder=>folder.id===drawerTask.folderId)?.name??"No client"} onClose={closeBoardTask}>
           <TaskSteps key={taskCardKey(drawerTask,selectedTaskDate)} task={drawerTask} date={selectedTaskDate} done={Boolean(isDone(drawerTask,activeTaskDk,selectedTaskDate))}

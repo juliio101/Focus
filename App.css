@@ -997,3 +997,87 @@ input,textarea{user-select:text}
   .task-progress-fill,.task-board-card{transition:none}
   .task-board-reminder.due{animation:none}
 }
+
+/* Today dashboard */
+.home-dashboard{display:grid;gap:20px;margin-bottom:22px}
+.home-dashboard-header,.home-panel-heading,.home-activity-time{
+  display:flex;align-items:center;justify-content:space-between;gap:12px
+}
+.home-dashboard-header p{color:var(--tx2);font-size:.76rem;text-transform:uppercase;letter-spacing:.075em}
+.home-dashboard-header h1{font-size:clamp(1.55rem,3vw,2.45rem);font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-.045em;line-height:1.2;margin-top:4px}
+.home-boss-summary{
+  display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap;
+  border:0;border-left:1px solid var(--b2);padding:4px 0 4px 14px;background:none;color:var(--tx2);cursor:pointer
+}
+.home-boss-summary strong{font-size:clamp(1.6rem,3vw,2.6rem);font-variant-numeric:tabular-nums;line-height:1}
+.home-boss-band{font-size:.74rem;font-weight:700}
+.home-dashboard-card{background:var(--s);border:1px solid var(--b2);border-radius:16px;padding:clamp(14px,2vw,22px);min-width:0}
+.home-dashboard-card h2{font:800 clamp(1.04rem,1.8vw,1.45rem)/1.2 'Plus Jakarta Sans',sans-serif;letter-spacing:-.025em}
+.home-portfolio{display:grid;grid-template-columns:minmax(120px,1fr) minmax(0,3fr);align-items:center;gap:clamp(14px,2.4vw,30px)}
+.home-health-visual{display:grid;place-items:center;min-width:0}
+.home-health-ring{
+  display:grid;place-items:center;aspect-ratio:1;width:min(100%,210px);border-radius:50%;
+  padding:clamp(11px,1.6vw,20px);background:var(--b3);font-variant-numeric:tabular-nums
+}
+.home-health-ring>div{width:100%;height:100%;display:grid;place-content:center;text-align:center;background:var(--s);border-radius:50%}
+.home-health-ring strong{font-size:clamp(2rem,5vw,3.75rem);line-height:1}
+.home-health-ring span{font-size:clamp(.68rem,1.2vw,.94rem);color:var(--tx2);margin-top:4px}
+.home-health-details{border-left:1px solid var(--b2);padding-left:clamp(12px,2.2vw,26px);min-width:0}
+.home-panel-heading .ghost-btn{white-space:nowrap;font-size:.73rem;padding:5px 9px}
+.home-health-legend{list-style:none;display:flex;flex-wrap:wrap;gap:6px 15px;margin:10px 0 15px;color:var(--tx2);font-size:.83rem}
+.home-health-legend i{display:inline-block;vertical-align:baseline;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.home-health-legend strong{color:var(--tx)}
+.home-attention-table{width:100%;border-spacing:0;text-align:left;font-size:.82rem}
+.home-attention-table th,.home-attention-table td{padding:8px 6px;overflow-wrap:anywhere}
+.home-attention-table thead th{color:var(--tx2);font-size:.72rem;font-weight:600}
+.home-attention-table tbody th,.home-attention-table tbody td{border-top:1px solid var(--b2)}
+.home-attention-table th:first-child{padding-left:0}
+.home-attention-table td:last-child,.home-attention-table thead th:last-child{text-align:right;padding-right:0}
+.home-attention-table button{
+  border:1px solid #367a68;border-radius:7px;background:none;color:#89e7cf;
+  font-size:.75rem;font-weight:700;padding:6px 9px;cursor:pointer
+}
+.home-attention-table button:hover{background:#24433b}
+.home-attention-watch{color:#f7cd7f}
+.home-attention-urgent{color:#fca5a5}
+.home-dashboard-bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.home-completed .home-panel-heading>span{color:var(--ac);font-size:.75rem;font-weight:700}
+.home-completed-count{margin-top:13px;font-size:clamp(2.1rem,4.6vw,3.5rem);line-height:1.05;font-weight:800;font-variant-numeric:tabular-nums}
+.home-completed-count strong,.home-activity-time strong{color:var(--ac)}
+.home-completed-label{font-size:.86rem;color:var(--tx2);margin:4px 0 10px}
+.home-progress{height:7px;border-radius:30px;overflow:hidden;background:var(--b3)}
+.home-progress>span{height:100%;display:block;background:var(--ac);border-radius:inherit}
+.home-completed h3{font-size:.85rem;margin:15px 0 6px}
+.home-week-chart{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.home-week-chart button{min-width:0;display:grid;gap:3px;text-align:center;cursor:pointer;border:0;border-radius:5px;padding:3px 2px;background:none;color:var(--tx2);font-size:.72rem;font-variant-numeric:tabular-nums}
+.home-week-chart button:hover{background:var(--s2)}
+.home-week-chart .today{color:var(--ac)}
+.home-week-bar{display:flex;align-items:end;justify-content:center;height:44px;border-bottom:1px solid var(--b2)}
+.home-week-bar i{width:min(78%,32px);background:#53824c;border-radius:4px 4px 0 0}
+.home-week-chart .today i{background:var(--ac)}
+.home-activity-time{margin:12px 0 6px;color:var(--tx2);font-size:.8rem}
+.home-activity-time strong{font-size:1.13rem;font-variant-numeric:tabular-nums}
+.home-activity-time small{color:var(--tx2);font-size:.78rem;font-weight:500}
+.home-activity-list{list-style:none;margin-top:8px}
+.home-activity-list li{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--b2)}
+.home-activity-list li:last-child{border-bottom:0}
+.home-activity-check{display:grid;place-items:center;flex:none;width:17px;height:17px;background:var(--ac);color:#172010;border-radius:50%;font-weight:800;font-size:.7rem}
+.home-activity-list button{flex:1;min-width:0;border:0;background:none;color:var(--tx);cursor:pointer;text-align:left;overflow-wrap:anywhere}
+.home-activity-list button:hover{text-decoration:underline}
+.home-activity-list button small{display:block;color:var(--tx2);font-size:.72rem}
+.home-activity-list time{flex:none;color:var(--tx2);font-size:.71rem}
+.home-dashboard-empty{margin-top:12px;color:var(--tx2);font-size:.83rem}
+.home-dashboard-empty .ghost-btn{margin-left:8px}
+.home-dashboard button:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+@media(max-width:760px){
+  .home-dashboard-bottom{grid-template-columns:1fr}
+  .home-dashboard-header{align-items:flex-start}
+}
+@media(max-width:540px){
+  .home-portfolio{grid-template-columns:1fr}
+  .home-health-ring{width:128px}
+  .home-health-details{border-left:0;padding-left:0}
+  .home-boss-summary{gap:4px 7px;max-width:110px}
+  .home-boss-band{font-size:.64rem}
+  .home-attention-table th,.home-attention-table td{padding:6px 3px}
+}
